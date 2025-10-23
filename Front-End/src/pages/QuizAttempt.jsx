@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
-import toast, { Toaster } from "react-hot-toast"; // Import toast
+import toast, { Toaster } from "react-hot-toast";
 import Firewall from "../assets/Firewall.svg";
 import Protected from "../assets/Protected.svg";
 import {
@@ -21,8 +21,15 @@ import {
   Loader2,
   Bookmark,
   Clock,
+  GraduationCap, // <-- NEW IMPORT
+  ScanEye, // <-- NEW IMPORT
+  Eraser, // <-- NEW IMPORT
+  X, // <-- NEW IMPORT
 } from "lucide-react";
+import { GrStatusInfo } from "react-icons/gr"; // <-- NEW IMPORT
+import { motion, AnimatePresence } from "framer-motion"; // <-- NEW IMPORT
 
+// START_PROCTORING_FEED_COMPONENT (Using your OLD component for live video)
 const ProctoringFeed = ({ stream, type }) => {
   const videoRef = useRef(null);
   useEffect(() => {
@@ -31,7 +38,7 @@ const ProctoringFeed = ({ stream, type }) => {
     }
   }, [stream]);
   return (
-    <div className="bg-black rounded-lg aspect-video w-full flex items-center justify-center text-gray-400 relative">
+    <div className="bg-stone-100 rounded-lg aspect-video w-full flex items-center justify-center text-gray-700 relative">
       <video
         ref={videoRef}
         autoPlay
@@ -64,12 +71,178 @@ const ProctoringFeed = ({ stream, type }) => {
     </div>
   );
 };
+// END_PROCTORING_FEED_COMPONENT
+
+// NEW COMPONENT FROM YOUR NEW FILE
+const InstructionsModal = ({ isOpen, onClose }) => (
+  <AnimatePresence>
+    {isOpen && (
+      <div
+        onClick={onClose}
+        className="fixed inset-0 z-50 flex items-center justify-end"
+      >
+        <motion.div
+          className="fixed inset-0 bg-black/50"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+        />
+
+        <motion.div
+          onClick={(e) => e.stopPropagation()}
+          initial={{ x: "100%" }}
+          animate={{ x: 0 }}
+          exit={{ x: "100%" }}
+          transition={{
+            duration: 0.7,
+            ease: [0.25, 0.1, 0.25, 1],
+          }}
+          className="relative bg-white shadow-xl w-[40%] h-full  flex flex-col overflow-y-auto"
+        >
+          {/* <div className="flex justify-between items-center p-4 border-b">
+            <h2 className="text-xl font-semibold text-gray-800">Instructions</h2>
+            
+          </div> */}
+
+          <div className="p-6 space-y-12 text-gray-700">
+            <div className="relative border-b pb-4 text-center">
+              <button
+                onClick={onClose}
+                className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+              >
+                <X size={20} />
+              </button>
+              <div className="grid grid-cols-3 divide-x divide-gray-300">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">
+                    Total questions
+                  </p>
+                  <p className="text-lg font-semibold text-gray-800">25</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">
+                    Max. Duration
+                  </p>
+                  <p className="text-lg font-semibold text-gray-800">30m</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">
+                    Proctoring
+                  </p>
+                  <p className="text-lg font-semibold text-gray-800">Remote</p>
+                </div>
+              </div>
+            </div>
+            <section>
+              <h3 className="text-3xl font-bold mb-4 text-gray-900">
+                Instructions
+              </h3>
+              <p className="text-lg mb-4 text-gray-600">
+                Please keep a note of the below instructions.
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-md">
+                <li>
+                  This assessment can be attempted only ONCE. Hence, please
+                  ensure you are seated in a distraction-free environment.
+                </li>
+                <li>
+                  Please ensure you are connected to a strong wifi/ethernet
+                  network.
+                </li>
+                <li>
+                  In case of internet discrepancies, your timer will still keep
+                  running. However, you can continue attempting the current
+                  question.
+                </li>
+                <li>
+                  The security code will be provided by the invigilator at your
+                  venue.
+                </li>
+                <li>
+                  In case of any technical difficulties, please reach out to the
+                  invigilator.
+                </li>
+                <li>Give your best. Good luck!</li>
+              </ul>
+            </section>
+            <section>
+              <h3 className="text-lg font-semibold mb-2 text-gray-900">
+                Marking Scheme
+              </h3>
+              <p className="text-md mb-3 text-gray-600">
+                Refer to the top right of each question for the marks awarded for
+                a correct answer or deducted for an incorrect answer as shown
+                below.
+              </p>
+              <div className="flex space-x-6">
+                <div className="flex items-center">
+                  <span className="bg-green-100 text-green-700 text-md font-semibold px-2 py-0.5 rounded-md mr-2">
+                    +X
+                  </span>
+                  <span className="text-md italic text-gray-800">Correct</span>
+                </div>
+                <div className="flex items-center">
+                  <span className="bg-red-100 text-red-700 text-md font-semibold px-2 py-0.5 rounded-md mr-2">
+                    -Y
+                  </span>
+                  <span className="text-md italic text-gray-800">
+                    Incorrect
+                  </span>
+                </div>
+              </div>
+            </section>
+            <section>
+              <h3 className="text-lg font-semibold mb-2 text-gray-900">
+                Question Palette
+              </h3>
+              <p className="text-md mb-3 text-gray-600">
+                The question palette displayed on the left side of the assessment
+                screen will show the following statuses depicted by distinct
+                symbols.
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-blue-600 text-white rounded-md">
+                    1
+                  </span>
+                  <span className="text-md">Answered</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-gray-200 text-gray-700 border border-gray-400 rounded-md">
+                    2
+                  </span>
+                  <span className="text-md">Unanswered</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-yellow-500 text-white rounded-md">
+                    5
+                  </span>
+                  <span className="text-md">Marked for review but answered</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-yellow-500 text-white rounded-md">
+                    13
+                  </span>
+                  <span className="text-md">
+                    Marked for review but unanswered
+                  </span>
+                </div>
+              </div>
+            </section>
+          </div>
+        </motion.div>
+      </div>
+    )}
+  </AnimatePresence>
+);
 
 const SetupCheckItem = ({ title, status, children, check }) => {
   const statusIcons = {
-    checked: <CheckCircle2 className="text-white" />,
+    checked: <CheckCircle2 className="text-red-600" />,
     unchecked: (
-      <div className="w-5 h-5 border-2 border-gray-600 rounded-full"></div>
+      <div className="w-5 h-5 border-2 border-gray-400 rounded-full"></div>
     ),
   };
   return (
@@ -77,8 +250,8 @@ const SetupCheckItem = ({ title, status, children, check }) => {
       <div>{statusIcons[status]}</div>
       <div className="flex-1">
         <h3
-          className={`font-semibold ${
-            status === "checked" ? "text-white" : "text-gray-400"
+          className={`font-semibold text-lg ${
+            status === "checked" ? "text-gray-900" : "text-gray-700"
           }`}
         >
           {title}
@@ -93,20 +266,19 @@ const SetupCheckItem = ({ title, status, children, check }) => {
 const SidebarChecklistItem = ({ label, isChecked }) => (
   <div className="flex items-center space-x-2">
     {isChecked ? (
-      <CheckCircle2 className="h-4 w-4 text-white flex-shrink-0" />
+      <CheckCircle2 className="h-4 w-4 text-red-600 flex-shrink-0" />
     ) : (
-      <div className="w-4 h-4 border-2 border-gray-500 rounded-full flex-shrink-0"></div>
+      <div className="w-4 h-4 border-2 border-gray-400 rounded-full flex-shrink-0"></div>
     )}
     <span
       className={`text-sm ${
-        isChecked ? "text-white" : "text-gray-400"
+        isChecked ? "text-gray-900" : "text-gray-600"
       }`}
     >
       {label}
     </span>
   </div>
 );
-
 
 const QuizFlow = () => {
   const { quizId } = useParams();
@@ -127,7 +299,10 @@ const QuizFlow = () => {
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [screenEnabled, setScreenEnabled] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(!!document.fullscreenElement);
+
   const [warnings, setWarnings] = useState(5);
+  const warningsRef = useRef(warnings);
+
   const cameraFeedRef = useRef(null);
   const screenFeedRef = useRef(null);
   const inputRefs = useRef([]);
@@ -136,6 +311,12 @@ const QuizFlow = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState([]);
   const [timeLeft, setTimeLeft] = useState(3600);
+  const toastIdRef = useRef(null);
+  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false); // <-- NEW STATE
+
+  useEffect(() => {
+    warningsRef.current = warnings;
+  }, [warnings]);
 
   const stopCamera = useCallback(() => {
     if (cameraStreamRef.current) {
@@ -155,21 +336,30 @@ const QuizFlow = () => {
     setScreenEnabled(false);
   }, []);
 
-  const formatTime = useCallback((seconds) => {
-    if (!quiz) return '00:00';
-    if (seconds < 0) seconds = 0;
-    
-    if (quiz.durationInMinutes >= 60) {
-        const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-        const s = (seconds % 60).toString().padStart(2, '0');
+  const formatTime = useCallback(
+    (seconds) => {
+      if (!quiz) return "00:00";
+      if (seconds < 0) seconds = 0;
+
+      if (quiz.durationInMinutes >= 60) {
+        const h = Math.floor(seconds / 3600)
+          .toString()
+          .padStart(2, "0");
+        const m = Math.floor((seconds % 3600) / 60)
+          .toString()
+          .padStart(2, "0");
+        const s = (seconds % 60).toString().padStart(2, "0");
         return `${h}:${m}:${s}`;
-    } else {
-        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-        const s = (seconds % 60).toString().padStart(2, '0');
+      } else {
+        const m = Math.floor(seconds / 60)
+          .toString()
+          .padStart(2, "0");
+        const s = (seconds % 60).toString().padStart(2, "0");
         return `${m}:${s}`;
-    }
-  }, [quiz]);
+      }
+    },
+    [quiz]
+  );
 
   useEffect(() => {
     const fetchAndAuthorizeQuiz = async () => {
@@ -187,12 +377,14 @@ const QuizFlow = () => {
       try {
         setLoading(true);
         const existingResultRes = await axios.get(
-            `http://localhost:8000/api/results/check/${quizId}`,
-            { headers: { Authorization: `Bearer ${token}` } }
+          `http://localhost:8000/api/results/check/${quizId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         if (existingResultRes.data.resultId) {
-            navigate(`/results/${existingResultRes.data.resultId}`, { replace: true });
-            return;
+          navigate(`/results/${existingResultRes.data.resultId}`, {
+            replace: true,
+          });
+          return;
         }
 
         const quizRes = await axios.get(
@@ -204,7 +396,10 @@ const QuizFlow = () => {
           platformName: "ProctorX",
           title: quizData.title,
           proctoringProvider: "Remote",
-          duration: quizData.durationInMinutes >= 60 ? `${quizData.durationInMinutes/60}h` : `${quizData.durationInMinutes}m`,
+          duration:
+            quizData.durationInMinutes >= 60
+              ? `${quizData.durationInMinutes / 60}h`
+              : `${quizData.durationInMinutes}m`,
           durationInMinutes: quizData.durationInMinutes,
           questions: quizData.questions || [],
           studentName: user.name,
@@ -220,7 +415,8 @@ const QuizFlow = () => {
       } catch (err) {
         console.error("Authorization failed or error fetching data:", err);
         setError(
-          err.response?.data?.message || "An error occurred while loading the quiz."
+          err.response?.data?.message ||
+            "An error occurred while loading the quiz."
         );
       } finally {
         setLoading(false);
@@ -243,9 +439,9 @@ const QuizFlow = () => {
     const submissionData = {
       quizId: quizId,
       timeTaken: quiz.durationInMinutes * 60 - timeLeft,
-      warnings: 5 - warnings,
+      warnings: 5 - warningsRef.current,
       penalties: 0,
-      answers: answers.map(a => a?.answer ?? null),
+      answers: answers.map((a) => a?.answer ?? null),
     };
 
     try {
@@ -261,9 +457,19 @@ const QuizFlow = () => {
       navigate(`/results/${newResultId}`, { replace: true });
     } catch (error) {
       console.error("Failed to submit quiz results:", error);
-      toast.error("There was an error submitting your results. Please try again.");
+      toast.error(
+        "There was an error submitting your results. Please try again."
+      );
     }
-  }, [quiz, answers, timeLeft, warnings, quizId, navigate, stopCamera, stopScreenShare]);
+  }, [
+    quiz,
+    answers,
+    timeLeft,
+    quizId,
+    navigate,
+    stopCamera,
+    stopScreenShare,
+  ]);
 
   useEffect(() => {
     if (step === 4) {
@@ -278,28 +484,38 @@ const QuizFlow = () => {
       return () => clearInterval(timer);
     }
   }, [step, timeLeft, handleSubmit]);
-  
+
   useEffect(() => {
     if (step === 4 && !isFullScreen) {
-      const newWarnings = warnings - 1;
-      setWarnings(newWarnings);
-
-      if (newWarnings <= 0) {
-        toast.error(
-          "You have exceeded the maximum number of warnings. Your quiz will be submitted automatically.",
-          { duration: 4000 }
-        );
-        handleSubmit();
-      } else {
-        toast.error(
-          `You have exited full-screen. You have ${newWarnings} lives left.`,
-          { icon: "⚠️", duration: 4000 }
-        );
-        setStep(3); // Navigate back to the setup page
+      // Dismiss any existing "lives left" toast to prevent duplicates
+      if (toastIdRef.current) {
+        toast.dismiss(toastIdRef.current);
       }
+
+      setWarnings((prevWarnings) => {
+        const newWarnings = prevWarnings - 1;
+
+        if (newWarnings <= 0) {
+          toast.error(
+            "You have exceeded the maximum number of warnings. Your quiz will be submitted automatically.",
+            { duration: 4000 }
+          );
+          warningsRef.current = 0;
+          handleSubmit();
+        } else {
+          // Show the new toast and store its ID
+          toastIdRef.current = toast.error(
+            `You have exited full-screen. You have ${newWarnings} lives left.`,
+            { icon: "⚠️", duration: 4000 }
+          );
+          setStep(3);
+        }
+
+        return newWarnings;
+      });
     }
-  }, [isFullScreen, step, warnings, handleSubmit]);
-  
+  }, [isFullScreen, step, handleSubmit]);
+
   useEffect(() => {
     if (cameraStream && cameraFeedRef.current) {
       cameraFeedRef.current.srcObject = cameraStream;
@@ -326,7 +542,9 @@ const QuizFlow = () => {
       setCameraStream(stream);
       setCameraEnabled(true);
     } catch (err) {
-      toast.error("Camera access was denied. Please allow access in your browser settings.");
+      toast.error(
+        "Camera access was denied. Please allow access in your browser settings."
+      );
     }
   };
 
@@ -342,12 +560,16 @@ const QuizFlow = () => {
         setScreenEnabled(true);
       } else {
         stream.getTracks().forEach((track) => track.stop());
-        toast.error("You must share your entire screen. Please select the 'Entire Screen' option.");
+        toast.error(
+          "You must share your entire screen. Please select the 'Entire Screen' option."
+        );
         setScreenEnabled(false);
       }
     } catch (err) {
       if (err.name !== "NotAllowedError") {
-        toast.error("Screen share access was denied. Please select a screen to share.");
+        toast.error(
+          "Screen share access was denied. Please select a screen to share."
+        );
       }
     }
   };
@@ -383,7 +605,9 @@ const QuizFlow = () => {
     if (!document.fullscreenElement) {
       document.documentElement
         .requestFullscreen()
-        .catch((err) => toast.error(`Error enabling full-screen: ${err.message}`));
+        .catch((err) =>
+          toast.error(`Error enabling full-screen: ${err.message}`)
+        );
     } else {
       document.exitFullscreen();
     }
@@ -398,7 +622,7 @@ const QuizFlow = () => {
       }
       return;
     }
-    
+
     setIsVerifying(true);
     setSecurityCodeError(null);
     const token = localStorage.getItem("token");
@@ -427,7 +651,7 @@ const QuizFlow = () => {
     newAnswers[currentQuestionIndex] = {
       ...newAnswers[currentQuestionIndex],
       answer: optionIndex,
-      status: "answered",
+      status: optionIndex === null ? "unanswered" : "answered", // Update status on clear
     };
     setAnswers(newAnswers);
   };
@@ -453,16 +677,16 @@ const QuizFlow = () => {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center h-screen bg-black">
-        <Hourglass className="h-12 w-12 text-red-500 animate-spin" />
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <Hourglass className="h-12 w-12 text-red-600 animate-spin" />
       </div>
     );
   if (error)
     return (
-      <div className="flex items-center justify-center h-screen bg-black">
-        <div className="text-center p-8 bg-gray-900 rounded-lg border border-gray-700">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
-          <p className="mt-4 text-white">{error}</p>
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center p-8 bg-white rounded-lg border border-gray-200 shadow-md">
+          <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
+          <p className="mt-4 text-gray-800">{error}</p>
         </div>
       </div>
     );
@@ -472,60 +696,51 @@ const QuizFlow = () => {
     if (step < 4) {
       const steps = [{ id: 1 }, { id: 2 }, { id: 3 }];
       return (
-        <div className="flex h-screen bg-black text-white font-sans relative">
-            <Toaster position="top-center" reverseOrder={false} />
-          <div className="w-full max-w-xs bg-gray-950 border-r border-gray-800 flex flex-col justify-between p-6">
+        <div className="flex h-screen bg-white text-gray-900 font-sans relative">
+          <Toaster position="top-center" reverseOrder={false} />
+          <div className="w-full max-w-lg bg-yellow-50 border-r font-bold border-gray-200 flex flex-col justify-between p-8">
             <div>
-              <div className="flex items-center space-x-2 mb-8">
-                <ShieldCheck className="h-8 w-8 text-red-500" />
-                <h1 className="text-xl font-bold text-white">Take An Assessment</h1>
+              <div className="flex items-center space-x-4 mb-8">
+                <ShieldCheck className="h-8 w-8 mt-0.5  text-blue-600" />
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Take An Assessment
+                </h1>
               </div>
-              <div className="p-4 border border-gray-700 rounded-xl space-y-4 bg-gray-900">
-                <h2 className="font-bold text-white">{quiz.title}</h2>
-                <div className="flex justify-between items-center text-sm text-gray-300">
-                  <span className="flex items-center">
-                    <Mic className="w-4 h-4 mr-2" /> Proctoring
-                  </span>
-                  <span className="font-semibold bg-gray-700 text-gray-200 px-2 py-1 rounded">
-                    {quiz.proctoringProvider}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-sm text-gray-300">
-                  <span className="flex items-center">
-                    <Hourglass className="w-4 h-4 mr-2" /> Max. Duration
-                  </span>
-                  <span className="font-semibold text-white">{quiz.duration}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm text-gray-300">
-                  <span className="flex items-center">
-                    <HelpCircle className="w-4 h-4 mr-2" /> Total Questions
-                  </span>
-                  <span className="font-semibold text-white">
-                    {quiz.questions?.length || 0}
-                  </span>
-                </div>
-              </div>
-              <div className="my-6">
-                <h3 className="text-sm font-semibold text-gray-400 mb-3">
-                  Setup Progress
-                </h3>
-                <div className="space-y-2">
-                  <SidebarChecklistItem
-                    label="Honour Code Agreed"
-                    isChecked={honourCodeAgreed}
-                  />
-                  <SidebarChecklistItem
-                    label="Permissions Enabled"
-                    isChecked={cameraEnabled && screenEnabled}
-                  />
-                  <SidebarChecklistItem
-                    label="Full Screen Active"
-                    isChecked={isFullScreen}
-                  />
-                  <SidebarChecklistItem
-                    label="Security Code Entered"
-                    isChecked={securityCode.join("").length === 6 || isOtpVerified}
-                  />
+              <div className="p-7 border border-gray-200 rounded-xl bg-white">
+                <h2 className="font-bold text-gray-900">{quiz.title}</h2>
+                <div className="border-t border-dashed border-gray-300 my-7"></div>
+                <div className="grid grid-cols-2 gap-y-6 gap-x-6">
+                  <div className="flex items-start space-x-2">
+                    <Mic className="w-6 h-6 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm text-gray-600">Proctoring</span>
+                      <span className="block font-semibold text-gray-900">
+                        {quiz.proctoringProvider}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <Hourglass className="w-6 h-6 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm text-gray-600">
+                        Max. Duration
+                      </span>
+                      <span className="block font-semibold text-gray-900">
+                        {quiz.duration}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <HelpCircle className="w-6 h-6 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm text-gray-600">
+                        Total Questions
+                      </span>
+                      <span className="block font-semibold text-gray-900">
+                        {quiz.questions?.length || 0}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -533,41 +748,47 @@ const QuizFlow = () => {
               <img src={Firewall} alt="illustration" className="mb-6 w-42 h-42" />
               <div className="text-center w-full">
                 <div className="flex items-center justify-center space-x-3">
-                  <User className="w-8 h-8 p-1.5 bg-gray-800 text-white rounded-full" />
+                  <User className="w-8 h-8 p-1.5 bg-gray-200 text-gray-700 rounded-full" />
                   <div>
-                    <p className="font-semibold text-white">{quiz.studentName}</p>
-                    <p className="text-xs text-gray-400">{quiz.studentEmail}</p>
+                    <p className="font-semibold text-gray-900">
+                      {quiz.studentName}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {quiz.studentEmail}
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <div className="absolute top-1/2 left-80 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+          <div className="absolute top-1/2 left-112 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
             {steps.map((s, index) => (
               <div key={s.id} className="flex flex-col items-center">
                 <div
                   className={`w-9 h-9 rounded-md flex items-center justify-center font-bold transition-all ${
                     s.id < step
-                      ? "bg-gray-700 text-white"
+                      ? "bg-red-600 text-white"
                       : step === s.id
                       ? "bg-red-600 text-white scale-110"
-                      : "bg-gray-800 border-2 border-gray-700 text-white"
+                      : "bg-white border-2 border-gray-300 text-gray-500"
                   }`}
                 >
                   {s.id < step ? <CheckCircle2 size={20} /> : s.id}
                 </div>
                 {index < steps.length - 1 && (
-                  <div className="w-0.5 h-16 bg-gray-700 my-2"></div>
+                  <div className="w-0.5 h-16 bg-gray-300 my-2"></div>
                 )}
               </div>
             ))}
           </div>
-          <div className="flex-1 flex flex-col p-8 overflow-y-auto">
+          <div className="flex-1 flex flex-col p-12 overflow-y-auto bg-white">
             <div className="flex-1">
               {step === 1 && (
-                <div className="space-y-10 text-gray-300">
-                  <h2 className="text-3xl font-bold text-white">Instructions</h2>
-                  <ul className="list-disc list-inside space-y-2">
+                <div className="space-y-10 text-gray-700">
+                  <h2 className="text-3xl font-bold text-gray-900">
+                    Instructions
+                  </h2>
+                  <ul className="list-disc list-inside space-y-3 text-lg">
                     <li>This assessment can be attempted only ONCE.</li>
                     <li>Ensure you are connected to a strong network.</li>
                     <li>
@@ -581,12 +802,12 @@ const QuizFlow = () => {
                     </li>
                     <li>Good luck!</li>
                   </ul>
-                  <div className="bg-red-900/40 border border-red-700/50 rounded-lg p-6 flex justify-between">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-6 flex justify-between">
                     <div>
-                      <h3 className="font-bold text-lg text-white mb-3">
+                      <h3 className="font-bold text-xl text-gray-900 mb-3">
                         Proctoring Guidelines
                       </h3>
-                      <ul className="list-disc list-inside text-sm space-y-2 text-red-200">
+                      <ul className="list-disc list-inside text-base space-y-2 text-red-800">
                         <li>
                           This assessment requires Camera, Mic, and entire screen
                           sharing.
@@ -606,38 +827,61 @@ const QuizFlow = () => {
                 </div>
               )}
               {step === 2 && (
-                <div className="space-y-10 text-gray-300">
-                  <h2 className="text-3xl font-bold text-white">Honour Code</h2>
-                  <ul className="list-disc list-inside space-y-2">
-                    <li>
-                      I solemnly swear to be truthful and rely only on my own
-                      knowledge.
-                    </li>
-                    <li>
-                      I will not engage in malpractice such as copying or
-                      collaborating.
-                    </li>
-                    <li>
-                      I understand any violation will result in
-                      disqualification.
-                    </li>
-                  </ul>
-                  <label className="flex items-start space-x-3 cursor-pointer">
+                <div className="mt-18 space-y-12  text-black-800">
+                  <h2 className="text-4xl font-bold text-gray-900">
+                    Proctor-X Honour Code
+                  </h2>
+                  <p className="text-base">
+                    Before you start this challenge, we want you to take a take
+                    pledge - that you will abide by Proctor-X Honour Code. Here's
+                    what you are promising us.
+                  </p>
+
+                  <div className="space-y-8 mt-8">
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle2 className="h-6 w-6 text-red-600 mt-0.5 flex-shrink-0" />
+                      <span className="text-base">
+                        I solemnly swear that I am up to no dishonesty! I promise
+                        to be truthful, and honourable and use only my powers of
+                        knowledge to complete this challenge.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle2 className="h-6 w-6 text-red-600 mt-0.5 flex-shrink-0" />
+                      <span className="text-base">
+                        I solemnly swear that I will not engage in malpractice
+                        such as (but not limited to) copying from my peers, using
+                        unauthorized resources (we're looking at you,
+                        ChatGPT!), or collaborating with others.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle2 className="h-6 w-6 text-red-600 mt-0.5 flex-shrink-0" />
+                      <span className="text-base">
+                        I also solemnly swear that failure to follow the
+                        aforementioned two points in the honour code will result
+                        in a life sentence of guilt, shame, eternal bad luck, and
+                        rejection from the Proctor-X program.
+                      </span>
+                    </div>
+                  </div>
+
+                  <label className="flex items-start space-x-3 cursor-pointer pt-6">
                     <input
                       type="checkbox"
                       checked={honourCodeAgreed}
                       onChange={(e) => setHonourCodeAgreed(e.target.checked)}
-                      className="mt-1 h-5 w-5 accent-red-500"
+                      className="mt-0.5 h-5 w-5 accent-red-600 flex-shrink-0"
                     />
-                    <span className="text-white">
-                      I solemnly swear to abide by the Honour Code.
+                    <span className="text-gray-900 font-medium">
+                      I solemnly swear to abide by the Proctor-X Honour Code.
                     </span>
                   </label>
                 </div>
               )}
               {step === 3 && (
                 <div className="space-y-10">
-                  <h2 className="text-3xl font-bold text-white">
+                  <h2 className="text-3xl font-bold text-gray-900">
                     Setup Your Test Environment
                   </h2>
                   <div className="space-y-8">
@@ -653,7 +897,7 @@ const QuizFlow = () => {
                       }
                     >
                       <div className="flex space-x-4">
-                        <div className="w-48 h-32 bg-black rounded-lg flex items-center justify-center">
+                        <div className="w-48 h-32 bg-gray-900 rounded-lg flex items-center justify-center">
                           {cameraEnabled ? (
                             <video
                               ref={cameraFeedRef}
@@ -663,10 +907,10 @@ const QuizFlow = () => {
                               className="w-full h-full object-cover rounded-lg"
                             />
                           ) : (
-                            <Camera className="text-gray-500"/>
+                            <Camera className="text-gray-500" />
                           )}
                         </div>
-                        <div className="w-48 h-32 bg-black rounded-lg flex items-center justify-center">
+                        <div className="w-48 h-32 bg-gray-900 rounded-lg flex items-center justify-center">
                           {screenEnabled ? (
                             <video
                               ref={screenFeedRef}
@@ -676,7 +920,7 @@ const QuizFlow = () => {
                               className="w-full h-full object-cover rounded-lg"
                             />
                           ) : (
-                            <ScreenShare className="text-gray-500"/>
+                            <ScreenShare className="text-gray-500" />
                           )}
                         </div>
                       </div>
@@ -684,14 +928,14 @@ const QuizFlow = () => {
                         {!cameraEnabled ? (
                           <button
                             onClick={handleEnableCamera}
-                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                            className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700"
                           >
                             Enable Camera
                           </button>
                         ) : (
                           <button
                             onClick={stopCamera}
-                            className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+                            className="px-4 py-2 bg-gray-600 text-white rounded font-medium hover:bg-gray-700"
                           >
                             Stop Camera
                           </button>
@@ -699,14 +943,14 @@ const QuizFlow = () => {
                         {!screenEnabled ? (
                           <button
                             onClick={handleEnableScreenShare}
-                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                            className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700"
                           >
                             Enable Screen Share
                           </button>
                         ) : (
                           <button
                             onClick={stopScreenShare}
-                            className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+                            className="px-4 py-2 bg-gray-600 text-white rounded font-medium hover:bg-gray-700"
                           >
                             Stop Screen Share
                           </button>
@@ -719,7 +963,7 @@ const QuizFlow = () => {
                     >
                       <button
                         onClick={handleFullScreen}
-                        className="px-4 py-2 bg-red-600 text-white rounded flex items-center space-x-2 hover:bg-red-700"
+                        className="px-4 py-2 bg-red-600 text-white rounded flex items-center space-x-2 font-medium hover:bg-red-700"
                       >
                         <Expand size={16} />
                         <span>
@@ -747,14 +991,17 @@ const QuizFlow = () => {
                             onChange={(e) => handleSecurityCodeChange(e, i)}
                             onKeyDown={(e) => handleSecurityCodeKeyDown(e, i)}
                             disabled={
-                              !cameraEnabled || !screenEnabled || !isFullScreen || isOtpVerified
+                              !cameraEnabled ||
+                              !screenEnabled ||
+                              !isFullScreen ||
+                              isOtpVerified
                             }
-                            className="w-12 h-14 border-2 border-gray-600 bg-gray-900 rounded text-center text-2xl text-white disabled:bg-gray-800 focus:border-red-500 focus:ring-0"
+                            className="w-12 h-14 border-2 border-gray-300 bg-white rounded text-center text-2xl text-gray-900 disabled:bg-gray-100 focus:border-red-600 focus:ring-0"
                           />
                         ))}
                       </div>
                       {securityCodeError && (
-                        <p className="text-sm text-red-500 mt-2">
+                        <p className="text-sm text-red-600 mt-2">
                           {securityCodeError}
                         </p>
                       )}
@@ -763,11 +1010,11 @@ const QuizFlow = () => {
                 </div>
               )}
             </div>
-            <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-800">
+            <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-200">
               <button
                 onClick={handlePrevStep}
                 disabled={step === 1}
-                className="px-5 py-2 flex items-center space-x-2 border border-gray-600 rounded hover:bg-gray-800 disabled:opacity-50"
+                className="px-5 py-2 flex items-center space-x-2 border border-gray-300 rounded font-medium hover:bg-gray-100 disabled:opacity-50"
               >
                 <ArrowLeft size={16} />
                 <span>Previous</span>
@@ -776,7 +1023,7 @@ const QuizFlow = () => {
                 <button
                   onClick={handleNextStep}
                   disabled={step === 2 && !honourCodeAgreed}
-                  className="px-8 py-2 flex items-center space-x-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-700"
+                  className="px-8 py-2 flex items-center space-x-2 bg-red-600 text-white rounded font-medium hover:bg-red-700 disabled:bg-gray-300"
                 >
                   <span>Next</span>
                   <ArrowRight size={16} />
@@ -792,7 +1039,7 @@ const QuizFlow = () => {
                     !isFullScreen ||
                     (securityCode.join("").length !== 6 && !isOtpVerified)
                   }
-                  className="px-8 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-700 disabled:text-gray-400 flex items-center space-x-2"
+                  className="px-8 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 flex items-center space-x-2"
                 >
                   {isVerifying ? (
                     <>
@@ -809,134 +1056,208 @@ const QuizFlow = () => {
         </div>
       );
     } else {
+      // ###############################################################
+      // #                  START: NEW STEP 4 UI MERGE                 #
+      // ###############################################################
+
       const currentQuestion = quiz.questions[currentQuestionIndex];
       const getStatusColor = (status) => {
         switch (status) {
           case "answered":
-            return "bg-white text-black";
+            return "bg-green-600 text-white"; // Using your old color logic
           case "unanswered":
-            return "bg-gray-700 text-gray-200";
+            return "bg-gray-200 text-gray-700";
           case "review":
             return "bg-red-600 text-white";
           case "answered-review":
-            return "bg-white text-black border-2 border-red-500";
+            return "bg-yellow-500 text-white border-2 border-red-500";
           default:
-            return "bg-gray-700";
+            return "bg-gray-200 text-gray-700";
         }
       };
+
       return (
-        <div className="flex h-screen bg-black text-white font-sans">
+        <div className="flex flex-col h-screen bg-white text-gray-900 font-sans">
           <Toaster position="top-center" reverseOrder={false} />
-          <aside className="w-1/4 bg-gray-950 border-r border-gray-800 flex flex-col p-4 space-y-4">
-            <div className="flex items-center space-x-2">
-              <ShieldCheck className="h-8 w-8 text-red-500" />
-              <h1 className="text-xl font-bold">ProctorX</h1>
+          <InstructionsModal
+            isOpen={isInstructionsOpen}
+            onClose={() => setIsInstructionsOpen(false)}
+          />
+
+          <header className="flex items-stretch justify-between flex-shrink-0 px-0 bg-white">
+            <div className="flex items-center py-3">
+              <GraduationCap className="h-8 pl-5 w-12 text-red-900" />
+              <h1 className="text-lg font-bold pl-2 text-gray-800">
+                {quiz.title}
+              </h1>
             </div>
 
-            <div className="flex space-x-2">
-              <ProctoringFeed stream={cameraStream} type="camera" />
-              <ProctoringFeed stream={screenStream} type="screen" />
-            </div>
-            
-            <div className="flex-1 overflow-y-auto border-t border-gray-800 pt-4">
-              <h2 className="font-semibold mb-3 text-white">Question Palette</h2>
-              <div className="grid grid-cols-5 gap-2">
-                {quiz.questions.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleQuestionNavigation(index)}
-                    className={`h-10 w-10 rounded-md font-bold flex items-center justify-center ${getStatusColor(
-                      answers[index]?.status
-                    )} ${
-                      currentQuestionIndex === index ? "ring-2 ring-red-500" : ""
-                    }`}
-                  >
-                    {index + 1}
-                  </button>
-                ))}
+            <div className="flex items-stretch pb-0 space-x-6">
+              <div className="flex items-center font-medium text-black-600">
+                <Clock className="mr-1 mt-0.3" size={18} />
+                <span>{formatTime(timeLeft)} left</span>
               </div>
-            </div>
-          </aside>
-          <main className="flex-1 flex flex-col p-8">
-            <header className="flex justify-between items-center pb-4 border-b border-gray-800 mb-6">
-              <h2 className="text-2xl font-bold text-white">{quiz.title}</h2>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2 text-red-500 font-semibold">
-                  <Clock className="h-6 w-6" />
-                  <span>{formatTime(timeLeft)}</span>
-                </div>
-                <button
-                  onClick={handleSubmit}
-                  className="px-6 py-2 bg-red-600 text-white font-semibold rounded hover:bg-red-700"
-                >
-                  Submit Assignment
-                </button>
-              </div>
-            </header>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold mb-4 text-gray-300">
-                Question {currentQuestionIndex + 1} of{" "}
-                {quiz.questions.length}
-              </h3>
-              <p className="text-xl mb-6 text-white">{currentQuestion.questionText}</p>
-              <div className="space-y-3">
-                {currentQuestion.options.map((option, index) => (
-                  <label
-                    key={index}
-                    className={`flex items-center p-4 border rounded cursor-pointer transition-colors ${
-                      answers[currentQuestionIndex]?.answer === index
-                        ? "bg-red-900/50 border-red-600"
-                        : "bg-gray-900 border-gray-700 hover:bg-gray-800"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name={`q-${currentQuestionIndex}`}
-                      checked={answers[currentQuestionIndex]?.answer === index}
-                      onChange={() => handleAnswerChange(index)}
-                      className="h-5 w-5 mr-4 accent-red-500"
-                    />
-                    <span className="text-gray-200">{option}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <footer className="flex justify-between items-center mt-6 pt-6 border-t border-gray-800">
+
               <button
-                onClick={handleMarkForReview}
-                className="flex items-center space-x-2 px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+                onClick={handleSubmit} // <-- WIRED TO OLD FUNCTION
+                className="px-12 text-md font-medium text-white bg-gray-900 hover:bg-black-700 focus:outline-none focus:ring-2 focus:ring-black-500 focus:ring-opacity-50"
               >
-                <Bookmark size={16} />
-                <span>Mark for Review</span>
+                Finish Assessment
               </button>
-              <div className="flex space-x-4">
+            </div>
+          </header>
+          <hr className="border-1" />
+
+          <div className="flex flex-1 overflow-hidden">
+            <aside className="w-1/6 bg-stone-100 border-black-800 border-r-2 flex flex-col">
+              <div className="bg-yellow-50 p-2 pt-2">
+                <div className="flex items-center text-sm space-x-2 text-black-800">
+                  <span className="text-red-700">
+                    <ScanEye size={30} />
+                  </span>
+                  <span>
+                    Your camera feed, audio and screen are being proctored.
+                  </span>
+                </div>
+                <div className="flex items-center space-x-2 mt-2 w-full">
+                  {/* --- WIRED TO OLD PROCTORING --- */}
+                  <ProctoringFeed stream={cameraStream} type="camera" />
+                  <ProctoringFeed stream={screenStream} type="screen" />
+                  {/* --------------------------------- */}
+                </div>
+              </div>
+
+              <hr className="border-t-1 border-red-400" />
+
+              <div className="flex-1 overflow-y-auto mt-4">
+                <h2
+                  onClick={() => setIsInstructionsOpen(true)} // <-- WIRED TO NEW STATE
+                  className="font-semibold mb-3 text-center cursor-pointer text-gray-900 flex items-center justify-center gap-1"
+                >
+                  <GrStatusInfo size={22} className="text-black font-bold" />
+                  Instructions
+                </h2>
+                <hr className="w-3/4 mx-auto border-t-2 border-gray-300 my-4" />
+
+                <div className="grid grid-cols-3 gap-3 pl-5">
+                  {/* --- WIRED TO OLD QUESTION PALETTE LOGIC --- */}
+                  {quiz.questions.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleQuestionNavigation(index)}
+                      className={`h-14 w-14 rounded-md font-bold flex items-center justify-center ${getStatusColor(
+                        answers[index]?.status
+                      )} ${
+                        currentQuestionIndex === index
+                          ? "ring-2 ring-red-500" // Kept your active ring
+                          : ""
+                      }`}
+                    >
+                      {index + 1}
+                    </button>
+                  ))}
+                  {/* ------------------------------------------ */}
+                </div>
+              </div>
+            </aside>
+
+            <div className="flex-1 flex flex-col pt-2 overflow-hidden">
+              <main className="flex-1 flex flex-col pl-34 pt-16 overflow-y-auto">
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={handleMarkForReview} // <-- WIRED TO OLD FUNCTION
+                    className="flex items-center space-x-2 py-5 cursor-pointer text-gray-800 rounded font-medium"
+                  >
+                    <Bookmark size={16} />
+                    <span>Mark for Review</span>
+                  </button>
+                  <div className="flex items-center mr-40 space-x-0">
+                    <span className="bg-green-100 text-green-700 text-sm font-semibold px-2 py-0.5">
+                      +1
+                    </span>
+                    <span className="bg-red-100 text-red-700 text-sm font-semibold px-3 py-0.5">
+                      0
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold mb-4 mt-5 text-gray-500">
+                    Question {currentQuestionIndex + 1} of{" "}
+                    {quiz.questions.length}
+                  </h3>
+                  <p className="text-2xl font-bold mb-6 text-gray-900">
+                    {currentQuestion.questionText}
+                  </p>
+                  <hr className="w-6/7" />
+
+                  <div className="space-y-6 pt-5">
+                    {/* --- WIRED TO OLD ANSWER STATE --- */}
+                    {currentQuestion.options.map((option, index) => (
+                      <label
+                        key={index}
+                        className={`flex items-center p-4 border-3 cursor-pointer transition-colors w-full max-w-md h-14 ${
+                          answers[currentQuestionIndex]?.answer === index
+                            ? "bg-blue-50 border-blue-600"
+                            : "bg-gray-100 border-gray-500 hover:bg-gray-200"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name={`q-${currentQuestionIndex}`} // Added name for accessibility
+                          checked={
+                            answers[currentQuestionIndex]?.answer === index
+                          }
+                          onChange={() => handleAnswerChange(index)}
+                          className="h-5 w-5 mr-4 accent-blue-600"
+                        />
+                        <span className="text-black-500">{option}</span>
+                      </label>
+                    ))}
+                    {/* --------------------------------- */}
+                    <button
+                      onClick={() => handleAnswerChange(null)} // <-- WIRED TO OLD FUNCTION
+                      className="flex items-center px-4 py-2 text-red-700 rounded font-medium space-x-2 w-max mt-2"
+                    >
+                      <Eraser size={18} />
+                      <span>Clear Response</span>
+                    </button>
+                  </div>
+                </div>
+              </main>
+
+              <footer className="flex-shrink-0 flex justify-between items-center mt-2 pt-2 border-t bg-gray-200 px-8">
                 <button
                   onClick={() =>
                     handleQuestionNavigation(currentQuestionIndex - 1)
-                  }
+                  } // <-- WIRED
                   disabled={currentQuestionIndex === 0}
-                  className="px-5 py-2 flex items-center space-x-2 border border-gray-600 rounded hover:bg-gray-800 disabled:opacity-50"
+                  className="px-5 py-2 flex items-center space-x-2 cursor-pointer rounded font-medium disabled:opacity-50"
                 >
                   <ArrowLeft size={16} />
                   <span>Previous</span>
                 </button>
+
                 <button
                   onClick={() =>
                     handleQuestionNavigation(currentQuestionIndex + 1)
-                  }
+                  } // <-- WIRED
                   disabled={
                     currentQuestionIndex === quiz.questions.length - 1
                   }
-                  className="px-8 py-2 flex items-center space-x-2 bg-red-600 text-white rounded disabled:bg-gray-700 disabled:text-gray-400"
+                  className="px-8 py-2 flex items-center cursor-pointer space-x-2 text-black rounded font-medium"
                 >
                   <span>Next</span>
-                  <ArrowRight size={16} />
+                  <ArrowRight size={18} />
                 </button>
-              </div>
-            </footer>
-          </main>
+              </footer>
+            </div>
+          </div>
         </div>
       );
+      // ###############################################################
+      // #                    END: NEW STEP 4 UI MERGE                 #
+      // ###############################################################
     }
   };
 

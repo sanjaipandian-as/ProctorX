@@ -26,7 +26,7 @@ function App() {
             <Route path="/create-quiz" element={<CreateQuiz />} />
             <Route path="/edit-quiz/:quizId" element={<QuizEditPage />} />
             <Route path="/exam/:quizId" element={<QuizFlow />} />
-            <Route path="/quiz/:quizId/answer" element={<QuizAnsweringPage />} />
+            <Route path="/answer" element={<QuizAnsweringPage />} />
             <Route path="/results/:resultId" element={<QuizResults />} />
             <Route path="/student-profile" element={<StudentDashboard />} />
         </Routes>

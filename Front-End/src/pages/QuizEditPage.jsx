@@ -2,8 +2,17 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const PlusIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>);
-const TrashIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>);
+const PlusIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+  </svg>
+);
 
 export default function EditQuizPage() {
   const { quizId } = useParams();
@@ -20,7 +29,16 @@ export default function EditQuizPage() {
         const { data } = await axios.get(`http://localhost:8000/api/quizzes/${quizId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setQuiz(data);
+
+        const quizWithNumbers = {
+          ...data,
+          questions: data.questions.map(q => ({
+            ...q,
+            correctAnswer: Number(q.correctAnswer)
+          }))
+        };
+
+        setQuiz(quizWithNumbers);
       } catch (err) {
         setError("Failed to load quiz. Please check the ID or try again.");
       } finally {
@@ -90,7 +108,7 @@ export default function EditQuizPage() {
         <header className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text">Edit Quiz</h1>
           <div>
-            <button onClick={() => navigate('/teacher-dashboard')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition mr-4">
+            <button onClick={() => navigate('/staff-dashboard')} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition mr-4">
               Cancel
             </button>
             <button onClick={handleSaveChanges} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-emerald-800">
@@ -107,8 +125,8 @@ export default function EditQuizPage() {
           <div>
             <label htmlFor="quizStatus" className="block text-lg font-medium text-gray-300 mb-2">Status</label>
             <select id="quizStatus" value={quiz.status} onChange={handleQuizStatusChange} className="w-full bg-gray-800 border-2 border-gray-700 rounded-lg px-4 py-3 focus:ring-purple-500 focus:border-purple-500 text-lg">
-                <option value="inactive">Inactive</option>
-                <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="active">Active</option>
             </select>
           </div>
 
@@ -137,12 +155,12 @@ export default function EditQuizPage() {
                   </div>
 
                   <div className="mt-4">
-                     <label className="block text-sm font-medium text-gray-400 mb-1">Correct Answer</label>
-                     <select value={q.correctAnswer} onChange={(e) => handleQuestionChange(qIndex, 'correctAnswer', Number(e.target.value))} className="w-full bg-gray-800 border-2 border-gray-600 rounded-lg px-3 py-2 focus:ring-purple-500 focus:border-purple-500">
-                        {q.options.map((_, oIndex) => (
-                           <option key={oIndex} value={oIndex}>Option {oIndex + 1}</option>
-                        ))}
-                     </select>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">Correct Answer</label>
+                    <select value={Number(q.correctAnswer)} onChange={(e) => handleQuestionChange(qIndex, 'correctAnswer', Number(e.target.value))} className="w-full bg-gray-800 border-2 border-gray-600 rounded-lg px-3 py-2 focus:ring-purple-500 focus:border-purple-500">
+                      {q.options.map((_, oIndex) => (
+                        <option key={oIndex} value={oIndex}>Option {oIndex + 1}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               ))}
