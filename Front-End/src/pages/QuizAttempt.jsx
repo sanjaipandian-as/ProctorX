@@ -44,9 +44,8 @@ const ProctoringFeed = ({ stream, type }) => {
         autoPlay
         playsInline
         muted
-        className={`w-full h-full object-cover rounded-lg ${
-          !stream && "hidden"
-        }`}
+        className={`w-full h-full object-cover rounded-lg ${!stream && "hidden"
+          }`}
       />
       {!stream && (
         <div className="flex flex-col items-center">
@@ -250,9 +249,8 @@ const SetupCheckItem = ({ title, status, children, check }) => {
       <div>{statusIcons[status]}</div>
       <div className="flex-1">
         <h3
-          className={`font-semibold text-lg ${
-            status === "checked" ? "text-gray-900" : "text-gray-700"
-          }`}
+          className={`font-semibold text-lg ${status === "checked" ? "text-gray-900" : "text-gray-700"
+            }`}
         >
           {title}
         </h3>
@@ -271,9 +269,8 @@ const SidebarChecklistItem = ({ label, isChecked }) => (
       <div className="w-4 h-4 border-2 border-gray-400 rounded-full flex-shrink-0"></div>
     )}
     <span
-      className={`text-sm ${
-        isChecked ? "text-gray-900" : "text-gray-600"
-      }`}
+      className={`text-sm ${isChecked ? "text-gray-900" : "text-gray-600"
+        }`}
     >
       {label}
     </span>
@@ -416,7 +413,7 @@ const QuizFlow = () => {
         console.error("Authorization failed or error fetching data:", err);
         setError(
           err.response?.data?.message ||
-            "An error occurred while loading the quiz."
+          "An error occurred while loading the quiz."
         );
       } finally {
         setLoading(false);
@@ -670,8 +667,8 @@ const QuizFlow = () => {
           ? "answered"
           : "unanswered"
         : newAnswers[currentQuestionIndex].answer !== null
-        ? "answered-review"
-        : "review";
+          ? "answered-review"
+          : "review";
     setAnswers(newAnswers);
   };
 
@@ -706,10 +703,10 @@ const QuizFlow = () => {
                   Take An Assessment
                 </h1>
               </div>
-              <div className="p-7 border border-gray-200 rounded-xl bg-white">
+              <div className="p-7 border-2 border-gray-500 rounded-xl bg-white">
                 <h2 className="font-bold text-gray-900">{quiz.title}</h2>
-                <div className="border-t border-dashed border-gray-300 my-7"></div>
-                <div className="grid grid-cols-2 gap-y-6 gap-x-6">
+                <div className="border-t-2 border-dashed border-gray-500 my-7"></div>
+                <div className="grid grid-cols-2  gap-y-6 gap-x-6">
                   <div className="flex items-start space-x-2">
                     <Mic className="w-6 h-6 text-gray-500 mt-0.5 flex-shrink-0" />
                     <div>
@@ -726,7 +723,7 @@ const QuizFlow = () => {
                         Max. Duration
                       </span>
                       <span className="block font-semibold text-gray-900">
-                        {quiz.duration}
+                        1h
                       </span>
                     </div>
                   </div>
@@ -761,17 +758,16 @@ const QuizFlow = () => {
               </div>
             </div>
           </div>
-          <div className="absolute top-1/2 left-112 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+          <div className="absolute top-1/2 left-128 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
             {steps.map((s, index) => (
               <div key={s.id} className="flex flex-col items-center">
                 <div
-                  className={`w-9 h-9 rounded-md flex items-center justify-center font-bold transition-all ${
-                    s.id < step
-                      ? "bg-red-600 text-white"
-                      : step === s.id
+                  className={`w-9 h-9  flex items-center justify-center font-bold transition-all ${s.id < step
+                    ? "bg-green-600 text-white"
+                    : step === s.id
                       ? "bg-red-600 text-white scale-110"
-                      : "bg-white border-2 border-gray-300 text-gray-500"
-                  }`}
+                      : "bg-white border-2 border-gray-500 text-black-500"
+                    }`}
                 >
                   {s.id < step ? <CheckCircle2 size={20} /> : s.id}
                 </div>
@@ -785,44 +781,127 @@ const QuizFlow = () => {
             <div className="flex-1">
               {step === 1 && (
                 <div className="space-y-10 text-gray-700">
-                  <h2 className="text-3xl font-bold text-gray-900">
-                    Instructions
-                  </h2>
-                  <ul className="list-disc list-inside space-y-3 text-lg">
-                    <li>This assessment can be attempted only ONCE.</li>
-                    <li>Ensure you are connected to a strong network.</li>
-                    <li>
-                      Your timer will not stop for internet discrepancies.
-                    </li>
-                    <li>
-                      The security code will be provided by the invigilator.
-                    </li>
-                    <li>
-                      Reach out to the invigilator for technical issues.
-                    </li>
-                    <li>Good luck!</li>
-                  </ul>
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-6 flex justify-between">
+                  {/* Section 1: Instructions */}
+                  <div>
+                    <h2 className="text-3xl font-bold text-black-900">Instructions</h2>
+                    <p className="mt-4 text-base text-black ">
+                      Please read the below instructions carefully and begin the assessment.
+                    </p>
+                    <ul className="list-disc list-inside space-y-2 text-base font-semibold mt-4">
+                      <li>
+                        This assessment can be attempted only ONCE. Hence, please ensure
+                        you are seated in a distraction-free environment.
+                      </li>
+                      <li>
+                        Please ensure you are connected to a strong wifi/ethernet network.
+                      </li>
+                      <li>
+                        In case of internet discrepancies, your timer will still keep
+                        running. However, you can continue attempting the current
+                        question.
+                      </li>
+                      <li>
+                        The security code will be provided by the invigilator at your
+                        venue.
+                      </li>
+                      <li>
+                        In case of any technical difficulties, please reach out to the
+                        invigilator.
+                      </li>
+                      <li>Give your best. Good luck!</li>
+                    </ul>
+                  </div>
+
+                  
+                  <div className="bg-amber-50 border border-dashed border-amber-400 rounded-lg p-6 flex flex-col sm:flex-row justify-between sm:items-center">
                     <div>
                       <h3 className="font-bold text-xl text-gray-900 mb-3">
                         Proctoring Guidelines
                       </h3>
-                      <ul className="list-disc list-inside text-base space-y-2 text-red-800">
+                      <ul className="list-disc list-inside text-base space-y-2 text-black-800">
                         <li>
-                          This assessment requires Camera, Mic, and entire screen
-                          sharing.
+                          This assessment requires you to share your Camera and Microphone
+                          feed, as well as your entire screen.
                         </li>
                         <li>
-                          Ensure all feeds are visible in the top-left corner
-                          during the test.
+                          Once the assessment begins, make sure that your Camera &
+                          Microphone feed, along with Screen Sharing, are clearly
+                          visible in the top-left corner of the assessment screen. If
+                          they appear blank or the feed is incorrect, contact your
+                          invigilator right away. Failure to do so will void your
+                          chances for any further consideration of retake/reevaluation.
                         </li>
                       </ul>
                     </div>
                     <img
                       src={Protected}
                       alt="proctoring"
-                      className="w-48 h-32 hidden sm:block"
+                      className="w-56 object-contain mt-4 sm:mt-0 sm:ml-6 flex-shrink-0"
                     />
+                  </div>
+
+                  
+                  <div>
+                    <h2 className="text-3xl font-bold text-gray-900">Marking Scheme</h2>
+                    <p className="mt-4 text-base">
+                      Refer to the top right of each question for the marks awarded for a
+                      correct answer or deducted for an incorrect answer as shown below.
+                    </p>
+                    <div className="flex items-center space-x-6 mt-4">
+                      <div className="text-center">
+                        <div className="inline-block bg-green-100 text-green-700 font-bold px-3 py-1 rounded border border-green-300">
+                          +X
+                        </div>
+                        <p className="mt-2 text-sm">Correct</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="inline-block bg-red-100 text-red-700 font-bold px-3.5 py-1 rounded border border-red-300">
+                          -Y
+                        </div>
+                        <p className="mt-2 text-sm">Incorrect</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  
+                  <div>
+                    <h2 className="text-3xl font-bold text-gray-900">
+                      Question Palette
+                    </h2>
+                    <p className="mt-4 text-base">
+                      The question palette displayed on the left side of the assessment
+                      screen will show the following statuses depicted by distinct
+                      symbols.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-6 text-base">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 bg-blue-600  flex items-center justify-center text-white font-bold flex-shrink-0">
+                          1
+                        </div>
+                        <span>Answered</span>
+                      </div>
+
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 border-2 border-gray-700 rounded-md flex items-center justify-center text-gray-700 font-bold flex-shrink-0">
+                          2
+                        </div>
+                        <span>Unanswered</span>
+                      </div>
+
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 bg-orange-400 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0">
+                          5
+                        </div>
+                        <span>Marked for review but answered</span>
+                      </div>
+
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 border-2 border-orange-400 rounded-lg flex items-center justify-center text-orange-400 font-bold flex-shrink-0">
+                          13
+                        </div>
+                        <span>Marked for review but unanswered</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -839,7 +918,7 @@ const QuizFlow = () => {
 
                   <div className="space-y-8 mt-8">
                     <div className="flex items-start space-x-3">
-                      <CheckCircle2 className="h-6 w-6 text-red-600 mt-0.5 flex-shrink-0" />
+                      <CheckCircle2 className="h-6 w-6 text-green-600 mt-0.5 flex-shrink-0" />
                       <span className="text-base">
                         I solemnly swear that I am up to no dishonesty! I promise
                         to be truthful, and honourable and use only my powers of
@@ -847,7 +926,7 @@ const QuizFlow = () => {
                       </span>
                     </div>
                     <div className="flex items-start space-x-3">
-                      <CheckCircle2 className="h-6 w-6 text-red-600 mt-0.5 flex-shrink-0" />
+                      <CheckCircle2 className="h-6 w-6 text-green-600 mt-0.5 flex-shrink-0" />
                       <span className="text-base">
                         I solemnly swear that I will not engage in malpractice
                         such as (but not limited to) copying from my peers, using
@@ -856,7 +935,7 @@ const QuizFlow = () => {
                       </span>
                     </div>
                     <div className="flex items-start space-x-3">
-                      <CheckCircle2 className="h-6 w-6 text-red-600 mt-0.5 flex-shrink-0" />
+                      <CheckCircle2 className="h-6 w-6 text-green-600 mt-0.5 flex-shrink-0" />
                       <span className="text-base">
                         I also solemnly swear that failure to follow the
                         aforementioned two points in the honour code will result
@@ -871,7 +950,7 @@ const QuizFlow = () => {
                       type="checkbox"
                       checked={honourCodeAgreed}
                       onChange={(e) => setHonourCodeAgreed(e.target.checked)}
-                      className="mt-0.5 h-5 w-5 accent-red-600 flex-shrink-0"
+                      className="mt-0.5 h-5 w-5 accent-red-600 cursor-pointer flex-shrink-0"
                     />
                     <span className="text-gray-900 font-medium">
                       I solemnly swear to abide by the Proctor-X Honour Code.
@@ -928,14 +1007,14 @@ const QuizFlow = () => {
                         {!cameraEnabled ? (
                           <button
                             onClick={handleEnableCamera}
-                            className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700"
+                            className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700"
                           >
                             Enable Camera
                           </button>
                         ) : (
                           <button
                             onClick={stopCamera}
-                            className="px-4 py-2 bg-gray-600 text-white rounded font-medium hover:bg-gray-700"
+                            className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700"
                           >
                             Stop Camera
                           </button>
@@ -943,14 +1022,14 @@ const QuizFlow = () => {
                         {!screenEnabled ? (
                           <button
                             onClick={handleEnableScreenShare}
-                            className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700"
+                            className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700"
                           >
                             Enable Screen Share
                           </button>
                         ) : (
                           <button
                             onClick={stopScreenShare}
-                            className="px-4 py-2 bg-gray-600 text-white rounded font-medium hover:bg-gray-700"
+                            className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700"
                           >
                             Stop Screen Share
                           </button>
@@ -963,13 +1042,15 @@ const QuizFlow = () => {
                     >
                       <button
                         onClick={handleFullScreen}
-                        className="px-4 py-2 bg-red-600 text-white rounded flex items-center space-x-2 font-medium hover:bg-red-700"
+                        className={`px-4 py-2 text-white rounded flex items-center space-x-2 font-medium ${isFullScreen
+                          ? "bg-red-600 hover:bg-red-700"
+                          : "bg-green-600 hover:bg-green-700"
+                          }`}
                       >
                         <Expand size={16} />
-                        <span>
-                          {isFullScreen ? "Exit Full Screen" : "Go Full Screen"}
-                        </span>
+                        <span>{isFullScreen ? "Exit Full Screen" : "Go Full Screen"}</span>
                       </button>
+
                     </SetupCheckItem>
                     <SetupCheckItem
                       title="Security Code"
@@ -1010,11 +1091,11 @@ const QuizFlow = () => {
                 </div>
               )}
             </div>
-            <div className="flex justify-between items-center mt-6 pt-6 border-t border-gray-200">
+            <div className="flex justify-between items-center mt-6 pt-6 border-t-2 border-black-500">
               <button
                 onClick={handlePrevStep}
                 disabled={step === 1}
-                className="px-5 py-2 flex items-center space-x-2 border border-gray-300 rounded font-medium hover:bg-gray-100 disabled:opacity-50"
+                className="px-5 py-2 flex items-center space-x-2 bg-red-500 text-white border border-gray-300 rounded font-medium hover:bg-red-700 disabled:opacity-50"
               >
                 <ArrowLeft size={16} />
                 <span>Previous</span>
@@ -1023,7 +1104,7 @@ const QuizFlow = () => {
                 <button
                   onClick={handleNextStep}
                   disabled={step === 2 && !honourCodeAgreed}
-                  className="px-8 py-2 flex items-center space-x-2 bg-red-600 text-white rounded font-medium hover:bg-red-700 disabled:bg-gray-300"
+                  className="px-8 py-2 flex items-center space-x-2 bg-green-800 text-white rounded font-medium hover:bg-green-900 disabled:bg-gray-300"
                 >
                   <span>Next</span>
                   <ArrowRight size={16} />
@@ -1056,15 +1137,13 @@ const QuizFlow = () => {
         </div>
       );
     } else {
-      // ###############################################################
-      // #                  START: NEW STEP 4 UI MERGE                 #
-      // ###############################################################
+
 
       const currentQuestion = quiz.questions[currentQuestionIndex];
       const getStatusColor = (status) => {
         switch (status) {
           case "answered":
-            return "bg-green-600 text-white"; // Using your old color logic
+            return "bg-green-600 text-white";
           case "unanswered":
             return "bg-gray-200 text-gray-700";
           case "review":
@@ -1147,11 +1226,10 @@ const QuizFlow = () => {
                       onClick={() => handleQuestionNavigation(index)}
                       className={`h-14 w-14 rounded-md font-bold flex items-center justify-center ${getStatusColor(
                         answers[index]?.status
-                      )} ${
-                        currentQuestionIndex === index
-                          ? "ring-2 ring-red-500" // Kept your active ring
-                          : ""
-                      }`}
+                      )} ${currentQuestionIndex === index
+                        ? "ring-2 ring-red-500" // Kept your active ring
+                        : ""
+                        }`}
                     >
                       {index + 1}
                     </button>
@@ -1196,11 +1274,10 @@ const QuizFlow = () => {
                     {currentQuestion.options.map((option, index) => (
                       <label
                         key={index}
-                        className={`flex items-center p-4 border-3 cursor-pointer transition-colors w-full max-w-md h-14 ${
-                          answers[currentQuestionIndex]?.answer === index
-                            ? "bg-blue-50 border-blue-600"
-                            : "bg-gray-100 border-gray-500 hover:bg-gray-200"
-                        }`}
+                        className={`flex items-center p-4 border-3 cursor-pointer transition-colors w-full max-w-md h-14 ${answers[currentQuestionIndex]?.answer === index
+                          ? "bg-blue-50 border-blue-600"
+                          : "bg-gray-100 border-gray-500 hover:bg-gray-200"
+                          }`}
                       >
                         <input
                           type="radio"
