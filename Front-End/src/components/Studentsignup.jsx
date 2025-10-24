@@ -1,7 +1,14 @@
 import { useState } from "react";
-import { FaUser, FaEnvelope, FaLock, FaImage, FaArrowLeft } from "react-icons/fa";
+import {
+  FaUser,
+  FaEnvelope,
+  FaLock,
+  FaImage,
+  FaArrowLeft,
+} from "react-icons/fa";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function StudentSignup() {
   const [name, setName] = useState("");
@@ -10,51 +17,125 @@ export default function StudentSignup() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [profilePicture, setProfilePicture] = useState(null);
   const [preview, setPreview] = useState(null);
-  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSignup = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      setMessage("Passwords do not match");
+      // UPDATED TOAST: Using Login page's ERROR toast style
+      toast.custom(
+        (t) => (
+          <div
+            className={`fixed bottom-0 left-0 w-full bg-black-900/95 backdrop-blur-lg border-t  p-6 rounded-t-2xl shadow-lg text-center transform transition-all duration-500 ease-in-out ${t.visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
+              }`}
+          >
+            <p className="text-red-400 text-lg mb-5 font-medium">
+              Passwords do not match
+            </p>
+            <div className="flex justify-center">
+              <button
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-lg"
+                onClick={() => toast.dismiss(t.id)}
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        ),
+        { position: "bottom-center", duration: 4000 }
+      );
       return;
     }
     try {
+      setLoading(true);
       const formData = new FormData();
       formData.append("name", name);
       formData.append("email", email);
       formData.append("password", password);
       if (profilePicture) formData.append("profilePicture", profilePicture);
-
-      const res = await axios.post("http://localhost:8000/students/signup", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
+      const res = await axios.post(
+        "http://localhost:8000/students/signup",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
       localStorage.setItem("token", res.data.token);
-      navigate("/Student-login");
+
+      // UPDATED TOAST: Using Login page's SUCCESS toast style
+      toast.custom(
+        (t) => (
+          <div
+            className={`fixed bottom-0 left-0 w-full bg-gray-900/95 backdrop-blur-lg border-t border-cyan-400/20 p-6 rounded-t-2xl shadow-lg text-center transform transition-all duration-500 ease-in-out ${t.visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
+              }`}
+          >
+            <p className="text-white text-lg mb-5 font-medium">
+              Account created successfully! 🎉
+            </p>
+            <div className="flex justify-center">
+              <button
+                className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition-all"
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  navigate("/dashboard");
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        ),
+        {
+          position: "bottom-center",
+          duration: 5000,
+          onClose: () => navigate("/dashboard"),
+        }
+      );
+
+      setTimeout(() => navigate("/Student-login"), 1000);
     } catch (err) {
-      setMessage(err.response?.data?.message || "Error during signup");
+      // UPDATED TOAST: Using Login page's ERROR toast style
+      toast.custom(
+        (t) => (
+          <div
+            className={`fixed bottom-0 left-0 w-full bg-black-900/95 backdrop-blur-lg border-t  p-6 rounded-t-2xl shadow-lg text-center transform transition-all duration-500 ease-in-out ${t.visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
+              }`}
+          >
+            <p className="text-red-400 text-lg mb-5 font-medium">
+              {err.response?.data?.message || "Error during signup"}
+            </p>
+            <div className="flex justify-center">
+              <button
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-lg"
+                onClick={() => toast.dismiss(t.id)}
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        ),
+        { position: "bottom-center", duration: 4000 }
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleProfileChange = (e) => {
     const file = e.target.files[0];
     setProfilePicture(file);
-    if (file) {
-      setPreview(URL.createObjectURL(file));
-    } else {
-      setPreview(null);
-    }
+    setPreview(file ? URL.createObjectURL(file) : null);
   };
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-[#0e0e0e] p-2">
-      <div className="w-full max-w-md bg-gradient-to-br from-[#1a1a1a] to-[#262626] rounded-2xl shadow-2xl p-8 border border-cyan-400/20 relative">
+    <div className="h-screen w-screen flex items-center justify-center bg-[#0e0e0e] p-2 relative">
+      <Toaster position="bottom-center" />
+      <div className="w-full max-w-md bg-gradient-to-br from-[#1a1a1a] to-[#262626] rounded-2xl shadow-2xl p-8 border border-cyan-400/20">
         <div className="text-center mb-4">
           <h2 className="text-3xl font-bold text-cyan-400">Student Signup</h2>
           <p className="text-gray-400 mt-1">Create your account to start learning</p>
         </div>
-
         <form onSubmit={handleSignup} className="space-y-4">
           <div>
             <label className="block text-sm text-gray-300">Full Name</label>
@@ -70,7 +151,6 @@ export default function StudentSignup() {
               />
             </div>
           </div>
-
           <div>
             <label className="block text-sm text-gray-300">Email</label>
             <div className="relative mt-2">
@@ -85,7 +165,6 @@ export default function StudentSignup() {
               />
             </div>
           </div>
-
           <div>
             <label className="block text-sm text-gray-300">Password</label>
             <div className="relative mt-2">
@@ -100,7 +179,6 @@ export default function StudentSignup() {
               />
             </div>
           </div>
-
           <div>
             <label className="block text-sm text-gray-300">Confirm Password</label>
             <div className="relative mt-2">
@@ -115,7 +193,6 @@ export default function StudentSignup() {
               />
             </div>
           </div>
-
           <div>
             <label className="block text-sm text-gray-300">Profile Picture</label>
             <div className="relative mt-2">
@@ -134,14 +211,14 @@ export default function StudentSignup() {
               />
             )}
           </div>
-
           <button
             type="submit"
-            className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-lg shadow-lg transition-all transform hover:scale-[1.02]"
+            disabled={loading}
+            className={`w-full py-3 rounded-xl ${loading ? "bg-cyan-600" : "bg-cyan-500 hover:bg-cyan-600"
+              } text-white font-semibold text-lg shadow-lg transition-all transform hover:scale-[1.02]`}
           >
-            Sign Up
+            {loading ? "Creating Account..." : "Sign Up"}
           </button>
-
           <button
             type="button"
             onClick={() => navigate("/")}
@@ -150,12 +227,12 @@ export default function StudentSignup() {
             <FaArrowLeft /> Back
           </button>
         </form>
-
-        {message && <p className="mt-4 text-center text-sm text-red-400">{message}</p>}
-
         <div className="mt-6 text-center text-sm text-gray-400">
           Already have an account?{" "}
-          <a href="/Student-login" className="hover:underline hover:text-cyan-300">
+          <a
+            href="/Student-login"
+            className="hover:underline hover:text-cyan-300"
+          >
             Login
           </a>
         </div>

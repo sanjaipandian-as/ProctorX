@@ -2,12 +2,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
 import { Clock, Users, Star, Play, BookOpen, Laptop, Calculator, Globe } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import toast, { Toaster } from "react-hot-toast";
 
 const quizzes = [
   {
-    title: "Advanced Mathematics",
+    quizId: "QZ708443",
+    title: "Genral Knowledge Quiz",
     description: "Calculus, Linear Algebra, and Statistics",
-    duration: "2 hours",
+    duration: "2 hour",
     participants: 1247,
     rating: 4.8,
     difficulty: "Advanced",
@@ -15,9 +19,10 @@ const quizzes = [
     color: "var(--neon-blue)"
   },
   {
-    title: "Computer Science Fundamentals",
+    quizId: "QZ840043",
+    title: "Computer Science Basic Principles",
     description: "Data Structures, Algorithms, and Programming",
-    duration: "1.5 hours",
+    duration: "1 hour",
     participants: 892,
     rating: 4.9,
     difficulty: "Intermediate",
@@ -25,6 +30,7 @@ const quizzes = [
     color: "var(--neon-purple)"
   },
   {
+    quizId: "QZ303385",
     title: "World History",
     description: "Ancient Civilizations to Modern Era",
     duration: "1 hour",
@@ -35,9 +41,10 @@ const quizzes = [
     color: "var(--neon-teal)"
   },
   {
+    quizId: "QZ588027",
     title: "English Literature",
     description: "Shakespeare, Poetry, and Critical Analysis",
-    duration: "1.5 hours",
+    duration: "1 hours",
     participants: 523,
     rating: 4.6,
     difficulty: "Intermediate",
@@ -56,8 +63,50 @@ const getDifficultyColor = (difficulty) => {
 };
 
 export function QuizGrid() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const handleStartQuiz = (quizId) => {
+    if (!user) {
+      toast.custom((t) => (
+        <div
+          className={`fixed bottom-0 left-0 w-full bg-black-900/95 backdrop-blur-lg border-t border-white/10 p-6  shadow-lg text-center transform transition-all duration-500 ease-in-out ${
+            t.visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
+          }`}
+        >
+          <p className="text-white text-lg mb-5 font-medium">
+            Please login to attend the quiz
+          </p>
+          <div className="flex justify-center space-x-4">
+            <Button
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-lg"
+              onClick={() => {
+                toast.dismiss(t.id);
+                navigate("/login");
+              }}
+            >
+              OK
+            </Button>
+            <Button
+              className="bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white px-6 py-2 rounded-lg"
+              onClick={() => toast.dismiss(t.id)}
+            >
+              Decline
+            </Button>
+          </div>
+        </div>
+      ), {
+        position: "bottom-center",
+        duration: 4000
+      });
+      return;
+    }
+    navigate(`/exam/${quizId}`);
+  };
+
   return (
-    <section className="py-24 px-4 sm:px-6 lg:px-8">
+    <section id="QuizGrid" className="py-24 px-4 sm:px-6 lg:px-8">
+      <Toaster />
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl mb-6">
@@ -76,12 +125,9 @@ export function QuizGrid() {
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                      <quiz.icon 
-                        className="h-6 w-6" 
-                        style={{ color: quiz.color }}
-                      />
+                      <quiz.icon className="h-6 w-6" style={{ color: quiz.color }} />
                     </div>
-                    <div>
+                    <div className="space-y-1">
                       <CardTitle className="text-white text-lg group-hover:gradient-text transition-all duration-300">
                         {quiz.title}
                       </CardTitle>
@@ -114,6 +160,7 @@ export function QuizGrid() {
 
                 <Button 
                   className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0 group-hover:neon-glow transition-all duration-300"
+                  onClick={() => handleStartQuiz(quiz.quizId)}
                 >
                   <Play className="h-4 w-4 mr-2" />
                   Start Assessment

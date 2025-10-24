@@ -49,7 +49,7 @@ const Header = ({ title }) => {
             </div>
             <button
                 className="h-full w-16 bg-black text-white flex items-center justify-center hover:bg-gray-800 p-0"
-                onClick={() => navigate('/')} // <-- Navigate to home
+                onClick={() => navigate('/student-profile')}
             >
                 <X className="w-1/2 h-1/2" />
             </button>
@@ -70,7 +70,7 @@ const CircularStatCard = ({ label, value, percentage, color = "#f59e0b" }) => (
                     textColor: '#111827',
                     trailColor: '#e5e7eb',
                     strokeLinecap: 'butt',
-                    textFontWeight: 'bold', 
+                    fontWeight: 'bold', 
                 })}
             />
         </div>
@@ -124,7 +124,7 @@ const QuestionCard = ({ response, index }) => {
                     const isSelectedAnswer = option === studentAnswer;
                     const isCorrectAnswer = option === correctAnswer;
                     
-                   
+                    
                     let stateClass = "border-gray-300 bg-gray-100 hover:bg-gray-200 text-gray-700";
                     if(isCorrectAnswer) {
                         stateClass = "border-green-500 bg-green-50 text-green-700 font-semibold";
@@ -147,6 +147,14 @@ const QuestionCard = ({ response, index }) => {
         </motion.div>
     );
 };
+
+const motivationalQuotes = [
+    "Failure is not the opposite of success; it is part of success.",
+    "It's not whether you get knocked down, it's whether you get up.",
+    "Success is not final, failure is not fatal: It is the courage to continue that counts.",
+    "Every setback is a setup for a comeback.",
+    "Don't watch the clock; do what it does. Keep going."
+];
 
 const QuizResultsPage = () => {
     const { resultId } = useParams();
@@ -189,11 +197,35 @@ const QuizResultsPage = () => {
         hour12: true
     });
     
+    const scorePercentage = (result.score / result.totalQuestions) * 100;
+    
     const incorrectValue = result.totalQuestions - result.score;
     const incorrectPercentage = (incorrectValue / result.totalQuestions) * 100;
     
-    const attemptedCount = result.responses?.filter(r => r.studentAnswer !== null).length || 0;
+    const attemptedCount = result.responses?.filter(r => r.studentAnswer).length || 0;
     const attemptedPercentage = (attemptedCount / result.totalQuestions) * 100;
+
+    let resultMessageConfig;
+    if (scorePercentage >= 50) {
+        resultMessageConfig = {
+            icon: <CheckCircle2 className="h-8 w-8 text-green-600" />,
+            message: "Well done! You did well on this assessment.",
+            quote: null,
+        };
+    } else if (scorePercentage >= 40) {
+        resultMessageConfig = {
+            icon: <AlertCircle className="h-8 w-8 text-yellow-600" />,
+            message: "Good effort, but there's room for improvement.",
+            quote: null,
+        };
+    } else {
+        const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+        resultMessageConfig = {
+            icon: <XCircle className="h-8 w-8 text-red-600" />,
+            message: "You did not pass this assessment. Please review carefully.",
+            quote: randomQuote,
+        };
+    }
 
 
     return (
@@ -213,7 +245,7 @@ const QuizResultsPage = () => {
                             <CircularStatCard 
                                 label="Score" 
                                 value={`${result.score}/${result.totalQuestions}`} 
-                                percentage={(result.score / result.totalQuestions) * 100}
+                                percentage={scorePercentage}
                             />
                             <CircularStatCard 
                                 label="Accuracy" 
@@ -244,10 +276,18 @@ const QuizResultsPage = () => {
                     <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
                         <div>
                             <div className="flex items-center gap-3 mb-2">
-                                <CheckCircle2 className="h-8 w-8 text-green-600" />
-                                <h2 className="text-2xl font-bold text-gray-900">Well done! You did well on this assessment.</h2>
+                                {resultMessageConfig.icon}
+                                <h2 className="text-2xl font-bold text-gray-900">
+                                    {resultMessageConfig.message}
+                                </h2>
                             </div>
                             <p className="text-sm text-gray-600 ml-11">Submitted on {submittedAt}</p>
+                            
+                            {resultMessageConfig.quote && (
+                                <p className="text-sm text-gray-700 font-medium italic mt-2 ml-11 max-w-lg">
+                                    "{resultMessageConfig.quote}"
+                                </p>
+                            )}
                         </div>
                         <button className="text-sm font-semibold text-red-600 hover:underline flex-shrink-0 text-left md:text-right">
                             Request Re-evaluation
@@ -272,5 +312,3 @@ const QuizResultsPage = () => {
 };
 
 export default QuizResultsPage;
-
-

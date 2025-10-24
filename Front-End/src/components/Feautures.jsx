@@ -45,7 +45,7 @@ const additionalFeatures = [
 
 export function Features() {
     return (
-        <section className="py-10 px-4 sm:px-6 lg:px-8">
+        <section id="Features" className="py-10 px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto">
 
                 <div className="text-center mb-16">
