@@ -13,6 +13,7 @@ import QuizAnsweringPage from "./pages/QuizAnsweringPage";
 import QuizFlow from "./pages/QuizAttempt";
 import QuizResults from "./pages/QuizResults";
 import StudentDashboard from "./components/StudentDashboard";
+import About from "./pages/AboutUs";
 function App() {
     return (
         <AuthProvider>
@@ -29,6 +30,7 @@ function App() {
             <Route path="/answer" element={<QuizAnsweringPage />} />
             <Route path="/results/:resultId" element={<QuizResults />} />
             <Route path="/student-profile" element={<StudentDashboard />} />
+            <Route path="/about-us" element={<About />} />
         </Routes>
         </AuthProvider>
     );

@@ -11,7 +11,7 @@ const quizzes = [
     quizId: "QZ708443",
     title: "Genral Knowledge Quiz",
     description: "Calculus, Linear Algebra, and Statistics",
-    duration: "2 hour",
+    duration: "1 hour",
     participants: 1247,
     rating: 4.8,
     difficulty: "Advanced",
@@ -116,6 +116,7 @@ export function QuizGrid() {
             Discover a world of knowledge with our curated collection of 
             interactive quizzes and examinations designed to challenge and inspire.
           </p>
+          <p className="text-xl text-white/70 max-w-3xl mx-auto">For these below quizes use OTP "000000"</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
