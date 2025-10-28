@@ -61,7 +61,6 @@ const cardHoverEffect = {
   transition: { duration: 0.3 },
 };
 
-// Helper function to create neon glow classes
 const getGlowClasses = (color) => {
   if (color === "cyan") {
     return {
@@ -79,7 +78,6 @@ const getGlowClasses = (color) => {
   };
 };
 
-// --- Data Arrays ---
 const values = [
   {
     icon: Scale,
@@ -203,7 +201,6 @@ const phase3Features = [
   },
 ];
 
-// --- Main Component ---
 export default function About() {
   return (
     <div className="min-h-screen bg-black text-slate-100 font-sans relative overflow-hidden">
@@ -227,9 +224,7 @@ export default function About() {
         ></div>
       </div>
 
-      {/* Main Content (relative z-10) */}
       <div className="relative z-10">
-        {/* Hero Section */}
         <section className="relative flex items-center justify-center min-h-[60vh] py-24 text-center overflow-hidden">
           <div className="relative z-10 max-w-4xl mx-auto px-6">
             <motion.h1
@@ -255,8 +250,6 @@ export default function About() {
             </motion.p>
           </div>
         </section>
-
-        {/* Our Mission Section */}
         <motion.section
           variants={sectionFadeIn}
           initial="hidden"
@@ -281,8 +274,6 @@ export default function About() {
             </p>
           </div>
         </motion.section>
-
-        {/* Our Values Section */}
         <motion.section
           variants={sectionFadeIn}
           initial="hidden"
@@ -317,8 +308,6 @@ export default function About() {
             </div>
           </div>
         </motion.section>
-
-        {/* --- PHASE 1: CURRENT FEATURES (NEW DESIGN) --- */}
         <motion.section
           variants={sectionFadeIn}
           initial="hidden"
@@ -356,8 +345,6 @@ export default function About() {
             </div>
           </div>
         </motion.section>
-
-        {/* --- ROADMAP SECTION (PHASE 2 & 3 - NEW DESIGN) --- */}
         <motion.section
           variants={sectionFadeIn}
           initial="hidden"
@@ -372,10 +359,7 @@ export default function About() {
             <p className="text-center text-lg text-slate-400 mb-24">
               Our vision for the next generation of digital education.
             </p>
-
-            {/* Timeline Container */}
             <div className="relative">
-              {/* The glowing timeline "spine" */}
               <div
                 className="absolute left-4 w-1 h-full bg-cyan-900 rounded-full
                            md:left-1/2 md:-translate-x-1/2"
@@ -387,19 +371,14 @@ export default function About() {
                   }}
                 ></div>
               </div>
-
-              {/* --- PHASE 2 NODE (Left on desktop, full on mobile) --- */}
               <motion.div
                 variants={itemFadeInUp}
                 className="relative w-full pl-16 md:w-1/2 md:pr-12 md:pl-0 mb-16"
               >
-                {/* Timeline Dot */}
                 <div
                   className="absolute top-8 left-[-8px] w-6 h-6 rounded-full bg-black border-4 border-cyan-400
                              shadow-[0_0_15px_theme(colors.cyan.400)]"
                 ></div>
-                
-                {/* Content Box */}
                 <div className="p-8 bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl">
                   <h3
                     className={`text-3xl font-bold mb-6 ${
@@ -425,19 +404,14 @@ export default function About() {
                   </div>
                 </div>
               </motion.div>
-
-              {/* --- PHASE 3 NODE (Right on desktop, full on mobile) --- */}
               <motion.div
                 variants={itemFadeInUp}
                 className="relative w-full pl-16 md:w-1/2 md:ml-auto md:pl-12"
               >
-                {/* Timeline Dot */}
                 <div
                   className="absolute top-8 left-[-8px] w-6 h-6 rounded-full bg-black border-4 border-fuchsia-400
                              shadow-[0_0_15px_theme(colors.fuchsia.400)]"
                 ></div>
-                
-                {/* Content Box */}
                 <div className="p-8 bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl">
                   <h3
                     className={`text-3xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-fuchsia-400 to-cyan-400`}
@@ -464,8 +438,6 @@ export default function About() {
             </div>
           </div>
         </motion.section>
-
-        {/* Team Section */}
         <motion.section
           variants={sectionFadeIn}
           initial="hidden"
@@ -477,8 +449,6 @@ export default function About() {
             Built with passion and precision by the ProctorX Team.
           </p>
         </motion.section>
-
-        {/* CTA Section */}
         <motion.section
           variants={sectionFadeIn}
           initial="hidden"

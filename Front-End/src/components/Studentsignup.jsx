@@ -9,6 +9,7 @@ import {
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
+import API from "../../Api";
 
 export default function StudentSignup() {
   const [name, setName] = useState("");
@@ -23,7 +24,6 @@ export default function StudentSignup() {
   const handleSignup = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      // UPDATED TOAST: Using Login page's ERROR toast style
       toast.custom(
         (t) => (
           <div
@@ -54,16 +54,14 @@ export default function StudentSignup() {
       formData.append("email", email);
       formData.append("password", password);
       if (profilePicture) formData.append("profilePicture", profilePicture);
-      const res = await axios.post(
-        "http://localhost:8000/students/signup",
+      const res = await API.post(
+        "/students/signup",
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
         }
       );
       localStorage.setItem("token", res.data.token);
-
-      // UPDATED TOAST: Using Login page's SUCCESS toast style
       toast.custom(
         (t) => (
           <div
@@ -95,7 +93,6 @@ export default function StudentSignup() {
 
       setTimeout(() => navigate("/Student-login"), 1000);
     } catch (err) {
-      // UPDATED TOAST: Using Login page's ERROR toast style
       toast.custom(
         (t) => (
           <div

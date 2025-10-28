@@ -2,14 +2,14 @@ import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 const PerformanceChart = ({ data }) => {
-  // Format the data for the chart, ensuring it's sorted by date
+ 
   const chartData = data
     .map(quiz => ({
-      name: quiz.quiz?.title.slice(0, 15) + (quiz.quiz?.title.length > 15 ? '...' : ''), // Shorten title for tooltip
-      date: new Date(quiz.completedAt).toLocaleDateString('en-CA'), // Format as YYYY-MM-DD for correct sorting
+      name: quiz.quiz?.title.slice(0, 15) + (quiz.quiz?.title.length > 15 ? '...' : ''), 
+      date: new Date(quiz.completedAt).toLocaleDateString('en-CA'), 
       Accuracy: parseFloat(quiz.accuracy.toFixed(1)),
     }))
-    .sort((a, b) => new Date(a.date) - new Date(b.date)); // Sort chronologically
+    .sort((a, b) => new Date(a.date) - new Date(b.date)); 
 
   return (
     <div className="bg-slate-800/60 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-lg mb-10 h-80">

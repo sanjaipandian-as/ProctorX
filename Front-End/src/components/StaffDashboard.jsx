@@ -3,14 +3,17 @@ import axios from "axios";
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { useAuth } from "../context/AuthContext";
+import { Plus, Users, BookOpen, BarChart3, LogOut, Clock, Target, TrendingUp, Home, ArrowLeft, AlertCircle, Check, X, Loader2, Save } from "lucide-react";
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import API from "../../Api";
+
 
 const PlusIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>);
 const TrashIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>);
-const QuestionCircleIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>);
+const QuestionCircleIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>);
 const UserTieIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-full w-full p-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>);
 const CopyIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline ml-2 cursor-pointer hover:text-pink-400" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" /><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" /></svg>);
-const ArrowLeftIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>);
-const ChartBarIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 110 2H3a1 1 0 01-1-1zm5-4a1 1 0 011-1h2a1 1 0 110 2H8a1 1 0 01-1-1zm5 4a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1zm-5 4a1 1 0 011-1h2a1 1 0 110 2H8a1 1 0 01-1-1z" /></svg>);
 const QuizIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>);
 const StudentIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>);
 const CheckCircle2 = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7 text-green-500 flex-shrink-0"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" /><path d="m9 12 2 2 4-4" /></svg>);
@@ -19,17 +22,142 @@ const EditIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" heigh
 const DuplicateIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="h-4 w-4" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z" /><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zM-1 7a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1A.5.5 0 0 1-1 7z" /></svg>);
 const ResetIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 4l1.5 1.5A9 9 0 0121.5 12M20 20l-1.5-1.5A9 9 0 002.5 12" /></svg>);
 
+const LogoIcon = () => (<svg className="h-8 w-8 text-[#00E1F9]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.6-3.751A11.959 11.959 0 0 1 12 2.714Z" /></svg>);
+const HomeIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>);
+const LogoutIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" /></svg>);
+const CollectionIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#00E1F9]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>);
+const UsersIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#00E1F9]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>);
+const NewChartBarIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#00E1F9]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>);
+const TrendingUpIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#00E1F9]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>);
+const ClockIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.415L11 9.586V6z" clipRule="evenodd" /></svg>);
+const CalendarIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>);
+const BeakerIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-orange-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M7 2a1 1 0 00-1 1v1H5a2 2 0 00-2 2v2a1 1 0 001 1h12a1 1 0 001-1V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H8V3a1 1 0 00-1-1zM4.07 10.93a.5.5 0 00-.365.66l2 6a.5.5 0 00.93-.31L8.38 11.5l.235 1.41a.5.5 0 00.93-.15l1.41-4.24 1.13 3.4a.5.5 0 00.93-.31l1.58-4.75a.5.5 0 00-.31-.62l-4-2a.5.5 0 00-.5.1l-3.5 3.5a.5.5 0 00.1.71l3.15-1.58.9 2.7-1.12 1.13-.6-1.8a.5.5 0 00-.93.15l-1.4 4.2-1.7-5.1a.5.5 0 00-.8-.2z" clipRule="evenodd" /></svg>);
+const ChartPieIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-400" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10a8 8 0 1116 0v-2a8 8 0 00-16 0v2z" /><path d="M12 2.05A8.001 8.001 0 004 10v2a8 8 0 0016 0v-2A8.001 8.001 0 0012 2.05zM12 12a2 2 0 100-4 2 2 0 000 4z" /></svg>);
+
 function Toast({ message, type }) {
-    return (<div className={`fixed top-5 right-5 px-4 py-2 rounded-xl shadow-lg text-sm font-medium transition-all ${type === "success" ? "bg-emerald-600/90 text-white" : "bg-red-600/90 text-white"}`}>{message}</div>);
+    const [visible, setVisible] = useState(true);
+    useEffect(() => {
+        const timer = setTimeout(() => setVisible(false), 3000);
+        return () => clearTimeout(timer);
+    }, []);
+
+    if (!visible) return null;
+
+    return (
+        <div className={`fixed top-20 right-5 px-4 py-2 rounded-xl shadow-lg text-sm font-medium transition-opacity duration-300 z-[100] ${visible ? 'opacity-100' : 'opacity-0'} ${type === "success" ? "bg-emerald-600/90 text-white" : "bg-red-600/90 text-white"}`}>
+            {message}
+        </div>
+    );
 }
 
-const CircularStat = ({ label, value, maxValue, color }) => {
-    const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
-    return (<div className="flex flex-col items-center space-y-3"><div className="w-28 h-28"><CircularProgressbar value={percentage} text={`${value || 0}${maxValue ? `/${maxValue}` : ''}`} styles={buildStyles({ textSize: '12px', pathColor: color, textColor: 'white', trailColor: '#4b5563' })} /></div><div className="text-sm font-semibold text-gray-300">{label}</div></div>);
+
+const CircularStat = ({ label, textValue, percentageValue, color }) => {
+    return (
+        <div className="flex flex-col items-center space-y-3">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 mb-3">
+                <CircularProgressbar
+                    value={percentageValue}
+                    text={`${textValue}`}
+                    styles={buildStyles({
+                        textSize: '18px',
+                        pathColor: color,
+                        textColor: 'white',
+                        trailColor: '#4b5563',
+                        pathTransitionDuration: 0.5
+                    })}
+                />
+            </div>
+            <div className="text-sm font-semibold text-gray-300 text-center">{label}</div>
+        </div>
+    );
+};
+
+
+const StatCard = ({ title, value, subtitle, icon, iconBgColor }) => {
+    return (
+        <div className="bg-[#1A1A1A] p-5 rounded-lg border border-[#2A2A2A] flex items-center justify-between">
+            <div>
+                <p className="text-sm text-gray-400 font-medium">{title}</p>
+                <p className="text-3xl font-bold text-[#00E1F9] mt-2">{value}</p>
+                <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+            </div>
+            <div className={`p-3 rounded-full ${iconBgColor}`}>
+                {icon}
+            </div>
+        </div>
+    );
+};
+
+const QuestionPalette = ({ responses }) => (
+    <div className="w-full p-4 bg-[#0A0A0A] border border-[#2A2A2A] rounded-lg mb-6">
+        <h3 className="text-lg font-semibold text-gray-200 mb-4">Question Palette</h3>
+        <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
+            {responses.map((res, index) => (
+                <a
+                    key={index}
+                    href={`#q-${index + 1}`}
+                    className={`flex items-center justify-center h-8 w-8 rounded font-semibold text-sm text-black transition-colors ${res.isCorrect ? 'bg-green-500 hover:bg-green-400' : 'bg-red-500 hover:bg-red-400'
+                        }`}
+                >
+                    {index + 1}
+                </a>
+            ))}
+        </div>
+    </div>
+);
+
+const QuestionCard = ({ response, index }) => {
+    const { questionText, options, studentAnswer, correctAnswer, isCorrect } = response;
+
+    return (
+        <motion.div
+            id={`q-${index + 1}`}
+            className="p-5 bg-[#0A0A0A] border border-[#2A2A2A] rounded-lg mb-4"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: index * 0.05 }}
+        >
+            <div className="flex justify-between items-start mb-4">
+                <p className="text-lg font-medium text-gray-200 pr-4">
+                    <span className="text-blue-400 font-bold mr-2">Q{index + 1}.</span> {questionText}
+                </p>
+                {isCorrect ? (
+                    <CheckCircle2 className="h-6 w-6 text-green-500 flex-shrink-0" />
+                ) : (
+                    <XCircle className="h-6 w-6 text-red-500 flex-shrink-0" />
+                )}
+            </div>
+            <div className="space-y-3 mt-3">
+                {options.map((option, optIndex) => {
+                    const isSelectedAnswer = option === studentAnswer;
+                    const isCorrectAnswer = option === correctAnswer;
+
+                    let stateClass = "border-[#4A4A4A] bg-[#1A1A1A] text-gray-300";
+                    if (isCorrectAnswer) {
+                        stateClass = "border-green-600 bg-green-900/40 text-green-300 font-semibold";
+                    } else if (isSelectedAnswer && !isCorrectAnswer) {
+                        stateClass = "border-red-600 bg-red-900/40 text-red-300 font-semibold";
+                    }
+
+                    return (
+                        <div key={optIndex} className={`p-3 border rounded-lg flex items-center justify-between transition-all duration-300 ${stateClass}`}>
+                            <span>{option}</span>
+                            {isSelectedAnswer && (
+                                <span className="text-xs font-bold px-2 py-1 rounded-full bg-gray-600 text-gray-200">
+                                    Your Answer
+                                </span>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </motion.div>
+    );
 };
 
 export default function TeacherDashboard() {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [quizzes, setQuizzes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedQuiz, setSelectedQuiz] = useState(null);
@@ -37,7 +165,6 @@ export default function TeacherDashboard() {
     const [teacherInfo, setTeacherInfo] = useState(null);
     const [otpTimers, setOtpTimers] = useState({});
     const [toast, setToast] = useState(null);
-    const [currentView, setCurrentView] = useState('summary');
     const [stats, setStats] = useState({ totalAttempts: '...' });
     const [viewingResultsOf, setViewingResultsOf] = useState(null);
     const [resultsData, setResultsData] = useState([]);
@@ -61,27 +188,33 @@ export default function TeacherDashboard() {
         const interval = setInterval(() => {
             const now = new Date().getTime();
             const updatedTimers = {};
-            quizzes.forEach((quiz) => {
-                if (quiz.otpExpiresAt) {
-                    const diff = new Date(quiz.otpExpiresAt).getTime() - now;
-                    updatedTimers[quiz.quizId] = diff > 0 ? diff : 0;
-                }
-            });
+            if (Array.isArray(quizzes)) {
+                quizzes.forEach((quiz) => {
+                    if (quiz && quiz.otpExpiresAt) {
+                        const diff = new Date(quiz.otpExpiresAt).getTime() - now;
+                        updatedTimers[quiz.quizId] = diff > 0 ? diff : 0;
+                    }
+                });
+            }
             setOtpTimers(updatedTimers);
         }, 1000);
         return () => clearInterval(interval);
     }, [quizzes]);
 
+
     const showToast = (message, type = "success") => {
         setToast({ message, type });
-        setTimeout(() => setToast(null), 3000);
     };
+
+    const closeToast = () => {
+        setToast(null);
+    }
 
     const fetchQuizzes = async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.get("http://localhost:8000/api/quizzes", { headers: { Authorization: `Bearer ${token}` } });
+            const res = await API.get("/api/quizzes", { headers: { Authorization: `Bearer ${token}` } });
             setQuizzes(Array.isArray(res.data) ? res.data : []);
         } catch {
             setQuizzes([]);
@@ -93,7 +226,7 @@ export default function TeacherDashboard() {
 
     const fetchStats = async () => {
         try {
-            setStats({ totalAttempts: 125 });
+            setStats({ totalAttempts: 492 });
         } catch {
             setStats({ totalAttempts: 'N/A' });
         }
@@ -102,7 +235,7 @@ export default function TeacherDashboard() {
     const fetchTeacherInfo = async () => {
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.get("http://localhost:8000/teachers/details", { headers: { Authorization: `Bearer ${token}` } });
+            const res = await API.get("/teachers/details", { headers: { Authorization: `Bearer ${token}` } });
             setTeacherInfo(res.data[0]);
         } catch {
             setTeacherInfo(null);
@@ -114,7 +247,7 @@ export default function TeacherDashboard() {
         setQuizLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.get(`http://localhost:8000/api/quizzes/${quizId}`, { headers: { Authorization: `Bearer ${token}` } });
+            const res = await API.get(`/api/quizzes/${quizId}`, { headers: { Authorization: `Bearer ${token}` } });
             setSelectedQuiz(res.data);
         } catch {
             setSelectedQuiz(null);
@@ -130,7 +263,7 @@ export default function TeacherDashboard() {
         }
         try {
             const token = localStorage.getItem("token");
-            await axios.delete(`http://localhost:8000/api/quizzes/${quizId}`, { headers: { Authorization: `Bearer ${token}` } });
+            await API.delete(`/api/quizzes/${quizId}`, { headers: { Authorization: `Bearer ${token}` } });
             setSelectedQuiz(null);
             fetchQuizzes();
             showToast("Quiz deleted successfully");
@@ -140,13 +273,13 @@ export default function TeacherDashboard() {
     };
 
     const handleEdit = (quizId) => {
-        window.location.href = `/edit-quiz/${quizId}`;
+        navigate(`/edit-quiz/${quizId}`);
     };
 
     const handleDuplicate = async (quizId) => {
         try {
             const token = localStorage.getItem("token");
-            await axios.post(`http://localhost:8000/api/quizzes/${quizId}/duplicate`, {}, { headers: { Authorization: `Bearer ${token}` } });
+            await API.post(`/api/quizzes/${quizId}/duplicate`, {}, { headers: { Authorization: `Bearer ${token}` } });
             showToast("Quiz duplicated successfully!");
             fetchQuizzes();
         } catch (error) {
@@ -158,10 +291,11 @@ export default function TeacherDashboard() {
         setResultsLoading(true);
         setViewingResultsOf(quiz);
         setSelectedResultDetail(null);
+        setResultsData([]);
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.get(`http://localhost:8000/api/results/quiz/${quiz.quizId}`, { headers: { Authorization: `Bearer ${token}` } });
-            setResultsData(res.data);
+            const res = await API.get(`/api/results/quiz/${quiz.quizId}`, { headers: { Authorization: `Bearer ${token}` } });
+            setResultsData(Array.isArray(res.data) ? res.data : []);
         } catch (error) {
             showToast("Failed to fetch quiz results", "error");
             setResultsData([]);
@@ -178,10 +312,11 @@ export default function TeacherDashboard() {
     const handleGenerateOtp = async (quizId) => {
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.post(`http://localhost:8000/api/quizzes/${quizId}/generate-otp`, {}, { headers: { Authorization: `Bearer ${token}` } });
+            const res = await API.post(`/api/quizzes/${quizId}/generate-otp`, {}, { headers: { Authorization: `Bearer ${token}` } });
             const newOtp = res.data.otp;
             showToast("New Security Code generated: " + newOtp);
             const newOtpExpiry = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
             setQuizzes((currentQuizzes) =>
                 currentQuizzes.map((quiz) => {
                     if (quiz.quizId === quizId) {
@@ -190,6 +325,7 @@ export default function TeacherDashboard() {
                     return quiz;
                 })
             );
+
             if (selectedQuiz && selectedQuiz.quizId === quizId) {
                 setSelectedQuiz((currentQuiz) => ({ ...currentQuiz, otp: newOtp, otpExpiresAt: newOtpExpiry }));
             }
@@ -198,54 +334,52 @@ export default function TeacherDashboard() {
         }
     };
 
-const handleResetAttempt = async (quizId, studentId) => {
-  try {
-    const token = localStorage.getItem("token");
 
-    // Validate IDs before sending request
-    if (!quizId || !studentId) {
-      alert("Invalid quiz or student ID");
-      return;
-    }
+    const handleResetAttempt = async (quizId, studentId) => {
+        if (!window.confirm(`Are you sure you want to reset the attempt for this student?`)) {
+            return;
+        }
+        try {
+            const token = localStorage.getItem("token");
+            if (!quizId || !studentId) {
+                showToast("Invalid quiz or student ID", "error");
+                return;
+            }
+            const response = await API.delete(
+                `/api/results/results/${resultId}`,
+                {
+                    headers: { Authorization: `Bearer ${token}` },
+                }
+            );
 
-    const response = await fetch(
-      `http://localhost:8000/teachers/quiz/${quizId}/student/${studentId}/reset`,
-      {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+            showToast(response.data.message || "Attempt reset successfully!");
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Failed to reset attempt");
-    }
-
-    alert(data.message); // or update state/UI
-  } catch (error) {
-    console.error("Error resetting attempt:", error);
-    alert(error.message);
-  }
-};
-
+            if (viewingResultsOf) {
+                handleViewResults(viewingResultsOf);
+            }
+        } catch (error) {
+            console.error("Error resetting attempt:", error);
+            showToast(error.response?.data?.message || "Error resetting attempt", "error");
+        }
+    };
 
 
     const formatTime = (ms) => {
-        if (ms <= 0) return "Expired";
-        const minutes = Math.floor(ms / 60000);
-        const seconds = Math.floor((ms % 60000) / 1000);
-        return `${minutes}m ${seconds}s`;
+        if (typeof ms !== 'number' || ms <= 0) return "Expired";
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
     };
 
+
     const filteredQuizzes = useMemo(() => {
+        if (!Array.isArray(quizzes)) return [];
         return quizzes
-            .filter(quiz => statusFilter === 'all' || quiz.status === statusFilter)
-            .filter(quiz => quiz.title.toLowerCase().includes(searchTerm.toLowerCase()));
+            .filter(quiz => quiz && (statusFilter === 'all' || quiz.status === statusFilter))
+            .filter(quiz => quiz && quiz.title && quiz.title.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [quizzes, searchTerm, statusFilter]);
+
 
     const resetViews = () => {
         setSelectedQuiz(null);
@@ -255,91 +389,174 @@ const handleResetAttempt = async (quizId, studentId) => {
 
     const renderContent = () => {
         if (quizLoading) {
-            return <p className="text-gray-400 text-center text-lg">Loading Quiz Details...</p>;
+            return <div className="mt-20 flex justify-center items-center h-64"><p className="text-gray-400 text-lg">Loading Quiz Details...</p></div>;
         }
 
         if (selectedQuiz) {
             return (
-                <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-2xl shadow-lg">
-                    <div className="flex justify-between items-center mb-6">
-                        <button onClick={() => setSelectedQuiz(null)} className="flex items-center gap-2 text-sm text-purple-300 hover:text-purple-100 transition">
-                            <ArrowLeftIcon /> Back to Quizzes
+                <div className="mt-20">
+                    <div className="flex justify-between items-center mb-6 px-1">
+                        <button onClick={() => setSelectedQuiz(null)} className="flex items-center gap-2 text-sm text-[#00E1F9] hover:text-[#00B0CC] transition">
+                            <ArrowLeft className="h-4 w-4" /> Back to Quizzes
                         </button>
-                        <h2 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 text-transparent bg-clip-text flex items-center gap-2"><QuizIcon /> {selectedQuiz.title}</h2>
-                        <div className="flex items-center gap-4">
-                            <button onClick={() => handleDeleteQuiz(selectedQuiz.quizId)} className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-pink-600 px-5 py-2 rounded-xl text-white hover:from-red-500 hover:to-pink-500 transition transform hover:scale-105 shadow-md"><TrashIcon /> Delete</button>
+                        <h2 className="text-2xl md:text-3xl font-bold text-white text-center flex items-center gap-3">
+                            <BookOpen className="h-7 w-7 text-blue-400" />
+                            {selectedQuiz.title}
+                        </h2>
+                        <div className="flex items-center gap-2 md:gap-4">
+                            <button onClick={() => handleDeleteQuiz(selectedQuiz.quizId)} className="flex items-center gap-1 md:gap-2 bg-red-600 px-3 py-2 md:px-5 md:py-2 rounded-lg text-white hover:bg-red-500 transition shadow-md text-xs md:text-sm">
+                                <TrashIcon /> <span className="hidden md:inline">Delete</span>
+                            </button>
                         </div>
                     </div>
-                    <p className="text-gray-300 mb-2">Status: <span className={selectedQuiz.status === "active" ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>{selectedQuiz.status}</span></p>
-                    <p className="text-gray-400 text-sm mb-2 cursor-pointer" onClick={() => handleCopyId(selectedQuiz.quizId)}>
-                        Quiz Code: <span className="font-semibold text-purple-300">{selectedQuiz.quizId}</span>
-                        <CopyIcon />
-                    </p>
-                    {selectedQuiz.otp && (<p className="text-sm text-purple-300 mb-4">OTP: <span className="font-semibold">{selectedQuiz.otp}</span> ({formatTime(otpTimers[selectedQuiz.quizId])})<button className="ml-3 px-2 py-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded text-white text-xs hover:from-indigo-400 hover:to-purple-400" onClick={() => handleGenerateOtp(selectedQuiz.quizId)}>Generate New OTP</button></p>)}
-                    <p className="text-gray-400 text-sm mb-6">Created on {new Date(selectedQuiz.createdAt).toLocaleDateString()}</p>
-                    <h3 className="text-xl font-semibold text-purple-300 mb-4">Questions</h3>
-                    <ul className="space-y-5">
-                        {selectedQuiz.questions.map((q, i) => (
-                            <li key={i} className="p-4 rounded-xl bg-white/5 border border-white/10 shadow-md">
-                                <p className="font-medium text-white">{q.questionText}</p>
-                                <ul className="list-disc list-inside text-gray-300 mt-3 space-y-1">
-                                    {q.options.map((opt, idx) => (<li key={idx} className={q.correctAnswer === idx.toString() ? "text-emerald-400 font-semibold" : ""}>{opt}</li>))}
-                                </ul>
-                            </li>
-                        ))}
-                    </ul>
+                    <div className="bg-[#1A1A1A] border border-[#2A2A2A] p-6 rounded-lg mb-6 shadow-md">
+                        <h3 className="text-xl font-semibold text-white mb-5">Quiz Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="bg-[#0A0A0A] border border-[#2A2A2A] p-4 rounded-lg">
+                                <p className="text-sm text-gray-400 mb-1">Quiz Code</p>
+                                <div className="flex items-center">
+                                    <span className="font-mono text-lg font-semibold text-gray-200">{selectedQuiz.quizId}</span>
+                                    <CopyIcon onClick={() => handleCopyId(selectedQuiz.quizId)} />
+                                </div>
+                            </div>
+                            <div className="bg-[#0A0A0A] border border-[#2A2A2A] p-4 rounded-lg">
+                                <p className="text-sm text-gray-400 mb-1">Status</p>
+                                <p className={`text-lg font-semibold ${selectedQuiz.status === "active" ? "text-green-400" : "text-red-400"}`}>
+                                    {selectedQuiz.status.charAt(0).toUpperCase() + selectedQuiz.status.slice(1)}
+                                </p>
+                            </div>
+                            <div className="bg-[#0A0A0A] border border-[#2A2A2A] p-4 rounded-lg">
+                                <p className="text-sm text-gray-400 mb-1">Created On</p>
+                                <p className="text-lg font-semibold text-gray-200">{new Date(selectedQuiz.createdAt).toLocaleDateString()}</p>
+                            </div>
+                            <div className="bg-[#0A0A0A] border border-[#2A2A2A] p-4 rounded-lg">
+                                <p className="text-sm text-gray-400 mb-1">Security Code (OTP)</p>
+                                {selectedQuiz.otp ? (
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                        <div>
+                                            <span className="font-mono text-lg font-semibold text-amber-400">{selectedQuiz.otp}</span>
+                                            <span className="text-sm text-gray-500 ml-2">({formatTime(otpTimers[selectedQuiz.quizId])})</span>
+                                        </div>
+                                        <button
+                                            className="px-3 py-1 bg-[#00E1F9] rounded text-black text-xs hover:bg-[#00B0CC] transition flex-shrink-0"
+                                            onClick={() => handleGenerateOtp(selectedQuiz.quizId)}>
+                                            New Code
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        className="px-3 py-1 bg-[#00E1F9] rounded text-black text-sm hover:bg-[#00B0CC] transition"
+                                        onClick={() => handleGenerateOtp(selectedQuiz.quizId)}>
+                                        Generate Code
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-[#1A1A1A] border border-[#2A2A2A] p-6 rounded-lg shadow-md">
+                        <h3 className="text-xl font-semibold text-white mb-5">Questions ({selectedQuiz.questions?.length || 0})</h3>
+                        <ul className="space-y-5">
+                            {selectedQuiz.questions && selectedQuiz.questions.length > 0 ? (
+                                selectedQuiz.questions.map((q, i) => (
+                                    <li key={i} className="p-4 rounded-xl bg-[#0A0A0A] border border-[#2A2A2A] shadow-sm">
+                                        <p className="font-medium text-white mb-3">
+                                            <span className="text-gray-400 mr-2">Q{i + 1}.</span>{q.questionText}
+                                        </p>
+                                        <ul className="list-disc list-inside text-gray-300 ml-4 space-y-2">
+                                            {q.options?.map((opt, idx) => (
+                                                <li
+                                                    key={idx}
+                                                    className={q.correctAnswer == idx
+                                                        ? "text-emerald-400 font-semibold"
+                                                        : "text-gray-400"}
+                                                >
+                                                    {opt}
+                                                    {q.correctAnswer == idx && <span className="text-xs font-bold text-black bg-emerald-400 px-2 py-0.5 rounded-full ml-2">Correct</span>}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </li>
+                                ))
+                            ) : (
+                                <p className="text-gray-500 text-center">No questions found for this quiz.</p>
+                            )}
+                        </ul>
+                    </div>
                 </div>
             );
         }
 
         if (selectedResultDetail) {
+            const submittedAt = new Date(selectedResultDetail.createdAt).toLocaleString('en-US', {
+                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true
+            });
+
+            const scoreValue = selectedResultDetail.score ?? 0;
+            const totalQuestionsValue = selectedResultDetail.totalQuestions ?? 0;
+            const accuracyValue = Math.round(selectedResultDetail.accuracy ?? 0);
+            const attemptedCount = selectedResultDetail.responses?.filter(r => r.studentAnswer != null).length || 0;
+            const incorrectValue = totalQuestionsValue - scoreValue;
+
+            const scorePercentage = totalQuestionsValue > 0 ? (scoreValue / totalQuestionsValue) * 100 : 0;
+            const accuracyPercentage = accuracyValue;
+            const attemptedPercentage = totalQuestionsValue > 0 ? (attemptedCount / totalQuestionsValue) * 100 : 0;
+            const incorrectPercentage = totalQuestionsValue > 0 ? (incorrectValue / totalQuestionsValue) * 100 : 0;
+
             return (
-                <div>
-                    <button onClick={() => setSelectedResultDetail(null)} className="flex items-center gap-2 text-sm text-purple-300 hover:text-purple-100 transition mb-6">
-                        <ArrowLeftIcon /> Back to Results List
+                <div className="mt-20">
+                    <button onClick={() => setSelectedResultDetail(null)} className="flex items-center gap-2 text-sm text-[#00E1F9] hover:text-[#00B0CC] transition mb-6">
+                        <ArrowLeft className="h-4 w-4" /> Back to Results List for "{viewingResultsOf?.title}"
                     </button>
-                    <div className="bg-gray-900 font-sans grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <aside className="bg-white/5 shadow-lg p-6 rounded-2xl space-y-8 md:col-span-1 flex flex-col items-center">
-                            <p className="text-lg text-center text-gray-200 font-semibold mb-6">{viewingResultsOf?.title}</p>
-                            <CircularStat label="Score" value={selectedResultDetail.score} maxValue={selectedResultDetail.totalQuestions} color="#f59e0b" />
-                            <CircularStat label="Accuracy" value={Math.round(selectedResultDetail.accuracy)} maxValue={100} color="#10b981" />
-                            <CircularStat label="Attempted" value={selectedResultDetail.responses?.length} maxValue={selectedResultDetail.totalQuestions} color="#8b5cf6" />
+                    <div className="flex flex-col md:flex-row gap-4 lg:gap-8">
+                        <aside className="w-full md:w-1/4 lg:w-1/5 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-6 md:sticky top-24 self-start h-full md:max-h-[calc(100vh-8rem)] md:overflow-y-auto scrollbar-thin scrollbar-thumb-[#3A3A3A] scrollbar-track-[#1A1A1A]">
+                            <h3 className="text-xl font-bold text-white mb-6 text-center">
+                                Performance Summary
+                            </h3>
+                            <div className="flex flex-col items-center gap-4">
+                                <CircularStat
+                                    label="Score"
+                                    textValue={`${scoreValue}/${totalQuestionsValue}`}
+                                    percentageValue={scorePercentage}
+                                    color="#f59e0b"
+                                />
+                                <CircularStat
+                                    label="Accuracy"
+                                    textValue={`${accuracyValue}%`}
+                                    percentageValue={accuracyPercentage}
+                                    color="#10b981"
+                                />
+                                <CircularStat
+                                    label="Attempted"
+                                    textValue={`${attemptedCount}/${totalQuestionsValue}`}
+                                    percentageValue={attemptedPercentage}
+                                    color="#8b5cf6"
+                                />
+                                <CircularStat
+                                    label="Incorrect"
+                                    textValue={`${incorrectValue}`}
+                                    percentageValue={incorrectPercentage}
+                                    color="#ef4444"
+                                />
+                            </div>
                         </aside>
-                        <main className="md:col-span-3">
-                            <header className="mb-6">
-                                <h1 className="text-3xl font-bold text-gray-200">{viewingResultsOf?.title}</h1>
-                                <p className="text-gray-400 mt-2">Results for <span className="font-semibold text-purple-300">{selectedResultDetail.user?.name}</span></p>
-                            </header>
-                            <div className="bg-white/5 p-6 rounded-2xl shadow-lg">
-                                <h2 className="text-2xl font-bold text-gray-200 border-b border-gray-700 pb-4 mb-6">Question Review</h2>
-                                <div className="space-y-6">
-                                    {selectedResultDetail.responses?.map((res, index) => (
-                                        <div key={index} className="border-b border-gray-700 pb-6 last:border-b-0">
-                                            <div className="flex justify-between items-start">
-                                                <p className="text-lg font-semibold text-gray-200">{index + 1}. {res.questionText}</p>
-                                                {res.isCorrect ? <CheckCircle2 /> : <XCircle />}
-                                            </div>
-                                            <div className="mt-4 space-y-3">
-                                                {res.options.map((option, optIndex) => {
-                                                    const isCorrect = option === res.correctAnswer;
-                                                    const isSelected = option === res.studentAnswer;
-                                                    let optionClass = "border-gray-600 bg-gray-900 text-gray-300";
-                                                    if (isCorrect) {
-                                                        optionClass = "border-green-600 bg-green-900/40 text-green-300 font-semibold";
-                                                    } else if (isSelected && !isCorrect) {
-                                                        optionClass = "border-red-600 bg-red-900/40 text-red-300 font-semibold";
-                                                    }
-                                                    return (
-                                                        <div key={optIndex} className={`p-3 border-2 rounded-lg flex items-center justify-between ${optionClass}`}>
-                                                            <span>{option}</span>
-                                                            {isSelected && (<span className="text-xs font-bold px-2 py-1 rounded-full bg-gray-600 text-gray-200">Your Answer</span>)}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+
+                        <main className="w-full md:flex-1 min-w-0 md:max-h-[calc(100vh-8rem)] md:overflow-y-auto scrollbar-thin scrollbar-thumb-[#3A3A3A] scrollbar-track-[#1A1A1A]">
+                            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg p-6 mb-6">
+                                <h2 className="text-2xl font-bold text-gray-200 mb-1">{viewingResultsOf?.title}</h2>
+                                <p className="text-gray-400 mb-4">Results for <span className="font-semibold text-blue-300">{selectedResultDetail.user?.name || 'Student'}</span> ({selectedResultDetail.user?.email})</p>
+                                <p className="text-sm text-gray-500">Submitted on: {submittedAt}</p>
+                            </div>
+
+                            <QuestionPalette responses={selectedResultDetail.responses || []} />
+
+                            <h2 className="text-xl font-semibold text-white mb-4 mt-6">Question Review</h2>
+                            <div className="w-full">
+                                {selectedResultDetail.responses?.map((res, index) => (
+                                    <QuestionCard key={index} response={res} index={index} />
+                                ))}
+                                {(!selectedResultDetail.responses || selectedResultDetail.responses.length === 0) && (
+                                    <p className="text-gray-500 text-center py-10">No response details available for this submission.</p>
+                                )}
                             </div>
                         </main>
                     </div>
@@ -347,56 +564,65 @@ const handleResetAttempt = async (quizId, studentId) => {
             );
         }
 
+
         if (viewingResultsOf) {
             const quizTitle = viewingResultsOf.title;
             const totalSubmissions = resultsData.length;
-            const averageScore = totalSubmissions > 0 ? (resultsData.reduce((acc, r) => acc + r.score, 0) / totalSubmissions).toFixed(2) : 0;
-            const highestScore = totalSubmissions > 0 ? Math.max(...resultsData.map(r => r.score)) : 0;
-            const lowestScore = totalSubmissions > 0 ? Math.min(...resultsData.map(r => r.score)) : 0;
+            const averageScore = totalSubmissions > 0 ? (resultsData.reduce((acc, r) => acc + (r.score ?? 0), 0) / totalSubmissions).toFixed(2) : 0;
+            const highestScore = totalSubmissions > 0 ? Math.max(...resultsData.map(r => r.score ?? 0)) : 0;
+            const lowestScore = totalSubmissions > 0 ? Math.min(...resultsData.map(r => r.score ?? 0)) : 0;
 
             return (
-                <div>
+                <div className="mt-20">
                     <div className="flex justify-between items-center mb-6">
-                        <button onClick={() => setViewingResultsOf(null)} className="flex items-center gap-2 text-sm text-purple-300 hover:text-purple-100 transition">
-                            <ArrowLeftIcon /> Back to Quizzes
+                        <button onClick={() => setViewingResultsOf(null)} className="flex items-center gap-2 text-sm text-[#00E1F9] hover:text-[#00B0CC] transition">
+                            <ArrowLeft className="h-4 w-4" /> Back to Quizzes
                         </button>
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text">Results for "{quizTitle}"</h1>
-                        <div></div>
+                        <h1 className="text-2xl md:text-3xl font-bold text-white text-center">Results for "{quizTitle}"</h1>
+                        <div className="w-16"></div>
                     </div>
-                    {resultsLoading ? (<p>Loading results...</p>) : (
+                    {resultsLoading ? (<div className="flex justify-center items-center h-64"><p className="text-gray-400 text-lg">Loading results...</p></div>) : (
                         <>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 text-center">
-                                <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20"><p className="text-gray-300 text-sm">Submissions</p><p className="text-2xl font-bold">{totalSubmissions}</p></div>
-                                <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20"><p className="text-gray-300 text-sm">Average Score</p><p className="text-2xl font-bold text-emerald-400">{averageScore}</p></div>
-                                <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20"><p className="text-gray-300 text-sm">Highest Score</p><p className="text-2xl font-bold text-amber-400">{highestScore}</p></div>
-                                <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20"><p className="text-gray-300 text-sm">Lowest Score</p><p className="text-2xl font-bold text-red-400">{lowestScore}</p></div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 text-center">
+                                <div className="p-4 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A]"><p className="text-gray-300 text-sm">Submissions</p><p className="text-2xl font-bold text-white">{totalSubmissions}</p></div>
+                                <div className="p-4 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A]"><p className="text-gray-300 text-sm">Average Score</p><p className="text-2xl font-bold text-emerald-400">{averageScore}</p></div>
+                                <div className="p-4 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A]"><p className="text-gray-300 text-sm">Highest Score</p><p className="text-2xl font-bold text-amber-400">{highestScore}</p></div>
+                                <div className="p-4 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A]"><p className="text-gray-300 text-sm">Lowest Score</p><p className="text-2xl font-bold text-red-400">{lowestScore}</p></div>
                             </div>
-                            <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-6 rounded-2xl">
-                                <h2 className="text-xl font-semibold mb-4 text-purple-300">Student Submissions</h2>
-                                {totalSubmissions === 0 ? <p className="text-gray-400">No students have submitted this quiz yet.</p> : (
-                                    <table className="w-full text-left">
+                            <div className="bg-[#1A1A1A] border border-[#2A2A2A] p-6 rounded-2xl overflow-x-auto scrollbar-thin scrollbar-thumb-[#3A3A3A] scrollbar-track-[#1A1A1A]">
+                                <h2 className="text-xl font-semibold mb-4 text-white">Student Submissions</h2>
+                                {totalSubmissions === 0 ? <p className="text-gray-400 text-center py-5">No students have submitted this quiz yet.</p> : (
+                                    <table className="w-full text-left min-w-[700px]">
                                         <thead>
-                                            <tr className="border-b border-white/20">
-                                                <th className="p-3">Student Name</th>
-                                                <th className="p-3">Email</th>
-                                                <th className="p-3">Score</th>
-                                                <th className="p-3">Accuracy</th>
-                                                <th className="p-3 text-right">Actions</th>
+                                            <tr className="border-b border-[#2A2A2A]">
+                                                <th className="p-3 text-gray-300 font-semibold text-sm">Student Name</th>
+                                                <th className="p-3 text-gray-300 font-semibold text-sm">Email</th>
+                                                <th className="p-3 text-gray-300 font-semibold text-sm">Score</th>
+                                                <th className="p-3 text-gray-300 font-semibold text-sm">Accuracy</th>
+                                                <th className="p-3 text-gray-300 font-semibold text-sm text-right">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {resultsData.map(result => (
-                                                <tr key={result._id} className="border-b border-white/10 hover:bg-white/5">
-                                                    <td className="p-3">{result.user?.name}</td>
-                                                    <td className="p-3">{result.user?.email}</td>
-                                                    <td className="p-3 font-semibold text-emerald-400">{result.score} / {result.totalQuestions}</td>
-                                                    <td className="p-3">{result.accuracy.toFixed(2)}%</td>
-                                                    <td className="p-3 text-right space-x-2">
-                                                        <button onClick={() => setSelectedResultDetail(result)} className="px-3 py-1 text-sm bg-indigo-600 hover:bg-indigo-500 rounded-lg transition">View Details</button>
+                                                <tr key={result._id} className="border-b border-[#2A2A2A]/50 hover:bg-[#2A2A2A] text-gray-200 text-sm">
+                                                    <td className="p-3">{result.user?.name || 'N/A'}</td>
+                                                    <td className="p-3">{result.user?.email || 'N/A'}</td>
+                                                    <td className="p-3 font-semibold text-emerald-400">{result.score ?? 'N/A'} / {result.totalQuestions ?? 'N/A'}</td>
+                                                    <td className="p-3">{(result.accuracy ?? 0).toFixed(2)}%</td>
+                                                    <td className="p-3 text-right space-x-2 whitespace-nowrap">
                                                         <button
-                                                            onClick={() => handleResetAttempt(viewingResultsOf.quizId, result.user._id)}
-                                                            className="px-3 py-1 text-sm bg-amber-600 hover:bg-amber-500 rounded-lg transition inline-flex items-center gap-1.5"
+                                                            onClick={() => setSelectedResultDetail(result)}
+                                                            className="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 rounded-lg transition text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            disabled={!result.responses || result.responses.length === 0}
+                                                            title={(!result.responses || result.responses.length === 0) ? "No details available" : "View Details"}
+                                                        >
+                                                            View Details
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleResetAttempt(viewingResultsOf.quizId, result.user?._id)}
+                                                            className="px-3 py-1 text-xs bg-amber-600 hover:bg-amber-500 rounded-lg transition inline-flex items-center gap-1.5 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                                                             title="Reset Attempt"
+                                                            disabled={!result.user?._id}
                                                         >
                                                             <ResetIcon /> Reset
                                                         </button>
@@ -413,95 +639,153 @@ const handleResetAttempt = async (quizId, studentId) => {
             );
         }
 
-        if (currentView === 'quizzes') {
-            return (
-                <>
-                    <div className="flex justify-between items-center mb-8">
-                        <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text">My Quizzes</h1>
-                        <div className="flex items-center gap-4">
-                            <input type="text" placeholder="Search by title..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 w-64 focus:ring-purple-500 focus:border-purple-500" />
-                            <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg p-1">
-                                <button onClick={() => setStatusFilter('all')} className={`px-3 py-1 text-sm rounded ${statusFilter === 'all' ? 'bg-purple-600' : 'bg-transparent text-gray-300'}`}>All</button>
-                                <button onClick={() => setStatusFilter('active')} className={`px-3 py-1 text-sm rounded ${statusFilter === 'active' ? 'bg-emerald-600' : 'bg-transparent text-gray-300'}`}>Active</button>
-                                <button onClick={() => setStatusFilter('inactive')} className={`px-3 py-1 text-sm rounded ${statusFilter === 'inactive' ? 'bg-red-600' : 'bg-transparent text-gray-300'}`}>Inactive</button>
-                            </div>
-                        </div>
-                    </div>
-                    {loading ? (<p className="text-gray-400">Loading quizzes...</p>) : filteredQuizzes.length === 0 ? (<p className="text-gray-500 text-center py-10">No quizzes found.</p>) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {filteredQuizzes.map((quiz) => (
-                                <div key={quiz.quizId} className="p-6 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl flex flex-col justify-between">
-                                    <div>
-                                        <h3 className="text-xl font-bold flex items-center gap-2 bg-gradient-to-r from-purple-300 to-pink-400 text-transparent bg-clip-text"><QuizIcon /> {quiz.title}</h3>
-                                        <p className="text-gray-300 mt-3 text-sm flex items-center gap-2"><QuestionCircleIcon /> {quiz.questions.length} Questions</p>
-                                        <p className="text-sm mt-2">Status: <span className={quiz.status === "active" ? "text-emerald-400 font-semibold" : "text-red-400 font-semibold"}>{quiz.status}</span></p>
-                                    </div>
-                                    <div className="mt-6 border-t border-white/10 pt-4 flex flex-col gap-3">
-                                        <div className="flex gap-3">
-                                            <button onClick={() => handleQuizClick(quiz.quizId)} className="flex-1 text-sm py-2 px-4 rounded-lg bg-indigo-600/80 hover:bg-indigo-500 transition flex items-center justify-center gap-2">Details</button>
-                                            <button onClick={() => handleViewResults(quiz)} className="flex-1 text-sm py-2 px-4 rounded-lg bg-sky-600/80 hover:bg-sky-500 transition flex items-center justify-center gap-2">Results</button>
-                                        </div>
-                                        <div className="flex gap-3">
-                                            <button onClick={() => handleEdit(quiz.quizId)} className="flex-1 text-sm py-2 px-4 rounded-lg bg-gray-600/80 hover:bg-gray-500 transition flex items-center justify-center gap-2"><EditIcon /> Edit</button>
-                                            <button onClick={() => handleDuplicate(quiz.quizId)} className="flex-1 text-sm py-2 px-4 rounded-lg bg-gray-600/80 hover:bg-gray-500 transition flex items-center justify-center gap-2"><DuplicateIcon /> Duplicate</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </>
-            )
-        }
-
         return (
             <>
-                <h1 className="text-4xl font-bold mb-10 bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text">Dashboard Summary</h1>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="p-6 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl">
-                        <h3 className="text-lg font-semibold text-gray-300 flex items-center gap-2"><QuizIcon /> Total Quizzes Created</h3>
-                        <p className="text-5xl font-bold mt-4 bg-gradient-to-r from-purple-400 to-indigo-400 text-transparent bg-clip-text">{loading ? '...' : quizzes.length}</p>
-                    </div>
-                    <div className="p-6 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl">
-                        <h3 className="text-lg font-semibold text-gray-300 flex items-center gap-2"><StudentIcon /> Total Quiz Attempts</h3>
-                        <p className="text-5xl font-bold mt-4 bg-gradient-to-r from-emerald-400 to-teal-400 text-transparent bg-clip-text">{stats.totalAttempts}</p>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 mt-20">
+                    <StatCard
+                        title="Total Quizzes"
+                        value={loading ? '...' : quizzes.length}
+                        subtitle={`${Array.isArray(quizzes) ? quizzes.filter(q => q?.status === 'active').length : 0} active`}
+                        icon={<CollectionIcon />}
+                        iconBgColor="bg-[#00333A]"
+                    />
+                    <StatCard
+                        title="Total Attempts"
+                        value={stats.totalAttempts}
+                        subtitle="Across all quizzes"
+                        icon={<UsersIcon />}
+                        iconBgColor="bg-[#00333A]"
+                    />
+                    <StatCard
+                        title="Average Score"
+                        value="80.2%"
+                        subtitle="Student performance"
+                        icon={<NewChartBarIcon />}
+                        iconBgColor="bg-[#00333A]"
+                    />
+                    <StatCard
+                        title="Success Rate"
+                        value="87.3%"
+                        subtitle="Passing attempts"
+                        icon={<TrendingUpIcon />}
+                        iconBgColor="bg-[#00333A]"
+                    />
                 </div>
+
+                <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                    <div className="flex border-b border-[#2A2A2A] self-start">
+                        <button className="px-4 py-3 text-sm font-medium text-[#00E1F9] border-b-2 border-[#00E1F9] whitespace-nowrap">
+                            My Quizzes
+                        </button>
+                        <button className="px-4 py-3 text-sm font-medium text-gray-400 hover:text-gray-200 whitespace-nowrap">
+                            Analytics
+                        </button>
+                    </div>
+                    <button
+                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#00E1F9] text-black hover:bg-[#00B0CC] transition shadow-lg font-medium w-full md:w-auto"
+                        onClick={() => navigate("/create-quiz")}
+                    >
+                        <PlusIcon /> Create New Quiz
+                    </button>
+                </div>
+
+                {loading ? (<div className="flex justify-center items-center h-64"><p className="text-gray-400 text-lg">Loading quizzes...</p></div>) : filteredQuizzes.length === 0 ? (<p className="text-gray-500 text-center py-10">No quizzes match your criteria. Create one or adjust filters!</p>) : (
+                    <div className="flex flex-col gap-6">
+                        {filteredQuizzes.map((quiz) => (
+                            quiz && (
+                                <div key={quiz.quizId} className="bg-[#1A1A1A] p-6 rounded-lg border border-[#2A2A2A] shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                                    <div className="flex-grow min-w-0 md:min-w-[200px] lg:min-w-[250px] mr-4">
+                                        <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mb-2">
+                                            <h3 className="text-lg lg:text-xl font-bold text-white truncate" title={quiz.title}>{quiz.title}</h3>
+                                            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${quiz.title?.includes("Advanced") ? "bg-red-800 text-red-200" : "bg-yellow-800 text-yellow-200"}`}>
+                                                {quiz.title?.includes("Advanced") ? "Hard" : "Medium"}
+                                            </span>
+                                            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${quiz.status === 'active' ? 'bg-green-800 text-green-200' : 'bg-gray-600 text-gray-200'}`}>
+                                                {quiz.status === 'active' ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-gray-400 line-clamp-2">
+                                            {quiz.title?.includes("JavaScript") ? "Test your knowledge of closures, promises, and async/await." : "Assess understanding of components, props, state, and hooks in React."}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex-shrink-0 grid grid-cols-3 sm:grid-cols-5 gap-x-4 lg:gap-x-5 gap-y-3 text-xs lg:text-sm text-gray-400 w-full md:w-auto border-t border-[#2A2A2A] md:border-t-0 md:border-l md:border-r px-0 md:px-4 lg:px-6 pt-4 md:pt-0">
+                                        <div className="flex items-center gap-1.5 min-w-[70px]" title="Questions">
+                                            <QuestionCircleIcon />
+                                            <span className="font-semibold text-[#00E1F9]">{quiz.questions?.length || 0} Qs</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 min-w-[70px]" title="Duration">
+                                            <ClockIcon />
+                                            <span className="font-semibold text-emerald-400">{quiz.questions?.length > 15 ? '60m' : '30m'}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 min-w-[70px]" title="Attempts">
+                                            <Users className="h-4 w-4 text-orange-400" />
+                                            <span className="font-semibold text-orange-400">{quiz.questions?.length > 15 ? '127' : '95'}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 min-w-[70px]" title="Average Score">
+                                            <Target className="h-4 w-4 text-purple-400" />
+                                            <span className="font-semibold text-purple-400">
+                                                {quiz.questions?.length > 15 ? '78%' : '82%'}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 min-w-[90px]" title="Created">
+                                            <CalendarIcon />
+                                            <span className="font-semibold text-purple-400">{new Date(quiz.createdAt).toLocaleDateString('en-CA')}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-shrink-0 flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto mt-4 md:mt-0 pt-4 md:pt-0 border-t border-[#2A2A2A] md:border-t-0">
+                                        <button onClick={() => handleEdit(quiz.quizId)} className="w-full sm:w-auto text-sm py-2 px-4 rounded-lg bg-[#2A2A2A] text-white hover:bg-[#3A3A3A] transition border border-[#4A4A4A] inline-flex items-center gap-1.5 justify-center">
+                                            <EditIcon /> Edit
+                                        </button>
+                                        <button onClick={() => handleDuplicate(quiz.quizId)} className="w-full sm:w-auto text-sm py-2 px-4 rounded-lg bg-[#2A2A2A] text-white hover:bg-[#3A3A3A] transition border border-[#4A4A4A] inline-flex items-center gap-1.5 justify-center">
+                                            <DuplicateIcon /> Duplicate
+                                        </button>
+                                        <button onClick={() => handleViewResults(quiz)} className="w-full sm:w-auto text-sm py-2 px-4 rounded-lg bg-[#2A2A2A] text-white hover:bg-[#3A3A3A] transition border border-[#4A4A4A] inline-flex items-center gap-1.5 justify-center">
+                                            <BarChart3 className="h-4 w-4" /> Results
+                                        </button>
+                                        <button onClick={() => handleQuizClick(quiz.quizId)} className="w-full sm:w-auto text-sm py-2 px-4 rounded-lg bg-[#00E1F9] text-black hover:bg-[#00B0CC] transition font-medium inline-flex items-center gap-1.5 justify-center">
+                                            <Save className="h-4 w-4" /> Manage
+                                        </button>
+                                    </div>
+                                </div>
+                            )
+                        ))}
+                    </div>
+                )}
             </>
         );
     };
 
     return (
-        <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-950 via-black to-gray-900 text-white">
-            {toast && <Toast message={toast.message} type={toast.type} />}
-            <header className="flex items-center justify-between px-10 py-8 bg-black/30 backdrop-blur-lg border-b border-white/10 shadow-lg">
-                {user && (
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-purple-400">
-                            {teacherInfo?.profilePicture ? (
-                                <img
-                                    src={teacherInfo?.profilePicture || "/default-avatar.png"}
-                                    alt="Profile"
-                                    className="w-full h-full object-cover"
-                                />
+        <div className="min-h-screen flex flex-col bg-black text-white">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
 
-                            ) : (
-                                <UserTieIcon />
-                            )}
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-lg text-purple-300">{user.name}</h3>
-                            <p className="text-sm text-gray-400">{user.email}</p>
-                        </div>
-                    </div>
-                )}
-                <nav className="flex flex-col items-end gap-3">
-                    <button className={`px-4 py-2 w-40 text-center rounded-lg font-medium transition ${currentView === 'summary' ? 'bg-purple-600' : 'bg-white/10 hover:bg-white/20'}`} onClick={() => { setCurrentView('summary'); resetViews(); }}>Summary</button>
-                    <button className={`px-4 py-2 w-40 text-center rounded-lg font-medium transition ${currentView === 'quizzes' ? 'bg-purple-600' : 'bg-white/10 hover:bg-white/20'}`} onClick={() => { setCurrentView('quizzes'); resetViews(); }}>My Quizzes</button>
-                    <button className="flex items-center justify-center gap-2 w-40 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 transition transform hover:scale-105 shadow-lg font-medium" onClick={() => (window.location.href = "/create-quiz")}><PlusIcon /> Create Quiz</button>
+            <header className="fixed top-0 w-full z-50 flex items-center justify-between px-6 py-4 bg-white/10 backdrop-blur-md border-b border-white/10 shadow-md h-16">
+                <div className="flex items-center gap-3">
+                    <BookOpen className="h-8 w-8 text-blue-400" />
+                    <span className="text-xl font-bold text-white">ProctorX</span>
+                    <span className="text-xl font-light text-gray-500">/</span>
+                    <span className="text-lg text-gray-300">Teacher Dashboard</span>
+                </div>
+                <nav className="flex items-center gap-4">
+                    <button onClick={() => navigate('/')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2A2A2A] hover:bg-[#3A3A3A] transition text-sm font-medium border border-[#4A4A4A]">
+                        <HomeIcon />
+                        <span>Home</span>
+                    </button>
+                    <button
+                        onClick={() => { alert("Logout clicked"); }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-800/30 border border-red-700 hover:bg-red-800/50 transition text-sm font-medium text-red-400"
+                    >
+                        <LogoutIcon />
+                        <span>Logout</span>
+                    </button>
                 </nav>
             </header>
-            <main className="flex-1 p-10 overflow-y-auto">{renderContent()}</main>
+
+            <main className="flex-1 p-4 md:p-10 pt-20 md:pt-24 overflow-y-auto">
+                {renderContent()}
+            </main>
         </div>
     );
 }

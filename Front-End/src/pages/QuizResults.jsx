@@ -17,6 +17,7 @@ import {
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { motion } from 'framer-motion';
+import API from '../../Api';
 
 const Loader = () => (
     <div className="h-16 w-16 animate-spin rounded-full border-4 border-dashed border-red-500"></div>
@@ -171,7 +172,7 @@ const QuizResultsPage = () => {
                     setLoading(false);
                     return;
                 }
-                const response = await axios.get(`http://localhost:8000/api/results/${resultId}`, {
+                const response = await API.get(`/api/results/${resultId}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setResult(response.data);

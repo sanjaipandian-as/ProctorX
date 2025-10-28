@@ -21,15 +21,16 @@ import {
   Loader2,
   Bookmark,
   Clock,
-  GraduationCap, // <-- NEW IMPORT
-  ScanEye, // <-- NEW IMPORT
-  Eraser, // <-- NEW IMPORT
-  X, // <-- NEW IMPORT
+  GraduationCap, 
+  ScanEye, 
+  Eraser, 
+  X,
+  Omega, 
 } from "lucide-react";
-import { GrStatusInfo } from "react-icons/gr"; // <-- NEW IMPORT
-import { motion, AnimatePresence } from "framer-motion"; // <-- NEW IMPORT
+import { GrStatusInfo } from "react-icons/gr"; 
+import { motion, AnimatePresence } from "framer-motion"; 
+import API from "../../Api";
 
-// START_PROCTORING_FEED_COMPONENT (Using your OLD component for live video)
 const ProctoringFeed = ({ stream, type }) => {
   const videoRef = useRef(null);
   useEffect(() => {
@@ -70,9 +71,7 @@ const ProctoringFeed = ({ stream, type }) => {
     </div>
   );
 };
-// END_PROCTORING_FEED_COMPONENT
 
-// NEW COMPONENT FROM YOUR NEW FILE
 const InstructionsModal = ({ isOpen, onClose }) => (
   <AnimatePresence>
     {isOpen && (
@@ -309,7 +308,7 @@ const QuizFlow = () => {
   const [answers, setAnswers] = useState([]);
   const [timeLeft, setTimeLeft] = useState(3600);
   const toastIdRef = useRef(null);
-  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false); // <-- NEW STATE
+  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false); 
 
   useEffect(() => {
     warningsRef.current = warnings;
@@ -373,8 +372,8 @@ const QuizFlow = () => {
       }
       try {
         setLoading(true);
-        const existingResultRes = await axios.get(
-          `http://localhost:8000/api/results/check/${quizId}`,
+        const existingResultRes = await API.get(
+          `/api/results/check/${quizId}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (existingResultRes.data.resultId) {
@@ -384,8 +383,8 @@ const QuizFlow = () => {
           return;
         }
 
-        const quizRes = await axios.get(
-          `http://localhost:8000/api/quizzes/${quizId}`,
+        const quizRes = await API.get(
+          `/api/quizzes/${quizId}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const quizData = quizRes.data;
@@ -443,8 +442,8 @@ const QuizFlow = () => {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.post(
-        "http://localhost:8000/api/results/submit",
+      const response = await API.post(
+        "/api/results/submit",
         submissionData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -484,7 +483,6 @@ const QuizFlow = () => {
 
   useEffect(() => {
     if (step === 4 && !isFullScreen) {
-      // Dismiss any existing "lives left" toast to prevent duplicates
       if (toastIdRef.current) {
         toast.dismiss(toastIdRef.current);
       }
@@ -500,7 +498,6 @@ const QuizFlow = () => {
           warningsRef.current = 0;
           handleSubmit();
         } else {
-          // Show the new toast and store its ID
           toastIdRef.current = toast.error(
             `You have exited full-screen. You have ${newWarnings} lives left.`,
             { icon: "⚠️", duration: 4000 }
@@ -625,8 +622,8 @@ const QuizFlow = () => {
     const token = localStorage.getItem("token");
     try {
       const code = securityCode.join("");
-      await axios.post(
-        `http://localhost:8000/api/quizzes/${quizId}/verify-student-otp`,
+      await API.post(
+        `/api/quizzes/${quizId}/verify-student-otp`,
         { otp: code },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -648,7 +645,7 @@ const QuizFlow = () => {
     newAnswers[currentQuestionIndex] = {
       ...newAnswers[currentQuestionIndex],
       answer: optionIndex,
-      status: optionIndex === null ? "unanswered" : "answered", // Update status on clear
+      status: optionIndex === null ? "unanswered" : "answered",
     };
     setAnswers(newAnswers);
   };
@@ -781,7 +778,6 @@ const QuizFlow = () => {
             <div className="flex-1">
               {step === 1 && (
                 <div className="space-y-10 text-gray-700">
-                  {/* Section 1: Instructions */}
                   <div>
                     <h2 className="text-3xl font-bold text-black-900">Instructions</h2>
                     <p className="mt-4 text-base text-black ">
@@ -1178,7 +1174,7 @@ const QuizFlow = () => {
               </div>
 
               <button
-                onClick={handleSubmit} // <-- WIRED TO OLD FUNCTION
+                onClick={handleSubmit}
                 className="px-12 text-md font-medium text-white bg-gray-900 hover:bg-black-700 focus:outline-none focus:ring-2 focus:ring-black-500 focus:ring-opacity-50"
               >
                 Finish Assessment
@@ -1199,10 +1195,8 @@ const QuizFlow = () => {
                   </span>
                 </div>
                 <div className="flex items-center space-x-2 mt-2 w-full">
-                  {/* --- WIRED TO OLD PROCTORING --- */}
                   <ProctoringFeed stream={cameraStream} type="camera" />
                   <ProctoringFeed stream={screenStream} type="screen" />
-                  {/* --------------------------------- */}
                 </div>
               </div>
 
@@ -1210,7 +1204,7 @@ const QuizFlow = () => {
 
               <div className="flex-1 overflow-y-auto mt-4">
                 <h2
-                  onClick={() => setIsInstructionsOpen(true)} // <-- WIRED TO NEW STATE
+                  onClick={() => setIsInstructionsOpen(true)}
                   className="font-semibold mb-3 text-center cursor-pointer text-gray-900 flex items-center justify-center gap-1"
                 >
                   <GrStatusInfo size={22} className="text-black font-bold" />
@@ -1219,7 +1213,6 @@ const QuizFlow = () => {
                 <hr className="w-3/4 mx-auto border-t-2 border-gray-300 my-4" />
 
                 <div className="grid grid-cols-3 gap-3 pl-5">
-                  {/* --- WIRED TO OLD QUESTION PALETTE LOGIC --- */}
                   {quiz.questions.map((_, index) => (
                     <button
                       key={index}
@@ -1227,14 +1220,13 @@ const QuizFlow = () => {
                       className={`h-14 w-14 rounded-md font-bold flex items-center justify-center ${getStatusColor(
                         answers[index]?.status
                       )} ${currentQuestionIndex === index
-                        ? "ring-2 ring-red-500" // Kept your active ring
+                        ? "ring-2 ring-red-500" 
                         : ""
                         }`}
                     >
                       {index + 1}
                     </button>
                   ))}
-                  {/* ------------------------------------------ */}
                 </div>
               </div>
             </aside>
@@ -1243,7 +1235,7 @@ const QuizFlow = () => {
               <main className="flex-1 flex flex-col pl-34 pt-16 overflow-y-auto">
                 <div className="flex justify-between items-center">
                   <button
-                    onClick={handleMarkForReview} // <-- WIRED TO OLD FUNCTION
+                    onClick={handleMarkForReview} 
                     className="flex items-center space-x-2 py-5 cursor-pointer text-gray-800 rounded font-medium"
                   >
                     <Bookmark size={16} />
@@ -1270,7 +1262,6 @@ const QuizFlow = () => {
                   <hr className="w-6/7" />
 
                   <div className="space-y-6 pt-5">
-                    {/* --- WIRED TO OLD ANSWER STATE --- */}
                     {currentQuestion.options.map((option, index) => (
                       <label
                         key={index}
@@ -1281,7 +1272,7 @@ const QuizFlow = () => {
                       >
                         <input
                           type="radio"
-                          name={`q-${currentQuestionIndex}`} // Added name for accessibility
+                          name={`q-${currentQuestionIndex}`}
                           checked={
                             answers[currentQuestionIndex]?.answer === index
                           }
@@ -1291,9 +1282,9 @@ const QuizFlow = () => {
                         <span className="text-black-500">{option}</span>
                       </label>
                     ))}
-                    {/* --------------------------------- */}
+                    
                     <button
-                      onClick={() => handleAnswerChange(null)} // <-- WIRED TO OLD FUNCTION
+                      onClick={() => handleAnswerChange(null)} 
                       className="flex items-center px-4 py-2 text-red-700 rounded font-medium space-x-2 w-max mt-2"
                     >
                       <Eraser size={18} />
@@ -1307,7 +1298,7 @@ const QuizFlow = () => {
                 <button
                   onClick={() =>
                     handleQuestionNavigation(currentQuestionIndex - 1)
-                  } // <-- WIRED
+                  } 
                   disabled={currentQuestionIndex === 0}
                   className="px-5 py-2 flex items-center space-x-2 cursor-pointer rounded font-medium disabled:opacity-50"
                 >
@@ -1318,7 +1309,7 @@ const QuizFlow = () => {
                 <button
                   onClick={() =>
                     handleQuestionNavigation(currentQuestionIndex + 1)
-                  } // <-- WIRED
+                  } 
                   disabled={
                     currentQuestionIndex === quiz.questions.length - 1
                   }
@@ -1332,9 +1323,7 @@ const QuizFlow = () => {
           </div>
         </div>
       );
-      // ###############################################################
-      // #                    END: NEW STEP 4 UI MERGE                 #
-      // ###############################################################
+      
     }
   };
 

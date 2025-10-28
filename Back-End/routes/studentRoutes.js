@@ -7,7 +7,6 @@ const { getUpload } = require('../middleware/uploadMiddleware');
 const { isAuthenticatedUser } = require('../controllers/authController');
 const studentUpload = getUpload('students');
 
-// ------------------------- SIGNUP -------------------------
 Students.post('/signup', studentUpload.single('profilePicture'), async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -47,7 +46,6 @@ Students.post('/signup', studentUpload.single('profilePicture'), async (req, res
   }
 });
 
-// ------------------------- LOGIN -------------------------
 Students.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -80,7 +78,6 @@ Students.post('/login', async (req, res) => {
   }
 });
 
-// ------------------------- DASHBOARD -------------------------
 Students.get('/dashboard', isAuthenticatedUser, async (req, res) => {
   try {
     const student = req.user;
@@ -88,7 +85,7 @@ Students.get('/dashboard', isAuthenticatedUser, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const Result = require('../models/Result'); // Ensure this model exists
+    const Result = require('../models/Result');
     const quizzes = await Result.find({ studentId: student._id })
       .populate('quizId', 'title totalQuestions')
       .sort({ completedAt: -1 });
@@ -116,7 +113,6 @@ Students.get('/dashboard', isAuthenticatedUser, async (req, res) => {
   }
 });
 
-// ------------------------- GET CURRENT STUDENT -------------------------
 Students.get("/me", isAuthenticatedUser, async (req, res) => {
   try {
     const student = await Student.findById(req.user._id);
@@ -130,7 +126,6 @@ Students.get("/me", isAuthenticatedUser, async (req, res) => {
   }
 });
 
-// ------------------------- GET ALL STUDENTS -------------------------
 Students.get('/', async (req, res) => {
   try {
     const students = await Student.find();
@@ -141,7 +136,6 @@ Students.get('/', async (req, res) => {
   }
 });
 
-// ------------------------- GET STUDENT BY ID -------------------------
 Students.get('/:id', async (req, res) => {
   try {
     const student = await Student.findById(req.params.id);
@@ -153,7 +147,6 @@ Students.get('/:id', async (req, res) => {
   }
 });
 
-// ------------------------- UPDATE STUDENT -------------------------
 Students.put('/:id', isAuthenticatedUser, studentUpload.single('profilePicture'), async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -174,7 +167,6 @@ Students.put('/:id', isAuthenticatedUser, studentUpload.single('profilePicture')
   }
 });
 
-// ------------------------- DELETE STUDENT -------------------------
 Students.delete('/:id', isAuthenticatedUser, async (req, res) => {
   try {
     const student = await Student.findById(req.params.id);

@@ -19,8 +19,6 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
     if (!quiz) {
       return res.status(404).json({ message: "Quiz not found" });
     }
-
-    // ✅ Check if the student already submitted this quiz
     const existingResult = await Result.findOne({
       quiz: quiz._id,
       user: userId,
@@ -88,8 +86,6 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
   }
 });
 
-
-// ✅ Fetch all results for the logged-in student
 router.get("/my-results", isAuthenticatedUser, async (req, res) => {
   try {
     const userId = req.user._id;
@@ -176,6 +172,41 @@ router.delete("/:id", isAuthenticatedUser, async (req, res) => {
     if (!result) return res.status(404).json({ message: "Result not found" });
     res.status(200).json({ message: "Result deleted successfully" });
   } catch (error) {
+    res.status(500).json({ message: "Error deleting result", error: error.message });
+  }
+});
+
+router.delete("/results/:resultId", isAuthenticatedUser, async (req, res) => {
+  try {
+    const { resultId } = req.params;
+    const userId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(resultId)) {
+      return res.status(400).json({ message: "Invalid result ID" });
+    }
+
+    const result = await Result.findById(resultId);
+    if (!result) {
+      return res.status(404).json({ message: "Result not found" });
+    }
+
+    const quiz = await Quiz.findById(result.quiz);
+    if (!quiz) {
+      return res.status(404).json({ message: "Associated quiz not found" });
+    }
+
+    if (quiz.creator.toString() !== userId.toString()) {
+      return res.status(403).json({ 
+        message: "Forbidden: You are not the owner of this quiz and cannot delete this result." 
+      });
+    }
+
+    await Result.findByIdAndDelete(resultId);
+
+    res.status(200).json({ message: "Student result deleted successfully" });
+
+  } catch (error) {
+    console.error("Error in deleting result:", error);
     res.status(500).json({ message: "Error deleting result", error: error.message });
   }
 });

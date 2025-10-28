@@ -5,6 +5,7 @@ import ProctorX from "../assets/ProctorX.png";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import toast, { Toaster } from "react-hot-toast";
+import API from "../../Api";
 
 export default function StudentLogin() {
   const [email, setEmail] = useState("");
@@ -12,12 +13,12 @@ export default function StudentLogin() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useContext(AuthContext);
-
+  
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post("http://localhost:8000/students/login", { email, password });
+      const res = await API.post("/students/login", { email, password });
       login(res.data.token);
       toast.custom(
         (t) => (

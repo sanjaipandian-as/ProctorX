@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Input } from "../ui/Input";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
+import API from "../../Api";
 
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -26,7 +27,7 @@ export function Topbar() {
   const navigate = useNavigate();
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
-  const { user, logout } = useAuth(); // ✅ directly from AuthContext
+  const { user, logout } = useAuth();
 
   const runSearch = async (query) => {
     if (!query) {
@@ -44,10 +45,10 @@ export function Topbar() {
     try {
       let foundQuizzes = [];
       if (query.toUpperCase().startsWith("QZ")) {
-        const res = await axios.get(`http://localhost:8000/api/quizzes/public/${query}`);
+        const res = await API.get(`/api/quizzes/public/${query}`);
         if (res.data && res.data.quizId) foundQuizzes = [res.data];
       } else {
-        const res = await axios.get("http://localhost:8000/api/quizzes/public");
+        const res = await API.get("/api/quizzes/public");
         const data = Array.isArray(res.data) ? res.data : [];
         foundQuizzes = data.filter((quiz) =>
           quiz.title?.toLowerCase().includes(query.toLowerCase())
@@ -88,15 +89,12 @@ export function Topbar() {
       <nav className="fixed top-0 w-full z-50 bg-white/10 backdrop-blur-md border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
             <div className="flex items-center space-x-2">
               <GraduationCap className="h-8 w-8 text-cyan-400" />
               <span className="bg-gradient-to-r text-2xl font-bold from-[#00d9ff] to-[#8b5cf6] bg-clip-text text-transparent">
                 ProctorX
               </span>
             </div>
-
-            {/* Search */}
             <div className="relative flex-1 max-w-2xl mx-auto">
               <form onSubmit={handleSubmit} className="relative">
                 <div className="relative">
@@ -110,8 +108,6 @@ export function Topbar() {
                   />
                 </div>
               </form>
-
-              {/* Search Results Dropdown */}
               {isDropdownVisible && (
                 <div className="absolute mt-2 w-full bg-white/20 backdrop-blur-lg rounded-xl shadow-lg z-50 max-h-72 overflow-y-auto">
                   {loading ? (
@@ -138,8 +134,6 @@ export function Topbar() {
                 </div>
               )}
             </div>
-
-            {/* Auth Buttons */}
             <div className="flex items-center space-x-4">
               {!user ? (
                 <>
