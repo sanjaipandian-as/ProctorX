@@ -14,37 +14,27 @@ function StaffLogin() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await fetch("http://localhost:8000/teachers/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+  e.preventDefault();
+  try {
+    const res = await API.post("/teachers/login", formData);
+    const result = res.data;
+    console.log("Login Response:", result);
 
-      const result = await res.json();
-      console.log("Login Response:", result);
-
-      if (result.token) {
-        // ✅ Clear old data before saving new login data
-        localStorage.clear();
-        sessionStorage.clear();
-
-        // ✅ Save the new token and login
-        login(result.token);
-        localStorage.setItem("token", result.token);
-
-        alert("Login Successful!");
-        navigate("/staff-dashboard");
-      } else {
-        alert(result.message || "Login failed");
-      }
-    } catch (error) {
-      alert("Error logging in staff");
-      console.error(error);
+    if (result.token) {
+      localStorage.clear();
+      sessionStorage.clear();
+      login(result.token);
+      localStorage.setItem("token", result.token);
+      alert("Login Successful!");
+      navigate("/staff-dashboard");
+    } else {
+      alert(result.message || "Login failed");
     }
-  };
-
+  } catch (error) {
+    alert("Error logging in staff");
+    console.error(error);
+  }
+};
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-900 via-black to-gray-900 px-6">
       <div className="w-full max-w-lg bg-gray-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-gray-800 p-10">

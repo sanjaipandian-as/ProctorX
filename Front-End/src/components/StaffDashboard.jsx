@@ -335,33 +335,30 @@ export default function TeacherDashboard() {
     };
 
 
-    const handleResetAttempt = async (quizId, studentId) => {
-        if (!window.confirm(`Are you sure you want to reset the attempt for this student?`)) {
-            return;
-        }
+    const handleResetAttempt = async (resultId) => {
+        if (!window.confirm("Are you sure you want to reset the attempt for this student?")) return;
+
         try {
             const token = localStorage.getItem("token");
-            if (!quizId || !studentId) {
-                showToast("Invalid quiz or student ID", "error");
+            if (!resultId) {
+                showToast("Invalid result ID", "error");
                 return;
             }
-            const response = await API.delete(
-                `/api/results/results/${resultId}`,
-                {
-                    headers: { Authorization: `Bearer ${token}` },
-                }
-            );
+
+            const response = await API.delete(`/api/results/results/${resultId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
 
             showToast(response.data.message || "Attempt reset successfully!");
 
-            if (viewingResultsOf) {
-                handleViewResults(viewingResultsOf);
-            }
+            if (viewingResultsOf) handleViewResults(viewingResultsOf);
         } catch (error) {
             console.error("Error resetting attempt:", error);
             showToast(error.response?.data?.message || "Error resetting attempt", "error");
         }
     };
+
+
 
 
     const formatTime = (ms) => {
@@ -619,10 +616,10 @@ export default function TeacherDashboard() {
                                                             View Details
                                                         </button>
                                                         <button
-                                                            onClick={() => handleResetAttempt(viewingResultsOf.quizId, result.user?._id)}
+                                                            onClick={() => handleResetAttempt(result._id)}
                                                             className="px-3 py-1 text-xs bg-amber-600 hover:bg-amber-500 rounded-lg transition inline-flex items-center gap-1.5 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                                                             title="Reset Attempt"
-                                                            disabled={!result.user?._id}
+                                                            disabled={!result._id}
                                                         >
                                                             <ResetIcon /> Reset
                                                         </button>

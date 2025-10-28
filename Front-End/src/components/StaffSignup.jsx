@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { FaArrowLeft } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import API from "../../Api";
 
 function StaffSignup() {
   const navigate = useNavigate();
@@ -24,30 +25,28 @@ function StaffSignup() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    const data = new FormData();
-    data.append("name", formData.name);
-    data.append("email", formData.email);
-    data.append("password", formData.password);
-    if (formData.profilePicture) data.append("profilePicture", formData.profilePicture);
+  e.preventDefault();
+  const data = new FormData();
+  data.append("name", formData.name);
+  data.append("email", formData.email);
+  data.append("password", formData.password);
+  if (formData.profilePicture) data.append("profilePicture", formData.profilePicture);
 
-    try {
-      const res = await fetch("http://localhost:8000/teachers/signup", {
-        method: "POST",
-        body: data,
-      });
-      const result = await res.json();
+  try {
+    const res = await API.post("/teachers/signup", data);
+    const result = res.data;
 
-      if (res.ok) {
-        alert(result.message || "Signup Successful!");
-        navigate("/staff-login");
-      } else {
-        alert(result.message || "Signup failed. Please try again");
-      }
-    } catch (error) {
-      alert("Error signing up staff");
+    if (res.status === 200) {
+      alert(result.message || "Signup Successful!");
+      navigate("/staff-login");
+    } else {
+      alert(result.message || "Signup failed. Please try again");
     }
-  };
+  } catch (error) {
+    alert("Error signing up staff");
+    console.error(error);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-900 via-black to-gray-900 px-6">

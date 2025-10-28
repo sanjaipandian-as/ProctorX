@@ -1,10 +1,8 @@
 import { useState, useContext } from "react";
 import { FaEnvelope, FaLock, FaArrowLeft } from "react-icons/fa";
-import axios from "axios";
 import ProctorX from "../assets/ProctorX.png";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
-import toast, { Toaster } from "react-hot-toast";
 import API from "../../Api";
 
 export default function StudentLogin() {
@@ -13,59 +11,17 @@ export default function StudentLogin() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useContext(AuthContext);
-  
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       const res = await API.post("/students/login", { email, password });
       login(res.data.token);
-      toast.custom(
-        (t) => (
-          <div
-            className={`fixed bottom-0 left-0 w-full bg-gray-900/95 backdrop-blur-lg border-t border-cyan-400/20 p-6 rounded-t-2xl shadow-lg text-center transform transition-all duration-500 ease-in-out ${
-              t.visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
-            }`}
-          >
-            <p className="text-white text-lg mb-5 font-medium">Login Successful 🎉</p>
-            <div className="flex justify-center">
-              <button
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-lg"
-                onClick={() => {
-                  toast.dismiss(t.id);
-                  navigate("/");
-                }}
-              >
-                Go to Dashboard
-              </button>
-            </div>
-          </div>
-        ),
-        { position: "bottom-center", duration: 4000 }
-      );
+      alert("Login Successful!");
+      navigate("/");
     } catch (err) {
-      toast.custom(
-        (t) => (
-          <div
-            className={`fixed bottom-0 left-0 w-full bg-black-900/95 backdrop-blur-lg border-t  p-6 rounded-t-2xl shadow-lg text-center transform transition-all duration-500 ease-in-out ${
-              t.visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
-            }`}
-          >
-            <p className="text-red-400 text-lg mb-5 font-medium">
-              {err.response?.data?.message || "Invalid email or password"}
-            </p>
-            <div className="flex justify-center">
-              <button
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-lg"
-                onClick={() => toast.dismiss(t.id)}
-              >
-                Try Again
-              </button>
-            </div>
-          </div>
-        ),
-        { position: "bottom-center", duration: 4000 }
-      );
+      alert(err.response?.data?.message || "Invalid email or password");
     } finally {
       setLoading(false);
     }
@@ -73,7 +29,6 @@ export default function StudentLogin() {
 
   return (
     <div className="h-screen w-screen flex items-center justify-center bg-[#0e0e0e] p-4">
-      <Toaster />
       <div className="w-full max-w-md bg-gradient-to-br from-[#1a1a1a] to-[#262626] rounded-2xl shadow-2xl p-8 border border-cyan-400/20 relative">
         <div className="text-center mb-6">
           <img src={ProctorX} alt="ProctorX Logo" className="w-24 h-24 mx-auto mb-4 drop-shadow-lg" />

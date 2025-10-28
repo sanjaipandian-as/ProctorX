@@ -195,12 +195,11 @@ router.delete("/results/:resultId", isAuthenticatedUser, async (req, res) => {
       return res.status(404).json({ message: "Associated quiz not found" });
     }
 
-    if (quiz.creator.toString() !== userId.toString()) {
-      return res.status(403).json({ 
-        message: "Forbidden: You are not the owner of this quiz and cannot delete this result." 
+    if (!quiz.createdBy || quiz.createdBy.toString() !== userId.toString()) {
+      return res.status(403).json({
+        message: "Forbidden: You are not the owner of this quiz and cannot delete this result."
       });
     }
-
     await Result.findByIdAndDelete(resultId);
 
     res.status(200).json({ message: "Student result deleted successfully" });
