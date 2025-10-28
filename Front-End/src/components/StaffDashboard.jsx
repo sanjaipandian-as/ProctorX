@@ -7,6 +7,7 @@ import { Plus, Users, BookOpen, BarChart3, LogOut, Clock, Target, TrendingUp, Ho
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import API from "../../Api";
+import LOGO from "../assets/LOGO.png";
 
 
 const PlusIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>);
@@ -172,6 +173,7 @@ export default function TeacherDashboard() {
     const [selectedResultDetail, setSelectedResultDetail] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [menuOpen, setMenuOpen] = useState(false);
 
     useEffect(() => {
         fetchQuizzes();
@@ -392,94 +394,114 @@ export default function TeacherDashboard() {
         if (selectedQuiz) {
             return (
                 <div className="mt-20">
-                    <div className="flex justify-between items-center mb-6 px-1">
-                        <button onClick={() => setSelectedQuiz(null)} className="flex items-center gap-2 text-sm text-[#00E1F9] hover:text-[#00B0CC] transition">
-                            <ArrowLeft className="h-4 w-4" /> Back to Quizzes
-                        </button>
-                        <h2 className="text-2xl md:text-3xl font-bold text-white text-center flex items-center gap-3">
-                            <BookOpen className="h-7 w-7 text-blue-400" />
-                            {selectedQuiz.title}
-                        </h2>
-                        <div className="flex items-center gap-2 md:gap-4">
-                            <button onClick={() => handleDeleteQuiz(selectedQuiz.quizId)} className="flex items-center gap-1 md:gap-2 bg-red-600 px-3 py-2 md:px-5 md:py-2 rounded-lg text-white hover:bg-red-500 transition shadow-md text-xs md:text-sm">
-                                <TrashIcon /> <span className="hidden md:inline">Delete</span>
-                            </button>
-                        </div>
-                    </div>
-                    <div className="bg-[#1A1A1A] border border-[#2A2A2A] p-6 rounded-lg mb-6 shadow-md">
-                        <h3 className="text-xl font-semibold text-white mb-5">Quiz Details</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div className="bg-[#0A0A0A] border border-[#2A2A2A] p-4 rounded-lg">
-                                <p className="text-sm text-gray-400 mb-1">Quiz Code</p>
-                                <div className="flex items-center">
-                                    <span className="font-mono text-lg font-semibold text-gray-200">{selectedQuiz.quizId}</span>
-                                    <CopyIcon onClick={() => handleCopyId(selectedQuiz.quizId)} />
-                                </div>
-                            </div>
-                            <div className="bg-[#0A0A0A] border border-[#2A2A2A] p-4 rounded-lg">
-                                <p className="text-sm text-gray-400 mb-1">Status</p>
-                                <p className={`text-lg font-semibold ${selectedQuiz.status === "active" ? "text-green-400" : "text-red-400"}`}>
-                                    {selectedQuiz.status.charAt(0).toUpperCase() + selectedQuiz.status.slice(1)}
-                                </p>
-                            </div>
-                            <div className="bg-[#0A0A0A] border border-[#2A2A2A] p-4 rounded-lg">
-                                <p className="text-sm text-gray-400 mb-1">Created On</p>
-                                <p className="text-lg font-semibold text-gray-200">{new Date(selectedQuiz.createdAt).toLocaleDateString()}</p>
-                            </div>
-                            <div className="bg-[#0A0A0A] border border-[#2A2A2A] p-4 rounded-lg">
-                                <p className="text-sm text-gray-400 mb-1">Security Code (OTP)</p>
-                                {selectedQuiz.otp ? (
-                                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                                        <div>
-                                            <span className="font-mono text-lg font-semibold text-amber-400">{selectedQuiz.otp}</span>
-                                            <span className="text-sm text-gray-500 ml-2">({formatTime(otpTimers[selectedQuiz.quizId])})</span>
-                                        </div>
-                                        <button
-                                            className="px-3 py-1 bg-[#00E1F9] rounded text-black text-xs hover:bg-[#00B0CC] transition flex-shrink-0"
-                                            onClick={() => handleGenerateOtp(selectedQuiz.quizId)}>
-                                            New Code
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <button
-                                        className="px-3 py-1 bg-[#00E1F9] rounded text-black text-sm hover:bg-[#00B0CC] transition"
-                                        onClick={() => handleGenerateOtp(selectedQuiz.quizId)}>
-                                        Generate Code
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-[#1A1A1A] border border-[#2A2A2A] p-6 rounded-lg shadow-md">
-                        <h3 className="text-xl font-semibold text-white mb-5">Questions ({selectedQuiz.questions?.length || 0})</h3>
-                        <ul className="space-y-5">
-                            {selectedQuiz.questions && selectedQuiz.questions.length > 0 ? (
-                                selectedQuiz.questions.map((q, i) => (
-                                    <li key={i} className="p-4 rounded-xl bg-[#0A0A0A] border border-[#2A2A2A] shadow-sm">
-                                        <p className="font-medium text-white mb-3">
-                                            <span className="text-gray-400 mr-2">Q{i + 1}.</span>{q.questionText}
-                                        </p>
-                                        <ul className="list-disc list-inside text-gray-300 ml-4 space-y-2">
-                                            {q.options?.map((opt, idx) => (
-                                                <li
-                                                    key={idx}
-                                                    className={q.correctAnswer == idx
-                                                        ? "text-emerald-400 font-semibold"
-                                                        : "text-gray-400"}
-                                                >
-                                                    {opt}
-                                                    {q.correctAnswer == idx && <span className="text-xs font-bold text-black bg-emerald-400 px-2 py-0.5 rounded-full ml-2">Correct</span>}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </li>
-                                ))
-                            ) : (
-                                <p className="text-gray-500 text-center">No questions found for this quiz.</p>
-                            )}
-                        </ul>
-                    </div>
+    
+    <div className="flex flex-col gap-4 md:hidden mb-6 px-2">
+        <div className="flex justify-between items-center">
+            <button onClick={() => setSelectedQuiz(null)} className="flex items-center gap-2 text-sm text-[#00E1F9] hover:text-[#00B0CC] transition">
+                <ArrowLeft className="h-4 w-4" /> Back to Quizzes
+            </button>
+            <button onClick={() => handleDeleteQuiz(selectedQuiz.quizId)} className="flex items-center gap-1 bg-red-600 p-2 rounded-lg text-white hover:bg-red-500 transition shadow-md">
+                <TrashIcon className="h-5 w-5" />
+            </button>
+        </div>
+        <h2 className="text-2xl font-bold text-white text-center flex items-center gap-3 justify-center">
+            <BookOpen className="h-7 w-7 text-blue-400" />
+            {selectedQuiz.title}
+        </h2>
+    </div>
+    
+    <div className="hidden md:flex justify-between items-center mb-6 px-1">
+        <button onClick={() => setSelectedQuiz(null)} className="flex items-center gap-2 text-sm text-[#00E1F9] hover:text-[#00B0CC] transition">
+            <ArrowLeft className="h-4 w-4" /> Back to Quizzes
+        </button>
+        <h2 className="text-2xl md:text-3xl font-bold text-white text-center flex items-center gap-3">
+            <BookOpen className="h-7 w-7 text-blue-400" />
+            {selectedQuiz.title}
+        </h2>
+        <div className="flex items-center gap-2 md:gap-4">
+            <button onClick={() => handleDeleteQuiz(selectedQuiz.quizId)} className="flex items-center gap-1 md:gap-2 bg-red-600 px-3 py-2 md:px-5 md:py-2 rounded-lg text-white hover:bg-red-500 transition shadow-md text-xs md:text-sm">
+                <TrashIcon /> <span className="hidden md:inline">Delete</span>
+            </button>
+        </div>
+    </div>
+    
+    <div className="bg-[#1A1A1A] border border-[#2A2A2A] p-6 rounded-lg mb-6 shadow-md">
+        <h3 className="text-xl font-semibold text-white mb-5">Quiz Details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="bg-[#0A0A0A] border border-[#2A2A2A] p-4 rounded-lg">
+                <p className="text-sm text-gray-400 mb-1">Quiz Code</p>
+                <div className="flex items-center">
+                    <span className="font-mono text-lg font-semibold text-gray-200">{selectedQuiz.quizId}</span>
+                    <CopyIcon onClick={() => handleCopyId(selectedQuiz.quizId)} />
                 </div>
+            </div>
+            <div className="bg-[#0A0A0A] border border-[#2A2A2A] p-4 rounded-lg">
+                <p className="text-sm text-gray-400 mb-1">Status</p>
+                <p className={`text-lg font-semibold ${selectedQuiz.status === "active" ? "text-green-400" : "text-red-400"}`}>
+                    {selectedQuiz.status.charAt(0).toUpperCase() + selectedQuiz.status.slice(1)}
+                </p>
+            </div>
+            <div className="bg-[#0A0A0A] border border-[#2A2A2A] p-4 rounded-lg">
+                <p className="text-sm text-gray-400 mb-1">Created On</p>
+                <p className="text-lg font-semibold text-gray-200">{new Date(selectedQuiz.createdAt).toLocaleDateString()}</p>
+            </div>
+            <div className="bg-[#0A0A0A] border border-[#2A2A2A] p-4 rounded-lg">
+                <p className="text-sm text-gray-400 mb-1">Security Code (OTP)</p>
+                {selectedQuiz.otp ? (
+                    <div className="flex flex-col items-start gap-3 md:flex-row md:items-center md:justify-between md:gap-2">
+                        <div>
+                            <span className="font-mono text-lg font-semibold text-amber-400">{selectedQuiz.otp}</span>
+                            <span className="text-sm text-gray-500 ml-2">({formatTime(otpTimers[selectedQuiz.quizId])})</span>
+                        </div>
+                        <button
+                            className="px-3 py-1 bg-[#00E1F9] rounded text-black text-xs hover:bg-[#00B0CC] transition flex-shrink-0"
+                            onClick={() => handleGenerateOtp(selectedQuiz.quizId)}>
+                            New Code
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        className="px-3 py-1 bg-[#00E1F9] rounded text-black text-sm hover:bg-[#00B0CC] transition"
+                        onClick={() => handleGenerateOtp(selectedQuiz.quizId)}>
+                        Generate Code
+                    </button>
+                )}
+            </div>
+        </div>
+    </div>
+    
+    <div className="bg-[#1A1A1A] border border-[#2A2A2A] p-6 rounded-lg shadow-md">
+        <h3 className="text-xl font-semibold text-white mb-5">Questions ({selectedQuiz.questions?.length || 0})</h3>
+        <ul className="space-y-5">
+            {selectedQuiz.questions && selectedQuiz.questions.length > 0 ? (
+                selectedQuiz.questions.map((q, i) => (
+                    <li key={i} className="p-4 rounded-xl bg-[#0A0A0A] border border-[#2A2A2A] shadow-sm">
+                        <p className="font-medium text-white mb-3">
+                            <span className="text-gray-400 mr-2">Q{i + 1}.</span>{q.questionText}
+                        </p>
+                        <ul className="list-disc list-inside text-gray-300 ml-4 space-y-2">
+                            {q.options?.map((opt, idx) => (
+                                <li
+                                    key={idx}
+                                    className={`${
+                                        q.correctAnswer == idx
+                                            ? "text-emerald-400 font-semibold"
+                                            : "text-gray-400"
+                                    } flex justify-between items-center`}
+                                >
+                                    <span>{opt}</span>
+                                    {q.correctAnswer == idx && <span className="text-xs font-bold text-black bg-emerald-400 px-2 py-0.5 rounded-full flex-shrink-0">Correct</span>}
+                                </li>
+                            ))}
+                        </ul>
+                    </li>
+                ))
+            ) : (
+                <p className="text-gray-500 text-center">No questions found for this quiz.</p>
+            )}
+        </ul>
+    </div>
+</div>
             );
         }
 
@@ -570,69 +592,146 @@ export default function TeacherDashboard() {
             const lowestScore = totalSubmissions > 0 ? Math.min(...resultsData.map(r => r.score ?? 0)) : 0;
 
             return (
-                <div className="mt-20">
-                    <div className="flex justify-between items-center mb-6">
-                        <button onClick={() => setViewingResultsOf(null)} className="flex items-center gap-2 text-sm text-[#00E1F9] hover:text-[#00B0CC] transition">
-                            <ArrowLeft className="h-4 w-4" /> Back to Quizzes
-                        </button>
-                        <h1 className="text-2xl md:text-3xl font-bold text-white text-center">Results for "{quizTitle}"</h1>
-                        <div className="w-16"></div>
-                    </div>
-                    {resultsLoading ? (<div className="flex justify-center items-center h-64"><p className="text-gray-400 text-lg">Loading results...</p></div>) : (
-                        <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 text-center">
-                                <div className="p-4 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A]"><p className="text-gray-300 text-sm">Submissions</p><p className="text-2xl font-bold text-white">{totalSubmissions}</p></div>
-                                <div className="p-4 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A]"><p className="text-gray-300 text-sm">Average Score</p><p className="text-2xl font-bold text-emerald-400">{averageScore}</p></div>
-                                <div className="p-4 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A]"><p className="text-gray-300 text-sm">Highest Score</p><p className="text-2xl font-bold text-amber-400">{highestScore}</p></div>
-                                <div className="p-4 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A]"><p className="text-gray-300 text-sm">Lowest Score</p><p className="text-2xl font-bold text-red-400">{lowestScore}</p></div>
-                            </div>
-                            <div className="bg-[#1A1A1A] border border-[#2A2A2A] p-6 rounded-2xl overflow-x-auto scrollbar-thin scrollbar-thumb-[#3A3A3A] scrollbar-track-[#1A1A1A]">
-                                <h2 className="text-xl font-semibold mb-4 text-white">Student Submissions</h2>
-                                {totalSubmissions === 0 ? <p className="text-gray-400 text-center py-5">No students have submitted this quiz yet.</p> : (
-                                    <table className="w-full text-left min-w-[700px]">
-                                        <thead>
-                                            <tr className="border-b border-[#2A2A2A]">
-                                                <th className="p-3 text-gray-300 font-semibold text-sm">Student Name</th>
-                                                <th className="p-3 text-gray-300 font-semibold text-sm">Email</th>
-                                                <th className="p-3 text-gray-300 font-semibold text-sm">Score</th>
-                                                <th className="p-3 text-gray-300 font-semibold text-sm">Accuracy</th>
-                                                <th className="p-3 text-gray-300 font-semibold text-sm text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {resultsData.map(result => (
-                                                <tr key={result._id} className="border-b border-[#2A2A2A]/50 hover:bg-[#2A2A2A] text-gray-200 text-sm">
-                                                    <td className="p-3">{result.user?.name || 'N/A'}</td>
-                                                    <td className="p-3">{result.user?.email || 'N/A'}</td>
-                                                    <td className="p-3 font-semibold text-emerald-400">{result.score ?? 'N/A'} / {result.totalQuestions ?? 'N/A'}</td>
-                                                    <td className="p-3">{(result.accuracy ?? 0).toFixed(2)}%</td>
-                                                    <td className="p-3 text-right space-x-2 whitespace-nowrap">
-                                                        <button
-                                                            onClick={() => setSelectedResultDetail(result)}
-                                                            className="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 rounded-lg transition text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                                                            disabled={!result.responses || result.responses.length === 0}
-                                                            title={(!result.responses || result.responses.length === 0) ? "No details available" : "View Details"}
-                                                        >
-                                                            View Details
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleResetAttempt(result._id)}
-                                                            className="px-3 py-1 text-xs bg-amber-600 hover:bg-amber-500 rounded-lg transition inline-flex items-center gap-1.5 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                                                            title="Reset Attempt"
-                                                            disabled={!result._id}
-                                                        >
-                                                            <ResetIcon /> Reset
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                )}
-                            </div>
-                        </>
-                    )}
+                <div className="mt-10">
+    
+    <div className="flex md:hidden items-center mb-6 px-2 gap-2">
+        <button 
+            onClick={() => setViewingResultsOf(null)} 
+            className="flex items-center text-sm text-[#00E1F9] hover:text-[#00B0CC] transition p-2 rounded-lg hover:bg-[#00E1F9]/10"
+        >
+            <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="text-xl font-bold text-white text-left flex-1">
+            Results for "{quizTitle}"
+        </h1>
+    </div>
+
+    <div className="hidden md:flex justify-between items-center mb-6 px-1">
+        <button 
+            onClick={() => setViewingResultsOf(null)} 
+            className="flex items-center gap-2 text-sm text-[#00E1F9] hover:text-[#00B0CC] transition"
+        >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Quizzes</span>
+        </button>
+        <h1 className="text-2xl md:text-3xl font-bold text-white text-center flex-1">
+            Results for "{quizTitle}"
+        </h1>
+        <div className="w-16"></div>
+    </div>
+    
+    {resultsLoading ? (
+        <div className="flex justify-center items-center h-64">
+            <p className="text-gray-400 text-lg">Loading results...</p>
+        </div>
+    ) : (
+        <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8 text-center px-2 md:px-0">
+                <div className="p-4 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A]">
+                    <p className="text-gray-300 text-sm">Submissions</p>
+                    <p className="text-2xl font-bold text-white">{totalSubmissions}</p>
                 </div>
+                <div className="p-4 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A]">
+                    <p className="text-gray-300 text-sm">Average Score</p>
+                    <p className="text-2xl font-bold text-emerald-400">{averageScore}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A]">
+                    <p className="text-gray-300 text-sm">Highest Score</p>
+                    <p className="text-2xl font-bold text-amber-400">{highestScore}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-[#1A1A1A] border border-[#2A2A2A]">
+                    <p className="text-gray-300 text-sm">Lowest Score</p>
+                    <p className="text-2xl font-bold text-red-400">{lowestScore}</p>
+                </div>
+            </div>
+            
+            <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl">
+                <div className="p-4 md:p-6 border-b border-[#2A2A2A]">
+                    <h2 className="text-xl font-semibold text-white">Student Submissions</h2>
+                </div>
+                
+                {totalSubmissions === 0 ? (
+                    <p className="text-gray-400 text-center py-10">No students have submitted this quiz yet.</p>
+                ) : (
+                    <div>
+                        <div className="hidden md:block overflow-x-auto scrollbar-thin scrollbar-thumb-[#3A3A3A] scrollbar-track-[#1A1A1A]">
+                            <table className="w-full text-left min-w-[700px]">
+                                <thead>
+                                    <tr className="border-b border-[#2A2A2A]">
+                                        <th className="p-3 text-gray-300 font-semibold text-sm">Student Name</th>
+                                        <th className="p-3 text-gray-300 font-semibold text-sm">Email</th>
+                                        <th className="p-3 text-gray-300 font-semibold text-sm">Score</th>
+                                        <th className="p-3 text-gray-300 font-semibold text-sm">Accuracy</th>
+                                        <th className="p-3 text-gray-300 font-semibold text-sm text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {resultsData.map(result => (
+                                        <tr key={result._id} className="border-b border-[#2A2A2A]/50 hover:bg-[#2A2A2A]/50 text-gray-200 text-sm">
+                                            <td className="p-3 whitespace-nowrap">{result.user?.name || 'N/A'}</td>
+                                            <td className="p-3 whitespace-nowrap">{result.user?.email || 'N/A'}</td>
+                                            <td className="p-3 font-semibold text-emerald-400 whitespace-nowrap">{result.score ?? 'N/A'} / {result.totalQuestions ?? 'N/A'}</td>
+                                            <td className="p-3 whitespace-nowrap">{(result.accuracy ?? 0).toFixed(2)}%</td>
+                                            <td className="p-3 text-right space-x-2 whitespace-nowrap">
+                                                <button
+                                                    onClick={() => setSelectedResultDetail(result)}
+                                                    className="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 rounded-lg transition text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    disabled={!result.responses || result.responses.length === 0}
+                                                    title={(!result.responses || result.responses.length === 0) ? "No details available" : "View Details"}
+                                                >
+                                                    View Details
+                                                </button>
+                                                <button
+                                                    onClick={() => handleResetAttempt(result._id)}
+                                                    className="px-3 py-1 text-xs bg-amber-600 hover:bg-amber-500 rounded-lg transition inline-flex items-center gap-1 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    title="Reset Attempt"
+                                                    disabled={!result._id}
+                                                >
+                                                    <ResetIcon /> Reset
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="block md:hidden p-4 space-y-4">
+                            {resultsData.map(result => (
+                                <div key={result._id} className="bg-[#0A0A0A] p-4 rounded-lg border border-[#2A2A2A]">
+                                    <p className="font-semibold text-white">{result.user?.name || 'N/A'}</p>
+                                    <p className="text-sm text-gray-400 mb-2">{result.user?.email || 'N/A'}</p>
+                                    <div className="flex flex-col sm:flex-row sm:justify-between text-sm mb-3 gap-1 sm:gap-0">
+                                        <span className="text-gray-300">Score: <span className="font-semibold text-emerald-400">{result.score ?? 'N/A'} / {result.totalQuestions ?? 'N/A'}</span></span>
+                                        <span className="text-gray-300">Accuracy: <span className="font-semibold text-white">{(result.accuracy ?? 0).toFixed(2)}%</span></span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setSelectedResultDetail(result)}
+                                            className="px-3 py-2 text-xs bg-indigo-600 hover:bg-indigo-500 rounded-lg transition text-white disabled:opacity-50 disabled:cursor-not-allowed flex-1 justify-center"
+                                            disabled={!result.responses || result.responses.length === 0}
+                                            title={(!result.responses || result.responses.length === 0) ? "No details available" : "View Details"}
+                                        >
+                                            View Details
+                                        </button>
+                                        <button
+                                            onClick={() => handleResetAttempt(result._id)}
+                                            className="px-3 py-2 text-xs bg-amber-600 hover:bg-amber-500 rounded-lg transition inline-flex items-center gap-1 text-white disabled:opacity-50 disabled:cursor-not-allowed flex-1 justify-center"
+                                            title="Reset Attempt"
+                                            disabled={!result._id}
+                                        >
+                                            <ResetIcon /> Reset
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </>
+    )}
+</div>
             );
         }
 
@@ -688,67 +787,68 @@ export default function TeacherDashboard() {
 
                 {loading ? (<div className="flex justify-center items-center h-64"><p className="text-gray-400 text-lg">Loading quizzes...</p></div>) : filteredQuizzes.length === 0 ? (<p className="text-gray-500 text-center py-10">No quizzes match your criteria. Create one or adjust filters!</p>) : (
                     <div className="flex flex-col gap-6">
-                        {filteredQuizzes.map((quiz) => (
-                            quiz && (
-                                <div key={quiz.quizId} className="bg-[#1A1A1A] p-6 rounded-lg border border-[#2A2A2A] shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                                    <div className="flex-grow min-w-0 md:min-w-[200px] lg:min-w-[250px] mr-4">
-                                        <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mb-2">
-                                            <h3 className="text-lg lg:text-xl font-bold text-white truncate" title={quiz.title}>{quiz.title}</h3>
-                                            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${quiz.title?.includes("Advanced") ? "bg-red-800 text-red-200" : "bg-yellow-800 text-yellow-200"}`}>
-                                                {quiz.title?.includes("Advanced") ? "Hard" : "Medium"}
-                                            </span>
-                                            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${quiz.status === 'active' ? 'bg-green-800 text-green-200' : 'bg-gray-600 text-gray-200'}`}>
-                                                {quiz.status === 'active' ? 'Active' : 'Inactive'}
-                                            </span>
-                                        </div>
-                                        <p className="text-sm text-gray-400 line-clamp-2">
-                                            {quiz.title?.includes("JavaScript") ? "Test your knowledge of closures, promises, and async/await." : "Assess understanding of components, props, state, and hooks in React."}
-                                        </p>
-                                    </div>
-
-                                    <div className="flex-shrink-0 grid grid-cols-3 sm:grid-cols-5 gap-x-4 lg:gap-x-5 gap-y-3 text-xs lg:text-sm text-gray-400 w-full md:w-auto border-t border-[#2A2A2A] md:border-t-0 md:border-l md:border-r px-0 md:px-4 lg:px-6 pt-4 md:pt-0">
-                                        <div className="flex items-center gap-1.5 min-w-[70px]" title="Questions">
-                                            <QuestionCircleIcon />
-                                            <span className="font-semibold text-[#00E1F9]">{quiz.questions?.length || 0} Qs</span>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 min-w-[70px]" title="Duration">
-                                            <ClockIcon />
-                                            <span className="font-semibold text-emerald-400">{quiz.questions?.length > 15 ? '60m' : '30m'}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 min-w-[70px]" title="Attempts">
-                                            <Users className="h-4 w-4 text-orange-400" />
-                                            <span className="font-semibold text-orange-400">{quiz.questions?.length > 15 ? '127' : '95'}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 min-w-[70px]" title="Average Score">
-                                            <Target className="h-4 w-4 text-purple-400" />
-                                            <span className="font-semibold text-purple-400">
-                                                {quiz.questions?.length > 15 ? '78%' : '82%'}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 min-w-[90px]" title="Created">
-                                            <CalendarIcon />
-                                            <span className="font-semibold text-purple-400">{new Date(quiz.createdAt).toLocaleDateString('en-CA')}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex-shrink-0 flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto mt-4 md:mt-0 pt-4 md:pt-0 border-t border-[#2A2A2A] md:border-t-0">
-                                        <button onClick={() => handleEdit(quiz.quizId)} className="w-full sm:w-auto text-sm py-2 px-4 rounded-lg bg-[#2A2A2A] text-white hover:bg-[#3A3A3A] transition border border-[#4A4A4A] inline-flex items-center gap-1.5 justify-center">
-                                            <EditIcon /> Edit
-                                        </button>
-                                        <button onClick={() => handleDuplicate(quiz.quizId)} className="w-full sm:w-auto text-sm py-2 px-4 rounded-lg bg-[#2A2A2A] text-white hover:bg-[#3A3A3A] transition border border-[#4A4A4A] inline-flex items-center gap-1.5 justify-center">
-                                            <DuplicateIcon /> Duplicate
-                                        </button>
-                                        <button onClick={() => handleViewResults(quiz)} className="w-full sm:w-auto text-sm py-2 px-4 rounded-lg bg-[#2A2A2A] text-white hover:bg-[#3A3A3A] transition border border-[#4A4A4A] inline-flex items-center gap-1.5 justify-center">
-                                            <BarChart3 className="h-4 w-4" /> Results
-                                        </button>
-                                        <button onClick={() => handleQuizClick(quiz.quizId)} className="w-full sm:w-auto text-sm py-2 px-4 rounded-lg bg-[#00E1F9] text-black hover:bg-[#00B0CC] transition font-medium inline-flex items-center gap-1.5 justify-center">
-                                            <Save className="h-4 w-4" /> Manage
-                                        </button>
-                                    </div>
-                                </div>
-                            )
-                        ))}
+    {filteredQuizzes.map((quiz) => (
+        quiz && (
+            <div key={quiz.quizId} className="bg-[#1A1A1A] p-6 rounded-lg border border-[#2A2A2A] shadow-md flex flex-col 2xl:flex-row items-start 2xl:items-center justify-between gap-6">
+                
+                <div className="flex-grow min-w-0 w-full 2xl:min-w-[250px] 2xl:mr-4">
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mb-2">
+                        <h3 className="text-lg 2xl:text-xl font-bold text-white" title={quiz.title}>{quiz.title}</h3>
+                        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${quiz.title?.includes("Advanced") ? "bg-red-800 text-red-200" : "bg-yellow-800 text-yellow-200"}`}>
+                            {quiz.title?.includes("Advanced") ? "Hard" : "Medium"}
+                        </span>
+                        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${quiz.status === 'active' ? 'bg-green-800 text-green-200' : 'bg-gray-600 text-gray-200'}`}>
+                            {quiz.status === 'active' ? 'Active' : 'Inactive'}
+                        </span>
                     </div>
+                    <p className="text-sm text-gray-400 line-clamp-2">
+                        {quiz.title?.includes("JavaScript") ? "Test your knowledge of closures, promises, and async/await." : "Assess understanding of components, props, state, and hooks in React."}
+                    </p>
+                </div>
+
+                <div className="flex-shrink-0 grid grid-cols-3 sm:grid-cols-5 gap-x-4 2xl:gap-x-5 gap-y-3 text-xs 2xl:text-sm text-gray-400 w-full 2xl:w-auto border-t 2xl:border-t-0 2xl:border-l 2xl:border-r px-0 md:px-4 2xl:px-6 pt-4 2xl:pt-0">
+                    <div className="flex items-center gap-1.5 min-w-[70px]" title="Questions">
+                        <QuestionCircleIcon />
+                        <span className="font-semibold text-[#00E1F9]">{quiz.questions?.length || 0} Qs</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 min-w-[70px]" title="Duration">
+                        <ClockIcon />
+                        <span className="font-semibold text-emerald-400">{quiz.questions?.length > 15 ? '60m' : '30m'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 min-w-[70px]" title="Attempts">
+                        <Users className="h-4 w-4 text-orange-400" />
+                        <span className="font-semibold text-orange-400">{quiz.questions?.length > 15 ? '127' : '95'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 min-w-[70px]" title="Average Score">
+                        <Target className="h-4 w-4 text-purple-400" />
+                        <span className="font-semibold text-purple-400">
+                            {quiz.questions?.length > 15 ? '78%' : '82%'}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 min-w-[90px]" title="Created">
+                        <CalendarIcon />
+                        <span className="font-semibold text-purple-400">{new Date(quiz.createdAt).toLocaleDateString('en-CA')}</span>
+                    </div>
+                </div>
+
+                <div className="flex-shrink-0 flex flex-col sm:flex-row items-center gap-3 w-full 2xl:w-auto mt-4 2xl:mt-0 pt-4 2xl:pt-0 border-t 2xl:border-t-0">
+                    <button onClick={() => handleEdit(quiz.quizId)} className="w-full sm:w-auto text-sm py-2 px-4 rounded-lg bg-[#2A2A2A] text-white hover:bg-[#3A3A3A] transition border border-[#4A4A4A] inline-flex items-center gap-1.5 justify-center">
+                        <EditIcon /> Edit
+                    </button>
+                    <button onClick={() => handleDuplicate(quiz.quizId)} className="w-full sm:w-auto text-sm py-2 px-4 rounded-lg bg-[#2A2A2A] text-white hover:bg-[#3A3A3A] transition border border-[#4A4A4A] inline-flex items-center gap-1.5 justify-center">
+                        <DuplicateIcon /> Duplicate
+                    </button>
+                    <button onClick={() => handleViewResults(quiz)} className="w-full sm:w-auto text-sm py-2 px-4 rounded-lg bg-[#2A2A2A] text-white hover:bg-[#3A3A3A] transition border border-[#4A4A4A] inline-flex items-center gap-1.5 justify-center">
+                        <BarChart3 className="h-4 w-4" /> Results
+                    </button>
+                    <button onClick={() => handleQuizClick(quiz.quizId)} className="w-full sm:w-auto text-sm py-2 px-4 rounded-lg bg-[#00E1F9] text-black hover:bg-[#00B0CC] transition font-medium inline-flex items-center gap-1.5 justify-center">
+                        <Save className="h-4 w-4" /> Manage
+                    </button>
+                </div>
+            </div>
+        )
+    ))}
+</div>
                 )}
             </>
         );
@@ -758,27 +858,42 @@ export default function TeacherDashboard() {
         <div className="min-h-screen flex flex-col bg-black text-white">
             {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
 
-            <header className="fixed top-0 w-full z-50 flex items-center justify-between px-6 py-4 bg-white/10 backdrop-blur-md border-b border-white/10 shadow-md h-16">
-                <div className="flex items-center gap-3">
-                    <BookOpen className="h-8 w-8 text-blue-400" />
-                    <span className="text-xl font-bold text-white">ProctorX</span>
-                    <span className="text-xl font-light text-gray-500">/</span>
-                    <span className="text-lg text-gray-300">Teacher Dashboard</span>
-                </div>
-                <nav className="flex items-center gap-4">
-                    <button onClick={() => navigate('/')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2A2A2A] hover:bg-[#3A3A3A] transition text-sm font-medium border border-[#4A4A4A]">
-                        <HomeIcon />
-                        <span>Home</span>
-                    </button>
-                    <button
-                        onClick={() => { alert("Logout clicked"); }}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-800/30 border border-red-700 hover:bg-red-800/50 transition text-sm font-medium text-red-400"
-                    >
-                        <LogoutIcon />
-                        <span>Logout</span>
-                    </button>
-                </nav>
-            </header>
+           <header className="fixed top-0 w-full z-50 bg-black/50 backdrop-blur-lg border-b border-white/10 shadow h-16 flex items-center px-4 justify-between">
+    
+    <div className="flex items-center gap-3">
+        <img src={LOGO} alt="ProctorX Logo" className="h-10 w-10" />
+        
+        <span className="text-xl font-bold text-white">
+            ProctorX
+        </span>
+    </div>
+    
+    <div className="flex items-center gap-4">
+        
+        <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-all"
+        >
+            <HomeIcon className="h-5 w-5 text-white" />
+            <span className="hidden min-[500px]:inline text-white font-medium text-sm">
+                Home
+            </span>
+        </button>
+        
+        <button
+            onClick={() => alert('Logout clicked')}
+            className="flex items-center gap-2 p-2 rounded-lg bg-red-900/40 hover:bg-red-900/70 transition-all"
+        >
+            <LogoutIcon className="h-5 w-5 text-red-400" />
+            <span className="hidden min-[500px]:inline text-red-400 font-medium text-sm">
+                Logout
+            </span>
+        </button>
+        
+    </div>
+</header>
+
+
 
             <main className="flex-1 p-4 md:p-10 pt-20 md:pt-24 overflow-y-auto">
                 {renderContent()}

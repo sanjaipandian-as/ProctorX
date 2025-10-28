@@ -49,23 +49,23 @@ export function Features() {
             <div className="max-w-7xl mx-auto">
 
                 <div className="text-center mb-16">
-                    <h2 className="bg-gradient-to-r text-5xl font-bold from-[#00d9ff] via-[#8b5cf6] to-[#14b8a6] bg-clip-text text-transparent mb-6">
+                    <h2 className="bg-gradient-to-r text-4xl sm:text-5xl font-bold from-[#00d9ff] via-[#8b5cf6] to-[#14b8a6] bg-clip-text text-transparent mb-6">
                         Revolutionary Features
                     </h2>
 
 
-                    <p className="text-xl text-white/70 max-w-3xl mx-auto">
+                    <p className="text-lg sm:text-xl text-white/70 max-w-3xl mx-auto">
                         Experience the next generation of online education with cutting-edge technology
                         that ensures integrity, security, and excellence in every assessment.
                     </p>
                 </div>
 
 
-                {/* Main Features Grid */}
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
                     {features.map((feature, index) => (
                         <Card key={index} className="glass border-white/10 overflow-hidden group hover:border-white/20 transition-all duration-300">
-                            <div className="relative h-48 overflow-hidden">
+                            <div className="relative h-40 sm:h-48 overflow-hidden">
                                 <ImageWithFallback
                                     src={feature.image}
                                     alt={feature.title}
@@ -90,17 +90,17 @@ export function Features() {
                 </div>
 
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] rounded-xl p-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 bg-[var(--glass-bg)] backdrop-blur-md border border-[var(--glass-border)] rounded-xl p-4 sm:p-6">
                     {additionalFeatures.map((feature, index) => (
                         <div
                             key={index}
-                            className="glass rounded-xl p-6 flex flex-col items-center justify-center text-center border border-white/10 hover:bg-white/5 transition-all duration-300"
+                            className="glass rounded-xl p-4 sm:p-6 flex flex-col items-center justify-center text-center border border-white/10 hover:bg-white/5 transition-all duration-300"
                         >
                             <feature.icon
-                                className="h-10 w-10 mb-4"
+                                className="h-8 w-8 sm:h-10 sm:w-10 mb-4"
                                 style={{ color: feature.color }}
                             />
-                            <h3 className="text-lg font-medium text-white leading-snug">
+                            <h3 className="text-sm sm:text-base md:text-lg font-medium text-white leading-snug">
                                 {feature.title}
                             </h3>
                         </div>
@@ -108,11 +108,11 @@ export function Features() {
                 </div>
 
                 <div className="mt-16 text-center">
-                    <div className="glass rounded-2xl p-8 border border-white/10">
+                    <div className="glass rounded-2xl p-6 sm:p-8 border border-white/10">
                         <h3 className="text-2xl md:text-3xl mb-4">
                             <span className="gradient-text">Exams Made Smarter</span>
                         </h3>
-                        <p className="text-lg text-white/70">
+                        <p className="text-base sm:text-lg text-white/70">
                             Join thousands of educators and students who have transformed their assessment experience
                         </p>
                     </div>

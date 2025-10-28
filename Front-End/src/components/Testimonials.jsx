@@ -5,16 +5,22 @@ const testimonials = [
   {
     quote: "The future belongs to those who learn more skills and combine them in creative ways.",
     author: "Dr. Sarah Chen",
+    role: "Professor of Education",
+    institution: "Tech University",
     highlight: "ProctorX has revolutionized how we conduct online assessments."
   },
   {
     quote: "Intelligence plus character - that is the goal of true education.",
     author: "Marcus Johnson",
+    role: "School Principal",
+    institution: "Future Leaders Academy",
     highlight: "The AI proctoring system is incredibly sophisticated yet user-friendly."
   },
   {
     quote: "Education is not preparation for life; education is life itself.",
     author: "Emma Rodriguez",
+    role: "Student",
+    institution: "State University",
     highlight: "Students love the seamless experience and instant feedback."
   }
 ];
@@ -36,25 +42,25 @@ const motivationalQuotes = [
 
 export function Testimonials() {
   return (
-    <section className="py-24 px-4 sm:px-6 lg:px-8">
+    <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
+        <div className="text-center mb-12 sm:mb-16">
           <h2 className="text-4xl md:text-5xl mb-6">
             <span className="gradient-text">Voices of Success</span>
           </h2>
-          <p className="text-xl text-white/70 max-w-3xl mx-auto">
+          <p className="text-lg sm:text-xl text-white/70 max-w-3xl mx-auto">
             Hear from educators and students who have transformed their learning journey with ProctorX
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12 sm:mb-16">
           {testimonials.map((testimonial, index) => (
             <Card key={index} className="glass border-white/10 p-6 hover:border-white/20 transition-all duration-300">
               <CardContent className="p-0 space-y-4">
                 <div className="flex items-center justify-between">
                   <Quote className="h-8 w-8 text-blue-400" />
                 </div>
-                <blockquote className="text-white/90 italic text-lg leading-relaxed">
+                <blockquote className="text-white/90 italic text-base sm:text-lg leading-relaxed">
                   "{testimonial.quote}"
                 </blockquote>
                 <div className="border-t border-white/10 pt-4">
@@ -70,7 +76,7 @@ export function Testimonials() {
           ))}
         </div>
 
-        <div className="glass rounded-2xl p-8 border border-white/10">
+        <div className="glass rounded-2xl p-6 sm:p-8 border border-white/10">
           <h3 className="text-2xl md:text-3xl text-center mb-8">
             <span className="gradient-text">Words of Wisdom</span>
           </h3>
@@ -87,9 +93,9 @@ export function Testimonials() {
           </div>
         </div>
 
-        <div className="text-center mt-16">
-          <div className="inline-block glass rounded-full px-8 py-4 border border-white/20">
-            <p className="text-lg text-white/80">
+        <div className="text-center mt-12 sm:mt-16">
+          <div className="inline-block glass rounded-full px-6 py-3 sm:px-8 sm:py-4 border border-white/20">
+            <p className="text-base sm:text-lg text-white/80">
               Ready to <span className="gradient-text">unlock your potential</span>?
             </p>
           </div>
@@ -98,3 +104,4 @@ export function Testimonials() {
     </section>
   );
 }
+

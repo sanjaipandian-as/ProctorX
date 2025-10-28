@@ -106,24 +106,24 @@ export function QuizGrid() {
 
   return (
     <section id="QuizGrid" className="py-24 px-4 sm:px-6 lg:px-8">
-      <Toaster />
+      <Toaster /> 
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl mb-6">
             <span className="gradient-text">Featured Assessments</span>
           </h2>
-          <p className="text-xl text-white/70 max-w-3xl mx-auto">
+          <p className="text-lg sm:text-xl text-white/70 max-w-3xl mx-auto">
             Discover a world of knowledge with our curated collection of 
             interactive quizzes and examinations designed to challenge and inspire.
           </p>
-          <p className="text-xl text-white/70 max-w-3xl mx-auto">For these below quizes use OTP "000000"</p>
+          <p className="text-lg sm:text-xl text-white/70 max-w-3xl mx-auto">For these below quizes use OTP "000000"</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           {quizzes.map((quiz, index) => (
             <Card key={index} className="glass border-white/10 overflow-hidden group hover:border-white/20 transition-all duration-300 hover:neon-glow">
               <CardHeader className="pb-4">
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                   <div className="flex items-center space-x-3">
                     <div className="p-3 rounded-lg bg-white/5 border border-white/10">
                       <quiz.icon className="h-6 w-6" style={{ color: quiz.color }} />
@@ -137,14 +137,14 @@ export function QuizGrid() {
                       </CardDescription>
                     </div>
                   </div>
-                  <Badge className={getDifficultyColor(quiz.difficulty)}>
+                  <Badge className={`${getDifficultyColor(quiz.difficulty)} self-start sm:self-auto`}>
                     {quiz.difficulty}
                   </Badge>
                 </div>
               </CardHeader>
               
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between text-sm text-white/70">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm text-white/70 gap-2 sm:gap-4">
                   <div className="flex items-center space-x-1">
                     <Clock className="h-4 w-4" />
                     <span>{quiz.duration}</span>
@@ -173,15 +173,15 @@ export function QuizGrid() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="glass rounded-lg p-6 text-center">
-            <div className="text-3xl gradient-text mb-2">50,000+</div>
+            <div className="text-2xl sm:text-3xl gradient-text mb-2">50,000+</div>
             <div className="text-white/70">Active Students</div>
           </div>
           <div className="glass rounded-lg p-6 text-center">
-            <div className="text-3xl gradient-text mb-2">10,000+</div>
+            <div className="text-2xl sm:text-3xl gradient-text mb-2">10,000+</div>
             <div className="text-white/70">Assessments Created</div>
           </div>
           <div className="glass rounded-lg p-6 text-center">
-            <div className="text-3xl gradient-text mb-2">99.9%</div>
+            <div className="text-2xl sm:text-3xl gradient-text mb-2">99.9%</div>
             <div className="text-white/70">Security Rating</div>
           </div>
         </div>
@@ -189,3 +189,4 @@ export function QuizGrid() {
     </section>
   );
 }
+

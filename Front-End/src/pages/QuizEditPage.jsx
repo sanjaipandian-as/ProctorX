@@ -1,15 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { Plus, Trash2, ArrowLeft, Save, Loader2, BookOpen, Home, LogOut, AlertCircle } from 'lucide-react';
 import API from '../../Api';
-
 
 const PlusIcon = () => <Plus className="h-5 w-5" />;
 const TrashIcon = () => <Trash2 className="h-5 w-5" />;
 const HomeIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>);
 const LogoutIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" /></svg>);
-
 
 function Toast({ message, type, onClose }) {
     useEffect(() => {
@@ -24,7 +21,6 @@ function Toast({ message, type, onClose }) {
         </div>
     );
 }
-
 
 export default function EditQuizPage() {
     const { quizId } = useParams();
@@ -75,8 +71,9 @@ export default function EditQuizPage() {
                 setQuiz(quizWithDefaults);
             } catch (err) {
                 console.error("Fetch Quiz Error:", err);
-                setError(err.response?.data?.message || err.message || "Failed to load quiz. Please check the ID or try again.");
-                showToast(err.response?.data?.message || err.message || "Failed to load quiz.", "error");
+                const errorMsg = err.response?.data?.message || err.message || "Failed to load quiz. Please check the ID or try again.";
+                setError(errorMsg);
+                showToast(errorMsg, "error");
             } finally {
                 setLoading(false);
             }
@@ -131,14 +128,14 @@ export default function EditQuizPage() {
             return;
         }
         if (quiz.questions.some(q => !q.questionText.trim())) {
-             showToast('All questions must have text.', 'error');
-             setIsSaving(false);
-             return;
+            showToast('All questions must have text.', 'error');
+            setIsSaving(false);
+            return;
         }
-         if (quiz.questions.some(q => q.options.some(opt => !opt.trim()))) {
-             showToast('All options must have text.', 'error');
-             setIsSaving(false);
-             return;
+        if (quiz.questions.some(q => q.options.some(opt => !opt.trim()))) {
+            showToast('All options must have text.', 'error');
+            setIsSaving(false);
+            return;
         }
 
         try {
@@ -172,49 +169,49 @@ export default function EditQuizPage() {
         <div className="min-h-screen flex flex-col bg-black text-white">
             {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
 
-            <header className="fixed top-0 w-full z-50 flex items-center justify-between px-6 py-4 bg-white/10 backdrop-blur-md border-b border-white/10 shadow-md h-16">
+            <header className="fixed top-0 w-full z-50 flex items-center justify-between px-4 md:px-6 bg-white/10 backdrop-blur-md border-b border-white/10 shadow-md h-16">
                 <div className="flex items-center gap-3">
                     <BookOpen className="h-8 w-8 text-blue-400" />
                     <span className="text-xl font-bold text-white">ProctorX</span>
-                     <span className="text-xl font-light text-gray-500">/</span>
-                    <span className="text-lg text-gray-300">Edit Quiz</span>
+                    <span className="hidden md:inline text-xl font-light text-gray-500">/</span>
+                    <span className="hidden md:inline text-lg text-gray-300">Edit Quiz</span>
                 </div>
-                 <nav className="flex items-center gap-4">
-                     <button onClick={() => navigate('/staff-dashboard')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2A2A2A] hover:bg-[#3A3A3A] transition text-sm font-medium border border-[#4A4A4A]">
-                         <HomeIcon />
-                         <span>Dashboard</span>
-                     </button>
-                     <button
-                         onClick={() => { alert("Logout clicked");  }}
-                         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-800/30 border border-red-700 hover:bg-red-800/50 transition text-sm font-medium text-red-400"
-                     >
-                         <LogoutIcon />
-                         <span>Logout</span>
-                     </button>
-                 </nav>
+                <nav className="flex items-center gap-2 md:gap-4">
+                    <button onClick={() => navigate('/staff-dashboard')} className="flex items-center gap-2 px-3 py-2 md:px-4 rounded-lg bg-[#2A2A2A] hover:bg-[#3A3A3A] transition text-sm font-medium border border-[#4A4A4A]">
+                        <HomeIcon />
+                        <span className="hidden md:inline">Dashboard</span>
+                    </button>
+                    <button
+                        onClick={() => { alert("Logout clicked"); }}
+                        className="flex items-center gap-2 px-3 py-2 md:px-4 rounded-lg bg-red-800/30 border border-red-700 hover:bg-red-800/50 transition text-sm font-medium text-red-400"
+                    >
+                        <LogoutIcon />
+                        <span className="hidden md:inline">Logout</span>
+                    </button>
+                </nav>
             </header>
 
-            <main className="flex-1 p-6 md:p-10 pt-20 md:pt-24 overflow-y-auto">
+            <main className="flex-1 p-4 md:p-10 pt-20 md:pt-24 overflow-y-auto">
                 {loading ? (
                     <div className="flex justify-center items-center h-64">
                         <Loader2 className="h-12 w-12 animate-spin text-[#00E1F9]" />
                     </div>
                 ) : error && !quiz ? (
-                     <div className="flex flex-col items-center justify-center h-64 text-center">
-                         <AlertCircle className="h-16 w-16 text-red-500 mb-4"/>
-                         <p className="text-xl text-red-400">{error}</p>
-                         <button onClick={() => navigate('/staff-dashboard')} className="mt-6 flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2A2A2A] hover:bg-[#3A3A3A] transition text-sm font-medium border border-[#4A4A4A]">
-                             <ArrowLeft className="h-4 w-4" /> Go Back to Dashboard
-                         </button>
-                     </div>
+                    <div className="flex flex-col items-center justify-center h-64 text-center p-4">
+                        <AlertCircle className="h-16 w-16 text-red-500 mb-4" />
+                        <p className="text-xl text-red-400">{error}</p>
+                        <button onClick={() => navigate('/staff-dashboard')} className="mt-6 flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2A2A2A] hover:bg-[#3A3A3A] transition text-sm font-medium border border-[#4A4A4A]">
+                            <ArrowLeft className="h-4 w-4" /> Go Back to Dashboard
+                        </button>
+                    </div>
                 ) : quiz ? (
-                     
-                    <div className="">
+                    
+                    <div className="max-w-4xl mx-auto">
                         <header className="flex flex-col md:flex-row justify-between md:items-center mb-8 gap-4">
-                             <h1 className="text-3xl font-bold text-white">Edit Quiz</h1>
+                            <h1 className="text-3xl font-bold text-white">Edit Quiz</h1>
                             <div className="flex items-center gap-3">
                                 <button onClick={() => navigate('/staff-dashboard')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2A2A2A] hover:bg-[#3A3A3A] transition text-sm font-medium border border-[#4A4A4A]">
-                                     <ArrowLeft className="h-4 w-4" /> Cancel
+                                    <ArrowLeft className="h-4 w-4" /> Cancel
                                 </button>
                                 <button
                                     onClick={handleSaveChanges}
@@ -239,7 +236,7 @@ export default function EditQuizPage() {
                                         onChange={handleQuizTitleChange}
                                         className="w-full bg-[#0A0A0A] border border-[#2A2A2A] rounded-md px-4 py-2 text-gray-200 focus:ring-1 focus:ring-[#00E1F9] focus:border-[#00E1F9] placeholder-gray-500"
                                         placeholder="Enter the title for your quiz"
-                                     />
+                                    />
                                 </div>
                                 <div>
                                     <label htmlFor="quizStatus" className="block text-sm font-medium text-gray-400 mb-1">Status</label>
@@ -248,7 +245,7 @@ export default function EditQuizPage() {
                                         value={quiz.status}
                                         onChange={handleQuizStatusChange}
                                         className="w-full bg-[#0A0A0A] border border-[#2A2A2A] rounded-md px-4 py-2 text-gray-200 focus:ring-1 focus:ring-[#00E1F9] focus:border-[#00E1F9]"
-                                     >
+                                    >
                                         <option value="inactive">Inactive</option>
                                         <option value="active">Active</option>
                                     </select>
@@ -307,15 +304,15 @@ export default function EditQuizPage() {
                                     </div>
                                 ))}
                             </div>
-                             <button
+                            <button
                                 onClick={addQuestion}
                                 className="mt-6 w-full flex items-center justify-center gap-2 bg-[#00333A] hover:bg-[#00444A] text-[#00E1F9] font-semibold py-3 px-4 rounded-lg transition border border-[#00555A]"
-                             >
+                            >
                                 <PlusIcon /> Add Question
                             </button>
                         </div>
                     </div>
-                ) : null }
+                ) : null}
             </main>
         </div>
     );

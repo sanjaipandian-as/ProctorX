@@ -13,6 +13,7 @@ import {
 import { Loader2, AlertCircle, BookOpen, Star, Award, ArrowRight } from 'lucide-react';
 import API from "../../Api";
 import BG_TEAL from '../assets/BG_TEA.png';
+import LOGO from "../assets/LOGO.png";
 
 const Loader = ({ message = "Loading Dashboard..." }) => (
   <div className="flex flex-col items-center justify-center gap-4">
@@ -157,7 +158,7 @@ const StudentDashboard = () => {
     <div className="min-h-screen flex flex-col bg-black text-white">
       <header className="fixed top-0 w-full z-50 flex items-center justify-between px-6 py-4 bg-white/10 backdrop-blur-md border-b border-white/10 shadow-md h-16">
         <div className="flex items-center gap-3">
-          <BookOpen className="h-8 w-8 text-blue-400" />
+          <img src={LOGO} alt="" className="h-20 w-20 text-blue-400"/>
           <span className="text-xl font-bold text-white">ProctorX</span>
           <span className="text-xl font-light text-gray-500">/</span>
           <span className="text-lg text-gray-300">Student Dashboard</span>

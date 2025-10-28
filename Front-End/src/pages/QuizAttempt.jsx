@@ -21,15 +21,19 @@ import {
   Loader2,
   Bookmark,
   Clock,
-  GraduationCap, 
-  ScanEye, 
-  Eraser, 
+  GraduationCap,
+  ScanEye,
+  Eraser,
   X,
-  Omega, 
+  Omega,
+  LogIn,
 } from "lucide-react";
-import { GrStatusInfo } from "react-icons/gr"; 
-import { motion, AnimatePresence } from "framer-motion"; 
+import { GrStatusInfo } from "react-icons/gr";
+import { motion, AnimatePresence } from "framer-motion";
 import API from "../../Api";
+import LOGO from "../assets/LOGO.png";
+import Proctor from "../assets/PROCTOR.png";
+import ProctoredX from "../assets/PrctoredX.png";
 
 const ProctoringFeed = ({ stream, type }) => {
   const videoRef = useRef(null);
@@ -45,8 +49,9 @@ const ProctoringFeed = ({ stream, type }) => {
         autoPlay
         playsInline
         muted
-        className={`w-full h-full object-cover rounded-lg ${!stream && "hidden"
-          }`}
+        className={`w-full h-full object-cover rounded-lg ${
+          !stream && "hidden"
+        }`}
       />
       {!stream && (
         <div className="flex flex-col items-center">
@@ -98,11 +103,6 @@ const InstructionsModal = ({ isOpen, onClose }) => (
           }}
           className="relative bg-white shadow-xl w-[40%] h-full  flex flex-col overflow-y-auto"
         >
-          {/* <div className="flex justify-between items-center p-4 border-b">
-            <h2 className="text-xl font-semibold text-gray-800">Instructions</h2>
-            
-          </div> */}
-
           <div className="p-6 space-y-12 text-gray-700">
             <div className="relative border-b pb-4 text-center">
               <button
@@ -248,8 +248,9 @@ const SetupCheckItem = ({ title, status, children, check }) => {
       <div>{statusIcons[status]}</div>
       <div className="flex-1">
         <h3
-          className={`font-semibold text-lg ${status === "checked" ? "text-gray-900" : "text-gray-700"
-            }`}
+          className={`font-semibold text-lg ${
+            status === "checked" ? "text-gray-900" : "text-gray-700"
+          }`}
         >
           {title}
         </h3>
@@ -268,8 +269,9 @@ const SidebarChecklistItem = ({ label, isChecked }) => (
       <div className="w-4 h-4 border-2 border-gray-400 rounded-full flex-shrink-0"></div>
     )}
     <span
-      className={`text-sm ${isChecked ? "text-gray-900" : "text-gray-600"
-        }`}
+      className={`text-sm ${
+        isChecked ? "text-gray-900" : "text-gray-600"
+      }`}
     >
       {label}
     </span>
@@ -295,6 +297,7 @@ const QuizFlow = () => {
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [screenEnabled, setScreenEnabled] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(!!document.fullscreenElement);
+  const [isAwaitingPermission, setIsAwaitingPermission] = useState(false);
 
   const [warnings, setWarnings] = useState(5);
   const warningsRef = useRef(warnings);
@@ -308,7 +311,8 @@ const QuizFlow = () => {
   const [answers, setAnswers] = useState([]);
   const [timeLeft, setTimeLeft] = useState(3600);
   const toastIdRef = useRef(null);
-  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false); 
+  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+  const fullScreenSize = useRef(null);
 
   useEffect(() => {
     warningsRef.current = warnings;
@@ -383,10 +387,9 @@ const QuizFlow = () => {
           return;
         }
 
-        const quizRes = await API.get(
-          `/api/quizzes/${quizId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const quizRes = await API.get(`/api/quizzes/${quizId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const quizData = quizRes.data;
         setQuiz({
           platformName: "ProctorX",
@@ -412,7 +415,7 @@ const QuizFlow = () => {
         console.error("Authorization failed or error fetching data:", err);
         setError(
           err.response?.data?.message ||
-          "An error occurred while loading the quiz."
+            "An error occurred while loading the quiz."
         );
       } finally {
         setLoading(false);
@@ -420,8 +423,19 @@ const QuizFlow = () => {
     };
     fetchAndAuthorizeQuiz();
 
-    const handleFullScreenChange = () =>
-      setIsFullScreen(!!document.fullscreenElement);
+    const handleFullScreenChange = () => {
+      const isNowFullScreen = !!document.fullscreenElement;
+      setIsFullScreen(isNowFullScreen);
+
+      if (isNowFullScreen) {
+        fullScreenSize.current = {
+          w: window.innerWidth,
+          h: window.innerHeight,
+        };
+      } else {
+        fullScreenSize.current = null;
+      }
+    };
     document.addEventListener("fullscreenchange", handleFullScreenChange);
 
     return () => {
@@ -482,7 +496,7 @@ const QuizFlow = () => {
   }, [step, timeLeft, handleSubmit]);
 
   useEffect(() => {
-    if (step === 4 && !isFullScreen) {
+    if (step === 4 && !isFullScreen && !isAwaitingPermission) {
       if (toastIdRef.current) {
         toast.dismiss(toastIdRef.current);
       }
@@ -499,7 +513,7 @@ const QuizFlow = () => {
           handleSubmit();
         } else {
           toastIdRef.current = toast.error(
-            `You have exited full-screen. You have ${newWarnings} lives left.`,
+            `You have left the test environment. You have ${newWarnings} lives left.`,
             { icon: "⚠️", duration: 4000 }
           );
           setStep(3);
@@ -508,7 +522,41 @@ const QuizFlow = () => {
         return newWarnings;
       });
     }
-  }, [isFullScreen, step, handleSubmit]);
+  }, [isFullScreen, step, handleSubmit, isAwaitingPermission]);
+
+  useEffect(() => {
+    const handleBlur = () => {
+      if (step === 4 && document.fullscreenElement && !isAwaitingPermission) {
+        document.exitFullscreen();
+      }
+    };
+
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [step, isAwaitingPermission]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (step === 4 && document.fullscreenElement && fullScreenSize.current) {
+        const isResized =
+          window.innerWidth !== fullScreenSize.current.w ||
+          window.innerHeight !== fullScreenSize.current.h;
+
+        if (isResized) {
+          document.exitFullscreen();
+        }
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [step]);
 
   useEffect(() => {
     if (cameraStream && cameraFeedRef.current) {
@@ -527,6 +575,7 @@ const QuizFlow = () => {
   }, [step, stopCamera, stopScreenShare]);
 
   const handleEnableCamera = async () => {
+    setIsAwaitingPermission(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -539,10 +588,13 @@ const QuizFlow = () => {
       toast.error(
         "Camera access was denied. Please allow access in your browser settings."
       );
+    } finally {
+      setIsAwaitingPermission(false);
     }
   };
 
   const handleEnableScreenShare = async () => {
+    setIsAwaitingPermission(true);
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { cursor: "always" },
@@ -560,11 +612,13 @@ const QuizFlow = () => {
         setScreenEnabled(false);
       }
     } catch (err) {
-      if (err.name !== "NotAllowedError") {
+      if (err.name !== "NotAllowedError" && err.name !== "AbortError") {
         toast.error(
           "Screen share access was denied. Please select a screen to share."
         );
       }
+    } finally {
+      setIsAwaitingPermission(false);
     }
   };
 
@@ -664,8 +718,8 @@ const QuizFlow = () => {
           ? "answered"
           : "unanswered"
         : newAnswers[currentQuestionIndex].answer !== null
-          ? "answered-review"
-          : "review";
+        ? "answered-review"
+        : "review";
     setAnswers(newAnswers);
   };
 
@@ -694,8 +748,12 @@ const QuizFlow = () => {
           <Toaster position="top-center" reverseOrder={false} />
           <div className="w-full max-w-lg bg-yellow-50 border-r font-bold border-gray-200 flex flex-col justify-between p-8">
             <div>
-              <div className="flex items-center space-x-4 mb-8">
-                <ShieldCheck className="h-8 w-8 mt-0.5  text-blue-600" />
+              <div className="flex items-center space-x-1 mb-8">
+                <img
+                  src={LOGO}
+                  alt=""
+                  className="h-20 w-20 mt-0.5  text-blue-600"
+                />
                 <h1 className="text-3xl font-bold text-gray-900">
                   Take An Assessment
                 </h1>
@@ -739,7 +797,11 @@ const QuizFlow = () => {
               </div>
             </div>
             <div className="flex flex-col items-center">
-              <img src={Firewall} alt="illustration" className="mb-6 w-42 h-42" />
+              <img
+                src={Proctor}
+                alt="illustration"
+                className="mb-6 w-100 h-50"
+              />
               <div className="text-center w-full">
                 <div className="flex items-center justify-center space-x-3">
                   <User className="w-8 h-8 p-1.5 bg-gray-200 text-gray-700 rounded-full" />
@@ -759,12 +821,13 @@ const QuizFlow = () => {
             {steps.map((s, index) => (
               <div key={s.id} className="flex flex-col items-center">
                 <div
-                  className={`w-9 h-9  flex items-center justify-center font-bold transition-all ${s.id < step
-                    ? "bg-green-600 text-white"
-                    : step === s.id
+                  className={`w-9 h-9  flex items-center justify-center font-bold transition-all ${
+                    s.id < step
+                      ? "bg-green-600 text-white"
+                      : step === s.id
                       ? "bg-red-600 text-white scale-110"
                       : "bg-white border-2 border-gray-500 text-black-500"
-                    }`}
+                  }`}
                 >
                   {s.id < step ? <CheckCircle2 size={20} /> : s.id}
                 </div>
@@ -779,36 +842,39 @@ const QuizFlow = () => {
               {step === 1 && (
                 <div className="space-y-10 text-gray-700">
                   <div>
-                    <h2 className="text-3xl font-bold text-black-900">Instructions</h2>
+                    <h2 className="text-3xl font-bold text-black-900">
+                      Instructions
+                    </h2>
                     <p className="mt-4 text-base text-black ">
-                      Please read the below instructions carefully and begin the assessment.
+                      Please read the below instructions carefully and begin the
+                      assessment.
                     </p>
                     <ul className="list-disc list-inside space-y-2 text-base font-semibold mt-4">
                       <li>
-                        This assessment can be attempted only ONCE. Hence, please ensure
-                        you are seated in a distraction-free environment.
+                        This assessment can be attempted only ONCE. Hence, please
+                        ensure you are seated in a distraction-free environment.
                       </li>
                       <li>
-                        Please ensure you are connected to a strong wifi/ethernet network.
+                        Please ensure you are connected to a strong wifi/ethernet
+                        network.
                       </li>
                       <li>
-                        In case of internet discrepancies, your timer will still keep
-                        running. However, you can continue attempting the current
-                        question.
+                        In case of internet discrepancies, your timer will still
+                        keep running. However, you can continue attempting the
+                        current question.
                       </li>
                       <li>
-                        The security code will be provided by the invigilator at your
-                        venue.
+                        The security code will be provided by the invigilator at
+                        your venue.
                       </li>
                       <li>
-                        In case of any technical difficulties, please reach out to the
-                        invigilator.
+                        In case of any technical difficulties, please reach out
+                        to the invigilator.
                       </li>
                       <li>Give your best. Good luck!</li>
                     </ul>
                   </div>
 
-                  
                   <div className="bg-amber-50 border border-dashed border-amber-400 rounded-lg p-6 flex flex-col sm:flex-row justify-between sm:items-center">
                     <div>
                       <h3 className="font-bold text-xl text-gray-900 mb-3">
@@ -816,32 +882,35 @@ const QuizFlow = () => {
                       </h3>
                       <ul className="list-disc list-inside text-base space-y-2 text-black-800">
                         <li>
-                          This assessment requires you to share your Camera and Microphone
-                          feed, as well as your entire screen.
+                          This assessment requires you to share your Camera and
+                          Microphone feed, as well as your entire screen.
                         </li>
                         <li>
-                          Once the assessment begins, make sure that your Camera &
-                          Microphone feed, along with Screen Sharing, are clearly
-                          visible in the top-left corner of the assessment screen. If
-                          they appear blank or the feed is incorrect, contact your
-                          invigilator right away. Failure to do so will void your
-                          chances for any further consideration of retake/reevaluation.
+                          Once the assessment begins, make sure that your Camera
+                          & Microphone feed, along with Screen Sharing, are
+                          clearly visible in the top-left corner of the
+                          assessment screen. If they appear blank or the feed is
+                          incorrect, contact your invigilator right away.
+                          Failure to do so will void your chances for any
+                          further consideration of retake/reevaluation.
                         </li>
                       </ul>
                     </div>
                     <img
-                      src={Protected}
+                      src={ProctoredX}
                       alt="proctoring"
                       className="w-56 object-contain mt-4 sm:mt-0 sm:ml-6 flex-shrink-0"
                     />
                   </div>
 
-                  
                   <div>
-                    <h2 className="text-3xl font-bold text-gray-900">Marking Scheme</h2>
+                    <h2 className="text-3xl font-bold text-gray-900">
+                      Marking Scheme
+                    </h2>
                     <p className="mt-4 text-base">
-                      Refer to the top right of each question for the marks awarded for a
-                      correct answer or deducted for an incorrect answer as shown below.
+                      Refer to the top right of each question for the marks
+                      awarded for a correct answer or deducted for an incorrect
+                      answer as shown below.
                     </p>
                     <div className="flex items-center space-x-6 mt-4">
                       <div className="text-center">
@@ -859,15 +928,14 @@ const QuizFlow = () => {
                     </div>
                   </div>
 
-                  
                   <div>
                     <h2 className="text-3xl font-bold text-gray-900">
                       Question Palette
                     </h2>
                     <p className="mt-4 text-base">
-                      The question palette displayed on the left side of the assessment
-                      screen will show the following statuses depicted by distinct
-                      symbols.
+                      The question palette displayed on the left side of the
+                      assessment screen will show the following statuses depicted
+                      by distinct symbols.
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-6 text-base">
                       <div className="flex items-center space-x-4">
@@ -1038,15 +1106,17 @@ const QuizFlow = () => {
                     >
                       <button
                         onClick={handleFullScreen}
-                        className={`px-4 py-2 text-white rounded flex items-center space-x-2 font-medium ${isFullScreen
-                          ? "bg-red-600 hover:bg-red-700"
-                          : "bg-green-600 hover:bg-green-700"
-                          }`}
+                        className={`px-4 py-2 text-white rounded flex items-center space-x-2 font-medium ${
+                          isFullScreen
+                            ? "bg-red-600 hover:bg-red-700"
+                            : "bg-green-600 hover:bg-green-700"
+                        }`}
                       >
                         <Expand size={16} />
-                        <span>{isFullScreen ? "Exit Full Screen" : "Go Full Screen"}</span>
+                        <span>
+                          {isFullScreen ? "Exit Full Screen" : "Go Full Screen"}
+                        </span>
                       </button>
-
                     </SetupCheckItem>
                     <SetupCheckItem
                       title="Security Code"
@@ -1133,8 +1203,6 @@ const QuizFlow = () => {
         </div>
       );
     } else {
-
-
       const currentQuestion = quiz.questions[currentQuestionIndex];
       const getStatusColor = (status) => {
         switch (status) {
@@ -1219,10 +1287,11 @@ const QuizFlow = () => {
                       onClick={() => handleQuestionNavigation(index)}
                       className={`h-14 w-14 rounded-md font-bold flex items-center justify-center ${getStatusColor(
                         answers[index]?.status
-                      )} ${currentQuestionIndex === index
-                        ? "ring-2 ring-red-500" 
-                        : ""
-                        }`}
+                      )} ${
+                        currentQuestionIndex === index
+                          ? "ring-2 ring-red-500"
+                          : ""
+                      }`}
                     >
                       {index + 1}
                     </button>
@@ -1235,7 +1304,7 @@ const QuizFlow = () => {
               <main className="flex-1 flex flex-col pl-34 pt-16 overflow-y-auto">
                 <div className="flex justify-between items-center">
                   <button
-                    onClick={handleMarkForReview} 
+                    onClick={handleMarkForReview}
                     className="flex items-center space-x-2 py-5 cursor-pointer text-gray-800 rounded font-medium"
                   >
                     <Bookmark size={16} />
@@ -1265,10 +1334,11 @@ const QuizFlow = () => {
                     {currentQuestion.options.map((option, index) => (
                       <label
                         key={index}
-                        className={`flex items-center p-4 border-3 cursor-pointer transition-colors w-full max-w-md h-14 ${answers[currentQuestionIndex]?.answer === index
-                          ? "bg-blue-50 border-blue-600"
-                          : "bg-gray-100 border-gray-500 hover:bg-gray-200"
-                          }`}
+                        className={`flex items-center p-4 border-3 cursor-pointer transition-colors w-full max-w-md h-14 ${
+                          answers[currentQuestionIndex]?.answer === index
+                            ? "bg-blue-50 border-blue-600"
+                            : "bg-gray-100 border-gray-500 hover:bg-gray-200"
+                        }`}
                       >
                         <input
                           type="radio"
@@ -1282,9 +1352,9 @@ const QuizFlow = () => {
                         <span className="text-black-500">{option}</span>
                       </label>
                     ))}
-                    
+
                     <button
-                      onClick={() => handleAnswerChange(null)} 
+                      onClick={() => handleAnswerChange(null)}
                       className="flex items-center px-4 py-2 text-red-700 rounded font-medium space-x-2 w-max mt-2"
                     >
                       <Eraser size={18} />
@@ -1298,7 +1368,7 @@ const QuizFlow = () => {
                 <button
                   onClick={() =>
                     handleQuestionNavigation(currentQuestionIndex - 1)
-                  } 
+                  }
                   disabled={currentQuestionIndex === 0}
                   className="px-5 py-2 flex items-center space-x-2 cursor-pointer rounded font-medium disabled:opacity-50"
                 >
@@ -1309,7 +1379,7 @@ const QuizFlow = () => {
                 <button
                   onClick={() =>
                     handleQuestionNavigation(currentQuestionIndex + 1)
-                  } 
+                  }
                   disabled={
                     currentQuestionIndex === quiz.questions.length - 1
                   }
@@ -1323,7 +1393,6 @@ const QuizFlow = () => {
           </div>
         </div>
       );
-      
     }
   };
 
