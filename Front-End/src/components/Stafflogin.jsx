@@ -14,38 +14,39 @@ function StaffLogin() {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  try {
-    const res = await API.post("/teachers/login", formData);
-    const result = res.data;
-    console.log("Login Response:", result);
+    e.preventDefault();
+    try {
+      const res = await API.post("/teachers/login", formData);
+      const result = res.data;
+      console.log("Login Response:", result);
 
-    if (result.token) {
-      localStorage.clear();
-      sessionStorage.clear();
-      login(result.token);
-      localStorage.setItem("token", result.token);
-      alert("Login Successful!");
-      navigate("/staff-dashboard");
-    } else {
-      alert(result.message || "Login failed");
+      if (result.token) {
+        localStorage.clear();
+        sessionStorage.clear();
+        login(result.token);
+        localStorage.setItem("token", result.token);
+        alert("Login Successful!");
+        navigate("/staff-dashboard");
+      } else {
+        alert(result.message || "Login failed");
+      }
+    } catch (error) {
+      alert("Error logging in staff");
+      console.error(error);
     }
-  } catch (error) {
-    alert("Error logging in staff");
-    console.error(error);
-  }
-};
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-900 via-black to-gray-900 px-6">
-      <div className="w-full max-w-lg bg-gray-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-gray-800 p-10">
-        <h1 className="text-4xl font-extrabold text-center text-white mb-3">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-900 via-black to-gray-900 px-4 sm:px-6">
+      <div className="w-full max-w-lg bg-gray-900/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-gray-800 p-6 sm:p-10">
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-center text-white mb-3">
           Staff Login
         </h1>
-        <p className="text-gray-400 text-center mb-8">
+        <p className="text-gray-400 text-center text-sm sm:text-base mb-6 sm:mb-8">
           Access your <span className="text-indigo-400 font-semibold">ProctorX</span> account
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-300">
               Email Address
@@ -92,7 +93,7 @@ function StaffLogin() {
           </button>
         </form>
 
-        <p className="text-gray-400 text-center mt-6">
+        <p className="text-gray-400 text-sm sm:text-base text-center mt-6">
           Don’t have an account?{" "}
           <Link to="/staff-signup" className="text-indigo-400 hover:underline">
             Sign up here

@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useMemo } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
   XAxis,
@@ -25,7 +24,7 @@ const Loader = ({ message = "Loading Dashboard..." }) => (
 const Card = React.forwardRef(({ children, className = '', ...props }, ref) => (
   <div
     ref={ref}
-    className={`bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg shadow-md p-6 pb-0 mb-0 transition-all duration-300 ${className}`}
+    className={`bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg shadow-md p-6 transition-all duration-300 hover:border-[#4A4A4A] ${className}`}
     {...props}
   >
     {children}
@@ -33,7 +32,7 @@ const Card = React.forwardRef(({ children, className = '', ...props }, ref) => (
 ));
 
 const StatCard = ({ title, value, subtitle, icon, iconBgColor = 'bg-[#00333A]' }) => (
-  <div className="bg-[#1A1A1A] p-5 rounded-lg border border-[#2A2A2A] flex items-center justify-between">
+  <div className="bg-[#1A1A1A] p-5 rounded-lg border border-[#2A2A2A] flex items-center justify-between hover:border-[#4A4A4A] transition-colors">
     <div>
       <p className="text-sm text-gray-400 font-medium">{title}</p>
       <p className="text-3xl font-bold text-[#00E1F9] mt-2">{value}</p>
@@ -120,18 +119,22 @@ const StudentDashboard = () => {
     };
 
     fetchProfileAndResults();
-  }, [navigate]);
+  }, []); 
 
   const summaryStats = useMemo(() => {
     if (!Array.isArray(quizzes) || quizzes.length === 0) return { totalQuizzes: 0, averageScore: "0.0", bestScore: "0.0" };
+    const validQuizzes = quizzes.filter(q => typeof q.accuracy === 'number');
+    if (validQuizzes.length === 0) return { totalQuizzes: quizzes.length, averageScore: "0.0", bestScore: "0.0" };
+    
     const totalQuizzes = quizzes.length;
-    const averageScore = (quizzes.reduce((acc, q) => acc + (q.accuracy ?? 0), 0) / totalQuizzes).toFixed(1);
-    const bestScore = Math.max(...quizzes.map(q => q.accuracy ?? 0)).toFixed(1);
+    const averageScore = (validQuizzes.reduce((acc, q) => acc + q.accuracy, 0) / validQuizzes.length).toFixed(1);
+    const bestScore = Math.max(...validQuizzes.map(q => q.accuracy)).toFixed(1);
     return { totalQuizzes, averageScore, bestScore };
   }, [quizzes]);
 
   const chartData = useMemo(() =>
     Array.isArray(quizzes) ? quizzes
+      .filter(q => q.completedAt) 
       .sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt))
       .slice(-10)
       .map(q => ({
@@ -156,26 +159,26 @@ const StudentDashboard = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-black text-white">
-      <header className="fixed top-0 w-full z-50 flex items-center justify-between px-6 py-4 bg-white/10 backdrop-blur-md border-b border-white/10 shadow-md h-16">
+      <header className="fixed top-0 w-full z-50 flex items-center justify-between px-4 md:px-6 bg-white/10 backdrop-blur-md border-b border-white/10 shadow-md h-16">
         <div className="flex items-center gap-3">
-          <img src={LOGO} alt="" className="h-20 w-20 text-blue-400"/>
+          <img src={LOGO} alt="ProctorX Logo" className="h-10 w-10 text-blue-400"/>
           <span className="text-xl font-bold text-white">ProctorX</span>
-          <span className="text-xl font-light text-gray-500">/</span>
-          <span className="text-lg text-gray-300">Student Dashboard</span>
+          <span className="text-xl font-light text-gray-500 hidden sm:inline">/</span>
+          <span className="text-lg text-gray-300 hidden sm:inline">Student Dashboard</span>
         </div>
-        <nav className="flex items-center gap-4">
-          <button onClick={() => navigate('/')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2A2A2A] hover:bg-[#3A3A3A] transition text-sm font-medium border border-[#4A4A4A]">
+        <nav className="flex items-center gap-2 sm:gap-4">
+          <button onClick={() => navigate('/')} aria-label="Home" className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-[#2A2A2A] hover:bg-[#3A3A3A] transition text-sm font-medium border border-[#4A4A4A]">
             <HomeIcon />
-            <span>Home</span>
+            <span className="hidden sm:inline">Home</span>
           </button>
-          <button onClick={() => { alert("Logout clicked"); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-800/30 border border-red-700 hover:bg-red-800/50 transition text-sm font-medium text-red-400">
+          <button onClick={() => { alert("Logout clicked"); }} aria-label="Logout" className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-red-800/30 border border-red-700 hover:bg-red-800/50 transition text-sm font-medium text-red-400">
             <LogoutIcon />
-            <span>Logout</span>
+            <span className="hidden sm:inline">Logout</span>
           </button>
         </nav>
       </header>
 
-      <main className="flex-1 p-4 md:p-10 pt-20 md:pt-24 overflow-y-auto">
+      <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-10 pt-20 md:pt-24">
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white">Hello, {profile?.name || 'Student'}</h1>
@@ -183,62 +186,59 @@ const StudentDashboard = () => {
           </div>
           {profile && (
             <div className="flex items-center gap-3 mt-4 sm:mt-0">
-              <p className="text-sm text-right hidden md:block">
+              <p className="text-sm text-right hidden sm:block">
                 <span className="font-semibold text-white">{profile.name}</span><br />
                 <span className="text-gray-400">{profile.email}</span>
               </p>
-              <img src={profile.profilePicture || `https://ui-avatars.com/api/?name=${profile.name}&background=0D8ABC&color=fff&bold=true`} alt="Profile" className="w-10 h-10 rounded-full border-2 border-[#2A2A2A]" />
+              <img src={profile.profilePicture || `httpshttps://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=0D8ABC&color=fff&bold=true`} alt="Profile" className="w-10 h-10 rounded-full border-2 border-[#2A2A2A]" />
             </div>
           )}
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 cursor-pointer gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <StatCard icon={<BookOpen className="w-6 h-6 text-[#00E1F9]" />} title="Quizzes Taken" value={summaryStats.totalQuizzes} />
           <StatCard icon={<Star className="w-6 h-6 text-[#00E1F9]" />} title="Average Score" value={`${summaryStats.averageScore}%`} />
           <StatCard icon={<Award className="w-6 h-6 text-[#00E1F9]" />} title="Best Score" value={`${summaryStats.bestScore}%`} />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 cursor-pointer gap-8 mb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-4">
           <Card 
-          className="lg:col-span-2 relative" 
-          style={{ 
-            backgroundImage: `url(${BG_TEAL})`, 
-            backgroundRepeat: 'no-repeat', 
-            backgroundPosition: 'top 1rem right -5rem', 
-            backgroundSize: '300px'
-          }}
-        >
-          <h2 className="text-xl font-semibold text-white cursor-pointer mb-4">Recent Performance Trend (Last 10)</h2>
-          {chartData.length > 1 ? (
-            <ResponsiveContainer width="100%" cursor-pointer height={300}>
-                <AreaChart data={chartData} margin={{ top: 10, right: 130, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#00E1F9" stopOpacity={0.6} />
-                      <stop offset="95%" stopColor="#00E1F9" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
-                  <XAxis dataKey="date" stroke="#6b7280" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#6b7280" fontSize={11} unit="%" domain={[0, 100]} tickLine={false} axisLine={false} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "rgba(10, 10, 10, 0.8)",
-                      borderColor: "#2A2A2A",
-                      color: "#e5e7eb",
-                      borderRadius: '8px',
-                      padding: '8px 12px',
-                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                    }}
-                    labelStyle={{ fontWeight: 'bold', marginBottom: '4px', color: '#fff' }}
-                    itemStyle={{ color: '#00E1F9' }}
-                    formatter={(value) => `${value.toFixed(1)}%`}
-                  />
-                  <Area type="monotone" dataKey="Score" stroke="#00E1F9" fillOpacity={1} fill="url(#colorScore)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
+            className="lg:col-span-2 relative pb-0" 
+            
+          >
+            <h2 className="text-xl font-semibold text-white mb-4">Recent Performance Trend (Last 10)</h2>
+            {chartData.length > 1 ? (
+              <div className="h-[300px] sm:h-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#00E1F9" stopOpacity={0.6} />
+                        <stop offset="95%" stopColor="#00E1F9" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
+                    <XAxis dataKey="date" stroke="#6b7280" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#6b7280" fontSize={11} unit="%" domain={[0, 100]} tickLine={false} axisLine={false} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "rgba(10, 10, 10, 0.8)",
+                        borderColor: "#2A2A2A",
+                        color: "#e5e7eb",
+                        borderRadius: '8px',
+                        padding: '8px 12px',
+                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                      }}
+                      labelStyle={{ fontWeight: 'bold', marginBottom: '4px', color: '#fff' }}
+                      itemStyle={{ color: '#00E1F9' }}
+                      formatter={(value) => `${value.toFixed(1)}%`}
+                    />
+                    <Area type="monotone" dataKey="Score" stroke="#00E1F9" fillOpacity={1} fill="url(#colorScore)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
-              <div className="h-[350px] flex items-center justify-center text-gray-500">
+              <div className="h-[300px] sm:h-[350px] flex items-center justify-center text-gray-500">
                 Take at least two quizzes to see your performance graph.
               </div>
             )}
@@ -254,13 +254,13 @@ const StudentDashboard = () => {
           {quizzes.length === 0 ? (
             <Card className="text-center py-16 text-gray-500">You haven't completed any quizzes yet.</Card>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {(showAllResults ? quizzes : quizzes.slice(0, 5)).map((quizResult) => {
                 const accuracy = quizResult.accuracy ?? 0;
                 const scoreColor = accuracy > 75 ? "text-emerald-400" : accuracy > 50 ? "text-yellow-400" : "text-red-400";
                 const bgColor = accuracy > 75 ? "bg-emerald-900/30" : accuracy > 50 ? "bg-yellow-900/30" : "bg-red-900/30";
                 return (
-                  <Card key={quizResult._id} className="!p-0 flex flex-col md:flex-row items-stretch justify-between hover:bg-[#2a2e34] cursor-pointer group" onClick={() => navigate(`/results/${quizResult._id}`)}>
+                  <Card key={quizResult._id} className="!p-0 flex flex-col md:flex-row items-stretch justify-between hover:bg-[#222222] !border-[#2A2A2A] hover:!border-[#00E1F9]/50 cursor-pointer group" onClick={() => navigate(`/results/${quizResult._id}`)}>
                     <div className="flex items-center gap-4 p-4 md:p-5 flex-grow">
                       <div className={`p-3 rounded-lg ${bgColor}`}>
                         <Award className={`w-6 h-6 ${scoreColor}`} />
@@ -270,7 +270,7 @@ const StudentDashboard = () => {
                         <p className="text-xs text-gray-400 mt-1">Completed: {new Date(quizResult.completedAt).toLocaleDateString()}</p>
                       </div>
                     </div>
-                    <div className="flex items-center justify-end gap-6 px-4 py-3 md:px-5 md:py-5 border-t border-[#2A2A2A] md:border-t-0 md:border-l">
+                    <div className="flex items-center justify-end gap-4 md:gap-6 px-4 py-3 md:px-5 md:py-5 border-t border-[#2A2A2A] md:border-t-0 md:border-l">
                       <div className="text-center">
                         <p className="text-xs text-gray-400">Score</p>
                         <p className={`text-lg font-semibold ${scoreColor}`}>{quizResult.score ?? 'N/A'}/{quizResult.totalQuestions ?? 'N/A'}</p>
@@ -279,7 +279,7 @@ const StudentDashboard = () => {
                         <p className="text-xs text-gray-400">Accuracy</p>
                         <p className={`text-lg font-semibold ${scoreColor}`}>{accuracy.toFixed(1)}%</p>
                       </div>
-                      <ArrowRight className="w-5 h-5 text-gray-500 group-hover:text-[#00E1F9] transition-colors" />
+                      <ArrowRight className="w-5 h-5 text-gray-500 group-hover:text-[#00E1F9] transition-colors ml-2" />
                     </div>
                   </Card>
                 );
