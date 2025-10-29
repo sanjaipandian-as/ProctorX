@@ -30,18 +30,25 @@ const ErrorFull = ({ error }) => (
 
 const Header = ({ title }) => {
   const navigate = useNavigate();
+
+  const handleCloseClick = () => {
+    const userRole = localStorage.getItem('userRole'); // Assuming role is stored as 'userRole'
+    if (userRole === 'teacher') {
+      navigate('/staff-dashboard');
+    } else {
+      navigate('/student-profile');
+    }
+  };
+
   return (
-    // CHANGED: Removed px-3 sm:px-5 to allow button to be flush-right
     <header className="flex items-center justify-between w-full bg-white border-b-2 border-gray-500 shadow-sm h-14 sm:h-16">
-      {/* CHANGED: Added px-3 sm:px-5 here to pad the title/logo */}
       <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5">
         <ShieldCheck className="h-10 w-8 sm:h-12 sm:w-10 text-red-600" />
         <h1 className="text-base sm:text-lg font-semibold text-gray-800 truncate">{title}</h1>
       </div>
       <button
-        // CHANGED: Made button h-full, w-14 (to match h-14), and rounded-none by default
         className="h-full w-14 sm:w-16 bg-black text-white flex items-center justify-center hover:bg-gray-800 rounded-none"
-        onClick={() => navigate('/student-profile')}
+        onClick={handleCloseClick}
       >
         <X className="w-4 h-4 sm:w-1/2 sm:h-1/2" />
       </button>
@@ -216,12 +223,9 @@ const QuizResultsPage = () => {
   }
 
   return (
-    // CHANGED: Replaced h-screen and overflow-hidden with min-h-screen to allow full page scroll
     <div className="bg-[#F4F4F0] min-h-screen text-gray-900 font-sans flex flex-col">
       <Header title={result.quiz?.title || 'Assessment Results'} />
-      {/* CHANGED: Removed overflow-auto, added md:overflow-hidden to contain scrolling to desktop */}
       <div className="flex-1 flex flex-col md:flex-row md:overflow-hidden">
-        {/* CHANGED: Made overflow and max-height specific to md+ screens */}
         <aside className="w-full md:w-1/4 lg:w-1/5 bg-yellow-50 border-r-2 border-gray-500 flex flex-col p-4 sm:p-6 md:overflow-y-auto md:max-h-[calc(100vh-4rem)]">
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
             <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 text-center">Performance</h3>
@@ -233,7 +237,6 @@ const QuizResultsPage = () => {
             </div>
           </motion.div>
         </aside>
-        {/* CHANGED: Made overflow and max-height specific to md+ screens */}
         <main className="w-full md:w-3/4 lg:w-4/4 flex flex-col gap-6 sm:gap-8 p-3 sm:p-8 md:overflow-y-auto bg-white md:max-h-[calc(100vh-4rem)]">
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-3 sm:gap-4">
             <div>
