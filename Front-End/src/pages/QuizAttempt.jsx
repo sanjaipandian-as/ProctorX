@@ -56,9 +56,9 @@ const ProctoringFeed = ({ stream, type }) => {
       {!stream && (
         <div className="flex flex-col items-center">
           {type === "camera" ? (
-            <Camera className="h-6 w-6 mb-1" />
+            <Camera className="h-4 w-4 sm:h-6 sm:w-6 mb-1" />
           ) : (
-            <ScreenShare className="h-6 w-6 mb-1" />
+            <ScreenShare className="h-4 w-4 sm:h-6 sm:w-6 mb-1" />
           )}
           <span className="text-xs font-semibold">
             {type === "camera" ? "Camera Off" : "Screen Off"}
@@ -77,7 +77,7 @@ const ProctoringFeed = ({ stream, type }) => {
   );
 };
 
-const InstructionsModal = ({ isOpen, onClose }) => (
+const InstructionsModal = ({ isOpen, onClose, quiz }) => (
   <AnimatePresence>
     {isOpen && (
       <div
@@ -101,45 +101,51 @@ const InstructionsModal = ({ isOpen, onClose }) => (
             duration: 0.7,
             ease: [0.25, 0.1, 0.25, 1],
           }}
-          className="relative bg-white shadow-xl w-[40%] h-full  flex flex-col overflow-y-auto"
+          className="relative bg-white shadow-xl w-full sm:w-[70%] md:w-[60%] lg:w-[40%] h-full flex flex-col overflow-y-auto"
         >
-          <div className="p-6 space-y-12 text-gray-700">
+          <div className="p-4 sm:p-6 space-y-8 sm:space-y-12 text-gray-700">
             <div className="relative border-b pb-4 text-center">
               <button
                 onClick={onClose}
-                className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+                className="absolute top-0 right-0 sm:top-2 sm:right-2 text-gray-500 hover:text-gray-700"
               >
                 <X size={20} />
               </button>
-              <div className="grid grid-cols-3 divide-x divide-gray-300">
-                <div>
+              <div className="grid grid-cols-1 divide-y divide-gray-300 sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
+                <div className="py-2 sm:py-0">
                   <p className="text-sm font-medium text-gray-500">
                     Total questions
                   </p>
-                  <p className="text-lg font-semibold text-gray-800">25</p>
+                  <p className="text-lg font-semibold text-gray-800">
+                    {quiz.questions?.length || 0}
+                  </p>
                 </div>
-                <div>
+                <div className="py-2 sm:py-0">
                   <p className="text-sm font-medium text-gray-500">
                     Max. Duration
                   </p>
-                  <p className="text-lg font-semibold text-gray-800">30m</p>
+                  <p className="text-lg font-semibold text-gray-800">
+                    1h
+                  </p>
                 </div>
-                <div>
+                <div className="pt-2 sm:pt-0">
                   <p className="text-sm font-medium text-gray-500">
                     Proctoring
                   </p>
-                  <p className="text-lg font-semibold text-gray-800">Remote</p>
+                  <p className="text-lg font-semibold text-gray-800">
+                    {quiz.proctoringProvider}
+                  </p>
                 </div>
               </div>
             </div>
             <section>
-              <h3 className="text-3xl font-bold mb-4 text-gray-900">
+              <h3 className="text-2xl sm:text-3xl font-bold mb-4 text-gray-900">
                 Instructions
               </h3>
-              <p className="text-lg mb-4 text-gray-600">
+              <p className="text-base sm:text-lg mb-4 text-gray-600">
                 Please keep a note of the below instructions.
               </p>
-              <ul className="list-disc list-inside space-y-2 text-md">
+              <ul className="list-disc list-inside space-y-2 text-sm sm:text-md">
                 <li>
                   This assessment can be attempted only ONCE. Hence, please
                   ensure you are seated in a distraction-free environment.
@@ -165,65 +171,68 @@ const InstructionsModal = ({ isOpen, onClose }) => (
               </ul>
             </section>
             <section>
-              <h3 className="text-lg font-semibold mb-2 text-gray-900">
+              <h3 className="text-base sm:text-lg font-semibold mb-2 text-gray-900">
                 Marking Scheme
               </h3>
-              <p className="text-md mb-3 text-gray-600">
+              <p className="text-sm sm:text-md mb-3 text-gray-600">
                 Refer to the top right of each question for the marks awarded for
                 a correct answer or deducted for an incorrect answer as shown
                 below.
               </p>
-              <div className="flex space-x-6">
+              <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-6">
                 <div className="flex items-center">
-                  <span className="bg-green-100 text-green-700 text-md font-semibold px-2 py-0.5 rounded-md mr-2">
+                  <span className="bg-green-100 text-green-700 text-sm sm:text-md font-semibold px-2 py-0.5 rounded-md mr-2">
                     +X
                   </span>
-                  <span className="text-md italic text-gray-800">Correct</span>
+                  <span className="text-sm sm:text-md italic text-gray-800">
+                    Correct
+                  </span>
                 </div>
                 <div className="flex items-center">
-                  <span className="bg-red-100 text-red-700 text-md font-semibold px-2 py-0.5 rounded-md mr-2">
+                  <span className="bg-red-100 text-red-700 text-sm sm:text-md font-semibold px-2 py-0.5 rounded-md mr-2">
                     -Y
                   </span>
-                  <span className="text-md italic text-gray-800">
+                  <span className="text-sm sm:text-md italic text-gray-800">
                     Incorrect
                   </span>
                 </div>
               </div>
             </section>
             <section>
-              <h3 className="text-lg font-semibold mb-2 text-gray-900">
+              <h3 className="text-base sm:text-lg font-semibold mb-2 text-gray-900">
                 Question Palette
               </h3>
-              <p className="text-md mb-3 text-gray-600">
+              <p className="text-sm sm:text-md mb-3 text-gray-600">
                 The question palette displayed on the left side of the assessment
                 screen will show the following statuses depicted by distinct
                 symbols.
               </p>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-center space-x-2">
-                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-blue-600 text-white rounded-md">
+                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-blue-600 text-white rounded-md flex-shrink-0">
                     1
                   </span>
-                  <span className="text-md">Answered</span>
+                  <span className="text-sm sm:text-md">Answered</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-gray-200 text-gray-700 border border-gray-400 rounded-md">
+                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-gray-200 text-gray-700 border border-gray-400 rounded-md flex-shrink-0">
                     2
                   </span>
-                  <span className="text-md">Unanswered</span>
+                  <span className="text-sm sm:text-md">Unanswered</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-yellow-500 text-white rounded-md">
+                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-yellow-500 text-white rounded-md flex-shrink-0">
                     5
                   </span>
-                  <span className="text-md">Marked for review but answered</span>
+                  <span className="text-sm sm:text-md">
+                    Marked for review but answered
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-yellow-500 text-white rounded-md">
+                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-yellow-500 text-white rounded-md flex-shrink-0">
                     13
                   </span>
-                  <span className="text-md">
+                  <span className="text-sm sm:text-md">
                     Marked for review but unanswered
                   </span>
                 </div>
@@ -248,13 +257,15 @@ const SetupCheckItem = ({ title, status, children, check }) => {
       <div>{statusIcons[status]}</div>
       <div className="flex-1">
         <h3
-          className={`font-semibold text-lg ${
+          className={`font-semibold text-base sm:text-lg ${
             status === "checked" ? "text-gray-900" : "text-gray-700"
           }`}
         >
           {title}
         </h3>
-        {check && <p className="px-1 text-sm text-gray-500 mt-1">{check}</p>}
+        {check && (
+          <p className="px-1 text-xs sm:text-sm text-gray-500 mt-1">{check}</p>
+        )}
         {children && <div className="mt-4">{children}</div>}
       </div>
     </div>
@@ -268,11 +279,7 @@ const SidebarChecklistItem = ({ label, isChecked }) => (
     ) : (
       <div className="w-4 h-4 border-2 border-gray-400 rounded-full flex-shrink-0"></div>
     )}
-    <span
-      className={`text-sm ${
-        isChecked ? "text-gray-900" : "text-gray-600"
-      }`}
-    >
+    <span className={`text-sm ${isChecked ? "text-gray-900" : "text-gray-600"}`}>
       {label}
     </span>
   </div>
@@ -301,7 +308,7 @@ const QuizFlow = () => {
 
   const [warnings, setWarnings] = useState(5);
   const warningsRef = useRef(warnings);
-
+  const [hasAcknowledgedBug, setHasAcknowledgedBug] = useState(false);
   const cameraFeedRef = useRef(null);
   const screenFeedRef = useRef(null);
   const inputRefs = useRef([]);
@@ -541,12 +548,15 @@ const QuizFlow = () => {
   useEffect(() => {
     const handleResize = () => {
       if (step === 4 && document.fullscreenElement && fullScreenSize.current) {
-        const isResized =
-          window.innerWidth !== fullScreenSize.current.w ||
-          window.innerHeight !== fullScreenSize.current.h;
-
-        if (isResized) {
+        const newW = window.innerWidth;
+        const newH = window.innerHeight;
+        if (newW < fullScreenSize.current.w || newH < fullScreenSize.current.h) {
           document.exitFullscreen();
+        } else if (
+          newW > fullScreenSize.current.w ||
+          newH > fullScreenSize.current.h
+        ) {
+          fullScreenSize.current = { w: newW, h: newH };
         }
       }
     };
@@ -731,8 +741,8 @@ const QuizFlow = () => {
     );
   if (error)
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-center p-8 bg-white rounded-lg border border-gray-200 shadow-md">
+      <div className="flex items-center justify-center h-screen bg-gray-50 p-4">
+        <div className="text-center p-6 sm:p-8 bg-white rounded-lg border border-gray-200 shadow-md">
           <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
           <p className="mt-4 text-gray-800">{error}</p>
         </div>
@@ -744,51 +754,55 @@ const QuizFlow = () => {
     if (step < 4) {
       const steps = [{ id: 1 }, { id: 2 }, { id: 3 }];
       return (
-        <div className="flex h-screen bg-white text-gray-900 font-sans relative">
+        <div className="flex flex-col lg:flex-row min-h-screen bg-white text-gray-900 font-sans relative">
           <Toaster position="top-center" reverseOrder={false} />
-          <div className="w-full max-w-lg bg-yellow-50 border-r font-bold border-gray-200 flex flex-col justify-between p-8">
+          <div className="w-full lg:w-128 flex-shrink-0 bg-yellow-50 border-r border-gray-200 flex flex-col justify-between p-6 sm:p-8">
             <div>
-              <div className="flex items-center space-x-1 mb-8">
+              <div className="flex items-center space-x-1 mb-6 sm:mb-8">
                 <img
                   src={LOGO}
                   alt=""
-                  className="h-20 w-20 mt-0.5  text-blue-600"
+                  className="h-16 w-16 sm:h-20 sm:w-20 mt-0.5 text-blue-600"
                 />
-                <h1 className="text-3xl font-bold text-gray-900">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                   Take An Assessment
                 </h1>
               </div>
-              <div className="p-7 border-2 border-gray-500 rounded-xl bg-white">
-                <h2 className="font-bold text-gray-900">{quiz.title}</h2>
-                <div className="border-t-2 border-dashed border-gray-500 my-7"></div>
-                <div className="grid grid-cols-2  gap-y-6 gap-x-6">
+              <div className="p-4 sm:p-7 border-2 border-gray-500 rounded-xl bg-white">
+                <h2 className="font-bold text-base sm:text-lg text-gray-900">
+                  {quiz.title}
+                </h2>
+                <div className="border-t-2 border-dashed border-gray-500 my-4 sm:my-7"></div>
+                <div className="grid grid-cols-2 gap-y-4 sm:gap-y-6 gap-x-4 sm:gap-x-6">
                   <div className="flex items-start space-x-2">
-                    <Mic className="w-6 h-6 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <Mic className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500 mt-0.5 flex-shrink-0" />
                     <div>
-                      <span className="text-sm text-gray-600">Proctoring</span>
-                      <span className="block font-semibold text-gray-900">
+                      <span className="text-xs sm:text-sm text-gray-600">
+                        Proctoring
+                      </span>
+                      <span className="block font-semibold text-sm sm:text-base text-gray-900">
                         {quiz.proctoringProvider}
                       </span>
                     </div>
                   </div>
                   <div className="flex items-start space-x-2">
-                    <Hourglass className="w-6 h-6 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <Hourglass className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500 mt-0.5 flex-shrink-0" />
                     <div>
-                      <span className="text-sm text-gray-600">
+                      <span className="text-xs sm:text-sm text-gray-600">
                         Max. Duration
                       </span>
-                      <span className="block font-semibold text-gray-900">
-                        1h
+                      <span className="block font-semibold text-sm sm:text-base text-gray-900">
+                        {quiz.duration}
                       </span>
                     </div>
                   </div>
                   <div className="flex items-start space-x-2">
-                    <HelpCircle className="w-6 h-6 text-gray-500 mt-0.5 flex-shrink-0" />
+                    <HelpCircle className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500 mt-0.5 flex-shrink-0" />
                     <div>
-                      <span className="text-sm text-gray-600">
+                      <span className="text-xs sm:text-sm text-gray-600">
                         Total Questions
                       </span>
-                      <span className="block font-semibold text-gray-900">
+                      <span className="block font-semibold text-sm sm:text-base text-gray-900">
                         {quiz.questions?.length || 0}
                       </span>
                     </div>
@@ -796,17 +810,17 @@ const QuizFlow = () => {
                 </div>
               </div>
             </div>
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center mt-8 lg:mt-0">
               <img
                 src={Proctor}
                 alt="illustration"
-                className="mb-6 w-100 h-50"
+                className="mb-6 w-64 sm:w-80 lg:w-96 h-auto mx-auto"
               />
               <div className="text-center w-full">
                 <div className="flex items-center justify-center space-x-3">
                   <User className="w-8 h-8 p-1.5 bg-gray-200 text-gray-700 rounded-full" />
                   <div>
-                    <p className="font-semibold text-gray-900">
+                    <p className="font-semibold text-sm sm:text-base text-gray-900">
                       {quiz.studentName}
                     </p>
                     <p className="text-xs text-gray-500">
@@ -817,11 +831,11 @@ const QuizFlow = () => {
               </div>
             </div>
           </div>
-          <div className="absolute top-1/2 left-128 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+          <div className="hidden lg:flex absolute top-1/2 left-128 -translate-x-1/2 -translate-y-1/2 flex-col items-center z-10">
             {steps.map((s, index) => (
               <div key={s.id} className="flex flex-col items-center">
                 <div
-                  className={`w-9 h-9  flex items-center justify-center font-bold transition-all ${
+                  className={`w-9 h-9 flex items-center justify-center font-bold transition-all ${
                     s.id < step
                       ? "bg-green-600 text-white"
                       : step === s.id
@@ -837,19 +851,19 @@ const QuizFlow = () => {
               </div>
             ))}
           </div>
-          <div className="flex-1 flex flex-col p-12 overflow-y-auto bg-white">
+          <div className="flex-1 flex flex-col p-6 sm:p-8 lg:p-12 bg-white">
             <div className="flex-1">
               {step === 1 && (
-                <div className="space-y-10 text-gray-700">
+                <div className="space-y-8 sm:space-y-10 text-gray-700">
                   <div>
-                    <h2 className="text-3xl font-bold text-black-900">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-black-900">
                       Instructions
                     </h2>
-                    <p className="mt-4 text-base text-black ">
+                    <p className="mt-2 sm:mt-4 text-sm sm:text-base text-black ">
                       Please read the below instructions carefully and begin the
                       assessment.
                     </p>
-                    <ul className="list-disc list-inside space-y-2 text-base font-semibold mt-4">
+                    <ul className="list-disc list-inside space-y-2 text-sm sm:text-base font-semibold mt-4">
                       <li>
                         This assessment can be attempted only ONCE. Hence, please
                         ensure you are seated in a distraction-free environment.
@@ -875,12 +889,12 @@ const QuizFlow = () => {
                     </ul>
                   </div>
 
-                  <div className="bg-amber-50 border border-dashed border-amber-400 rounded-lg p-6 flex flex-col sm:flex-row justify-between sm:items-center">
+                  <div className="bg-amber-50 border border-dashed border-amber-400 rounded-lg p-4 sm:p-6 flex flex-col sm:flex-row justify-between sm:items-center">
                     <div>
-                      <h3 className="font-bold text-xl text-gray-900 mb-3">
+                      <h3 className="font-bold text-lg sm:text-xl text-gray-900 mb-3">
                         Proctoring Guidelines
                       </h3>
-                      <ul className="list-disc list-inside text-base space-y-2 text-black-800">
+                      <ul className="list-disc list-inside text-sm sm:text-base space-y-2 text-black-800">
                         <li>
                           This assessment requires you to share your Camera and
                           Microphone feed, as well as your entire screen.
@@ -899,15 +913,15 @@ const QuizFlow = () => {
                     <img
                       src={ProctoredX}
                       alt="proctoring"
-                      className="w-56 object-contain mt-4 sm:mt-0 sm:ml-6 flex-shrink-0"
+                      className="w-40 sm:w-56 object-contain mt-4 sm:mt-0 sm:ml-6 flex-shrink-0"
                     />
                   </div>
 
                   <div>
-                    <h2 className="text-3xl font-bold text-gray-900">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
                       Marking Scheme
                     </h2>
-                    <p className="mt-4 text-base">
+                    <p className="mt-2 sm:mt-4 text-sm sm:text-base">
                       Refer to the top right of each question for the marks
                       awarded for a correct answer or deducted for an incorrect
                       answer as shown below.
@@ -929,17 +943,17 @@ const QuizFlow = () => {
                   </div>
 
                   <div>
-                    <h2 className="text-3xl font-bold text-gray-900">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
                       Question Palette
                     </h2>
-                    <p className="mt-4 text-base">
+                    <p className="mt-2 sm:mt-4 text-sm sm:text-base">
                       The question palette displayed on the left side of the
                       assessment screen will show the following statuses depicted
                       by distinct symbols.
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-6 text-base">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-6 text-sm sm:text-base">
                       <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-blue-600  flex items-center justify-center text-white font-bold flex-shrink-0">
+                        <div className="w-10 h-10 bg-blue-600 flex items-center justify-center text-white font-bold flex-shrink-0">
                           1
                         </div>
                         <span>Answered</span>
@@ -970,20 +984,20 @@ const QuizFlow = () => {
                 </div>
               )}
               {step === 2 && (
-                <div className="mt-18 space-y-12  text-black-800">
-                  <h2 className="text-4xl font-bold text-gray-900">
+                <div className="mt-0 sm:mt-18 space-y-8 sm:space-y-12 text-black-800">
+                  <h2 className="text-2xl sm:text-4xl font-bold text-gray-900">
                     Proctor-X Honour Code
                   </h2>
-                  <p className="text-base">
+                  <p className="text-sm sm:text-base">
                     Before you start this challenge, we want you to take a take
                     pledge - that you will abide by Proctor-X Honour Code. Here's
                     what you are promising us.
                   </p>
 
-                  <div className="space-y-8 mt-8">
+                  <div className="space-y-6 sm:space-y-8 mt-8">
                     <div className="flex items-start space-x-3">
                       <CheckCircle2 className="h-6 w-6 text-green-600 mt-0.5 flex-shrink-0" />
-                      <span className="text-base">
+                      <span className="text-sm sm:text-base">
                         I solemnly swear that I am up to no dishonesty! I promise
                         to be truthful, and honourable and use only my powers of
                         knowledge to complete this challenge.
@@ -991,7 +1005,7 @@ const QuizFlow = () => {
                     </div>
                     <div className="flex items-start space-x-3">
                       <CheckCircle2 className="h-6 w-6 text-green-600 mt-0.5 flex-shrink-0" />
-                      <span className="text-base">
+                      <span className="text-sm sm:text-base">
                         I solemnly swear that I will not engage in malpractice
                         such as (but not limited to) copying from my peers, using
                         unauthorized resources (we're looking at you,
@@ -1000,7 +1014,7 @@ const QuizFlow = () => {
                     </div>
                     <div className="flex items-start space-x-3">
                       <CheckCircle2 className="h-6 w-6 text-green-600 mt-0.5 flex-shrink-0" />
-                      <span className="text-base">
+                      <span className="text-sm sm:text-base">
                         I also solemnly swear that failure to follow the
                         aforementioned two points in the honour code will result
                         in a life sentence of guilt, shame, eternal bad luck, and
@@ -1016,15 +1030,15 @@ const QuizFlow = () => {
                       onChange={(e) => setHonourCodeAgreed(e.target.checked)}
                       className="mt-0.5 h-5 w-5 accent-red-600 cursor-pointer flex-shrink-0"
                     />
-                    <span className="text-gray-900 font-medium">
+                    <span className="text-gray-900 font-medium text-sm sm:text-base">
                       I solemnly swear to abide by the Proctor-X Honour Code.
                     </span>
                   </label>
                 </div>
               )}
               {step === 3 && (
-                <div className="space-y-10">
-                  <h2 className="text-3xl font-bold text-gray-900">
+                <div className="space-y-8 sm:space-y-10">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
                     Setup Your Test Environment
                   </h2>
                   <div className="space-y-8">
@@ -1039,65 +1053,69 @@ const QuizFlow = () => {
                         cameraEnabled && screenEnabled ? "checked" : "unchecked"
                       }
                     >
-                      <div className="flex space-x-4">
-                        <div className="w-48 h-32 bg-gray-900 rounded-lg flex items-center justify-center">
-                          {cameraEnabled ? (
-                            <video
-                              ref={cameraFeedRef}
-                              autoPlay
-                              playsInline
-                              muted
-                              className="w-full h-full object-cover rounded-lg"
-                            />
+                      <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
+                        <div className="flex flex-col space-y-4 w-full sm:w-48">
+                          <div className="w-full h-auto aspect-video sm:h-32 sm:aspect-auto bg-gray-900 rounded-lg flex items-center justify-center">
+                            {cameraEnabled ? (
+                              <video
+                                ref={cameraFeedRef}
+                                autoPlay
+                                playsInline
+                                muted
+                                className="w-full h-full object-cover rounded-lg"
+                              />
+                            ) : (
+                              <Camera className="text-gray-500" />
+                            )}
+                          </div>
+                          {!cameraEnabled ? (
+                            <button
+                              onClick={handleEnableCamera}
+                              className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700 text-sm sm:text-base"
+                            >
+                              Enable Camera
+                            </button>
                           ) : (
-                            <Camera className="text-gray-500" />
+                            <button
+                              onClick={stopCamera}
+                              className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700 text-sm sm:text-base"
+                            >
+                              Stop Camera
+                            </button>
                           )}
                         </div>
-                        <div className="w-48 h-32 bg-gray-900 rounded-lg flex items-center justify-center">
-                          {screenEnabled ? (
-                            <video
-                              ref={screenFeedRef}
-                              autoPlay
-                              playsInline
-                              muted
-                              className="w-full h-full object-cover rounded-lg"
-                            />
+
+                        
+                        <div className="flex flex-col space-y-4 w-full sm:w-48">
+                          <div className="w-full h-auto aspect-video sm:h-32 sm:aspect-auto bg-gray-900 rounded-lg flex items-center justify-center">
+                            {screenEnabled ? (
+                              <video
+                                ref={screenFeedRef}
+                                autoPlay
+                                playsInline
+                                muted
+                                className="w-full h-full object-cover rounded-lg"
+                              />
+                            ) : (
+                              <ScreenShare className="text-gray-500" />
+                            )}
+                          </div>
+                          {!screenEnabled ? (
+                            <button
+                              onClick={handleEnableScreenShare}
+                              className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700 text-sm sm:text-base"
+                            >
+                              Enable Screen Share
+                            </button>
                           ) : (
-                            <ScreenShare className="text-gray-500" />
+                            <button
+                              onClick={stopScreenShare}
+                              className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700 text-sm sm:text-base"
+                            >
+                              Stop Screen Share
+                            </button>
                           )}
                         </div>
-                      </div>
-                      <div className="mt-4 flex space-x-4">
-                        {!cameraEnabled ? (
-                          <button
-                            onClick={handleEnableCamera}
-                            className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700"
-                          >
-                            Enable Camera
-                          </button>
-                        ) : (
-                          <button
-                            onClick={stopCamera}
-                            className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700"
-                          >
-                            Stop Camera
-                          </button>
-                        )}
-                        {!screenEnabled ? (
-                          <button
-                            onClick={handleEnableScreenShare}
-                            className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700"
-                          >
-                            Enable Screen Share
-                          </button>
-                        ) : (
-                          <button
-                            onClick={stopScreenShare}
-                            className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700"
-                          >
-                            Stop Screen Share
-                          </button>
-                        )}
                       </div>
                     </SetupCheckItem>
                     <SetupCheckItem
@@ -1106,7 +1124,7 @@ const QuizFlow = () => {
                     >
                       <button
                         onClick={handleFullScreen}
-                        className={`px-4 py-2 text-white rounded flex items-center space-x-2 font-medium ${
+                        className={`px-4 py-2 text-white rounded flex items-center space-x-2 font-medium text-sm sm:text-base ${
                           isFullScreen
                             ? "bg-red-600 hover:bg-red-700"
                             : "bg-green-600 hover:bg-green-700"
@@ -1118,6 +1136,34 @@ const QuizFlow = () => {
                         </span>
                       </button>
                     </SetupCheckItem>
+                    <div className="flex items-start space-x-3 p-4 bg-yellow-100 border border-yellow-300 rounded-lg font-bold text-black">
+                      <input
+                        type="checkbox"
+                        id="bugAcknowledge"
+                        checked={hasAcknowledgedBug}
+                        onChange={(e) =>
+                          setHasAcknowledgedBug(e.target.checked)
+                        }
+                        disabled={!isFullScreen}
+                        className="mt-1 h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                      />
+                      <label
+                        htmlFor="bugAcknowledge"
+                        className={`text-sm text-black ${
+                          !isFullScreen
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
+                      >
+                        <strong>Important Notice:</strong> Hey folks, we are
+                        facing a bug. Before you begin, please{" "}
+                        <strong>hide the full-screen notification</strong> from
+                        your browser, or you might lose a life. Please tick this
+                        box to confirm you have done this. We will sort out the
+                        bug soon!
+                      </label>
+                    </div>
+
                     <SetupCheckItem
                       title="Security Code"
                       status={
@@ -1127,7 +1173,7 @@ const QuizFlow = () => {
                       }
                       check="Enter the 6-digit code from your invigilator."
                     >
-                      <div className="flex space-x-3">
+                      <div className="flex space-x-2 sm:space-x-3">
                         {securityCode.map((digit, i) => (
                           <input
                             key={i}
@@ -1141,9 +1187,10 @@ const QuizFlow = () => {
                               !cameraEnabled ||
                               !screenEnabled ||
                               !isFullScreen ||
+                              !hasAcknowledgedBug ||
                               isOtpVerified
                             }
-                            className="w-12 h-14 border-2 border-gray-300 bg-white rounded text-center text-2xl text-gray-900 disabled:bg-gray-100 focus:border-red-600 focus:ring-0"
+                            className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-gray-300 bg-white rounded text-center text-xl sm:text-2xl text-gray-900 disabled:bg-gray-100 focus:border-red-600 focus:ring-0"
                           />
                         ))}
                       </div>
@@ -1161,19 +1208,21 @@ const QuizFlow = () => {
               <button
                 onClick={handlePrevStep}
                 disabled={step === 1}
-                className="px-5 py-2 flex items-center space-x-2 bg-red-500 text-white border border-gray-300 rounded font-medium hover:bg-red-700 disabled:opacity-50"
+                className="px-3 py-2 sm:px-5 flex items-center space-x-2 bg-red-500 text-white border border-gray-300 rounded font-medium hover:bg-red-700 disabled:opacity-50 text-sm sm:text-base"
               >
                 <ArrowLeft size={16} />
-                <span>Previous</span>
+                <span className="hidden sm:inline">Previous</span>
               </button>
+
               {step < 3 ? (
                 <button
                   onClick={handleNextStep}
                   disabled={step === 2 && !honourCodeAgreed}
-                  className="px-8 py-2 flex items-center space-x-2 bg-green-800 text-white rounded font-medium hover:bg-green-900 disabled:bg-gray-300"
+                  className="px-4 py-2 sm:px-8 flex items-center space-x-2 bg-green-800 text-white rounded font-medium hover:bg-green-900 disabled:bg-gray-300 text-sm sm:text-base"
                 >
-                  <span>Next</span>
+                  <span className="hidden sm:inline">Next</span>
                   <ArrowRight size={16} />
+                  <p></p>
                 </button>
               ) : (
                 <button
@@ -1186,7 +1235,7 @@ const QuizFlow = () => {
                     !isFullScreen ||
                     (securityCode.join("").length !== 6 && !isOtpVerified)
                   }
-                  className="px-8 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 flex items-center space-x-2"
+                  className="px-4 py-2 sm:px-8 bg-red-600 text-white rounded font-medium hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 flex items-center space-x-2 text-sm sm:text-base"
                 >
                   {isVerifying ? (
                     <>
@@ -1220,30 +1269,33 @@ const QuizFlow = () => {
       };
 
       return (
-        <div className="flex flex-col h-screen bg-white text-gray-900 font-sans">
+        
+        <div className="flex flex-col min-h-screen bg-white text-gray-900 font-sans">
           <Toaster position="top-center" reverseOrder={false} />
           <InstructionsModal
             isOpen={isInstructionsOpen}
             onClose={() => setIsInstructionsOpen(false)}
+            quiz={quiz}
           />
 
-          <header className="flex items-stretch justify-between flex-shrink-0 px-0 bg-white">
+          
+          <header className="flex items-stretch justify-between flex-shrink-0 px-2 sm:px-0 bg-white">
             <div className="flex items-center py-3">
-              <GraduationCap className="h-8 pl-5 w-12 text-red-900" />
-              <h1 className="text-lg font-bold pl-2 text-gray-800">
+              <GraduationCap className="h-6 w-10 sm:h-8 sm:w-12 pl-2 sm:pl-5 text-red-900" />
+              <h1 className="text-base sm:text-lg font-bold pl-1 sm:pl-2 text-gray-800">
                 {quiz.title}
               </h1>
             </div>
 
-            <div className="flex items-stretch pb-0 space-x-6">
-              <div className="flex items-center font-medium text-black-600">
+            <div className="flex items-stretch">
+              <div className="flex items-center font-medium text-black-600 text-sm sm:text-base px-2 sm:px-6">
                 <Clock className="mr-1 mt-0.3" size={18} />
                 <span>{formatTime(timeLeft)} left</span>
               </div>
 
               <button
                 onClick={handleSubmit}
-                className="px-12 text-md font-medium text-white bg-gray-900 hover:bg-black-700 focus:outline-none focus:ring-2 focus:ring-black-500 focus:ring-opacity-50"
+                className="px-4 sm:px-12 text-sm sm:text-md font-medium text-white bg-gray-900 hover:bg-black-700 focus:outline-none focus:ring-2 focus:ring-black-500 focus:ring-opacity-50"
               >
                 Finish Assessment
               </button>
@@ -1251,10 +1303,11 @@ const QuizFlow = () => {
           </header>
           <hr className="border-1" />
 
-          <div className="flex flex-1 overflow-hidden">
-            <aside className="w-1/6 bg-stone-100 border-black-800 border-r-2 flex flex-col">
+          
+          <div className="flex flex-col lg:flex-row flex-1">
+            <aside className="w-full lg:w-1/6 bg-stone-100 border-black-800 lg:border-r-2 flex flex-col flex-shrink-0">
               <div className="bg-yellow-50 p-2 pt-2">
-                <div className="flex items-center text-sm space-x-2 text-black-800">
+                <div className="flex items-center text-sm space-x-2 text-black-800 max-w-md mx-auto lg:max-w-full">
                   <span className="text-red-700">
                     <ScanEye size={30} />
                   </span>
@@ -1262,7 +1315,7 @@ const QuizFlow = () => {
                     Your camera feed, audio and screen are being proctored.
                   </span>
                 </div>
-                <div className="flex items-center space-x-2 mt-2 w-full">
+                <div className="flex items-center space-x-2 mt-2 w-full max-w-md mx-auto lg:max-w-full">
                   <ProctoringFeed stream={cameraStream} type="camera" />
                   <ProctoringFeed stream={screenStream} type="screen" />
                 </div>
@@ -1270,7 +1323,8 @@ const QuizFlow = () => {
 
               <hr className="border-t-1 border-red-400" />
 
-              <div className="flex-1 overflow-y-auto mt-4">
+              
+              <div className="flex-1 lg:mt-4 p-4 lg:p-0">
                 <h2
                   onClick={() => setIsInstructionsOpen(true)}
                   className="font-semibold mb-3 text-center cursor-pointer text-gray-900 flex items-center justify-center gap-1"
@@ -1280,12 +1334,12 @@ const QuizFlow = () => {
                 </h2>
                 <hr className="w-3/4 mx-auto border-t-2 border-gray-300 my-4" />
 
-                <div className="grid grid-cols-3 gap-3 pl-5">
+                <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-3 gap-2 lg:gap-3 lg:pl-5">
                   {quiz.questions.map((_, index) => (
                     <button
                       key={index}
                       onClick={() => handleQuestionNavigation(index)}
-                      className={`h-14 w-14 rounded-md font-bold flex items-center justify-center ${getStatusColor(
+                      className={`h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 rounded-md font-bold flex items-center justify-center ${getStatusColor(
                         answers[index]?.status
                       )} ${
                         currentQuestionIndex === index
@@ -1299,18 +1353,17 @@ const QuizFlow = () => {
                 </div>
               </div>
             </aside>
-
-            <div className="flex-1 flex flex-col pt-2 overflow-hidden">
-              <main className="flex-1 flex flex-col pl-34 pt-16 overflow-y-auto">
-                <div className="flex justify-between items-center">
+            <div className="flex-1 flex flex-col pt-2">
+              <main className="flex-1 flex flex-col px-4 py-4 sm:px-8 sm:py-6 lg:pl-32 lg:pt-16">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center">
                   <button
                     onClick={handleMarkForReview}
-                    className="flex items-center space-x-2 py-5 cursor-pointer text-gray-800 rounded font-medium"
+                    className="flex items-center space-x-2 py-2 sm:py-5 cursor-pointer text-gray-800 rounded font-medium"
                   >
                     <Bookmark size={16} />
                     <span>Mark for Review</span>
                   </button>
-                  <div className="flex items-center mr-40 space-x-0">
+                  <div className="flex items-center mr-0 sm:mr-40 space-x-0 self-end sm:self-center">
                     <span className="bg-green-100 text-green-700 text-sm font-semibold px-2 py-0.5">
                       +1
                     </span>
@@ -1321,20 +1374,20 @@ const QuizFlow = () => {
                 </div>
 
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold mb-4 mt-5 text-gray-500">
+                  <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-4 mt-2 sm:mt-5 text-gray-500">
                     Question {currentQuestionIndex + 1} of{" "}
                     {quiz.questions.length}
                   </h3>
-                  <p className="text-2xl font-bold mb-6 text-gray-900">
+                  <p className="text-lg sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
                     {currentQuestion.questionText}
                   </p>
-                  <hr className="w-6/7" />
+                  <hr className="w-full lg:w-6/7" />
 
-                  <div className="space-y-6 pt-5">
+                  <div className="space-y-4 sm:space-y-6 pt-4 sm:pt-5">
                     {currentQuestion.options.map((option, index) => (
                       <label
                         key={index}
-                        className={`flex items-center p-4 border-3 cursor-pointer transition-colors w-full max-w-md h-14 ${
+                        className={`flex items-center p-3 sm:p-4 border-3 cursor-pointer transition-colors w-full lg:max-w-md min-h-[3.5rem] ${
                           answers[currentQuestionIndex]?.answer === index
                             ? "bg-blue-50 border-blue-600"
                             : "bg-gray-100 border-gray-500 hover:bg-gray-200"
@@ -1349,31 +1402,35 @@ const QuizFlow = () => {
                           onChange={() => handleAnswerChange(index)}
                           className="h-5 w-5 mr-4 accent-blue-600"
                         />
-                        <span className="text-black-500">{option}</span>
+                        <span className="text-black-500 text-sm sm:text-base">
+                          {option}
+                        </span>
                       </label>
                     ))}
 
                     <button
                       onClick={() => handleAnswerChange(null)}
-                      className="flex items-center px-4 py-2 text-red-700 rounded font-medium space-x-2 w-max mt-2"
+                      className="flex items-center px-4 py-2 text-red-700 rounded font-medium space-x-2 w-max mt-4 sm:mt-2"
                     >
                       <Eraser size={18} />
-                      <span>Clear Response</span>
+                      <span className="text-sm sm:text-base">
+                        Clear Response
+                      </span>
                     </button>
                   </div>
                 </div>
               </main>
 
-              <footer className="flex-shrink-0 flex justify-between items-center mt-2 pt-2 border-t bg-gray-200 px-8">
+              <footer className="flex-shrink-0 flex justify-between items-center mt-2 pt-2 border-t bg-gray-200 px-4 sm:px-8">
                 <button
                   onClick={() =>
                     handleQuestionNavigation(currentQuestionIndex - 1)
                   }
                   disabled={currentQuestionIndex === 0}
-                  className="px-5 py-2 flex items-center space-x-2 cursor-pointer rounded font-medium disabled:opacity-50"
+                  className="px-3 py-2 sm:px-5 flex items-center space-x-2 cursor-pointer rounded font-medium disabled:opacity-50 text-sm sm:text-base"
                 >
                   <ArrowLeft size={16} />
-                  <span>Previous</span>
+                  <span className="hidden sm:inline">Previous</span>
                 </button>
 
                 <button
@@ -1383,9 +1440,9 @@ const QuizFlow = () => {
                   disabled={
                     currentQuestionIndex === quiz.questions.length - 1
                   }
-                  className="px-8 py-2 flex items-center cursor-pointer space-x-2 text-black rounded font-medium"
+                  className="px-3 py-2 sm:px-8 flex items-center cursor-pointer space-x-2 text-black rounded font-medium text-sm sm:text-base"
                 >
-                  <span>Next</span>
+                  <span className="hidden sm:inline">Next</span>
                   <ArrowRight size={18} />
                 </button>
               </footer>
