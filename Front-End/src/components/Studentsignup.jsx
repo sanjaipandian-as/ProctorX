@@ -230,7 +230,7 @@ export default function StudentSignup() {
         <div className="mt-6 text-center text-sm sm:text-base text-gray-400">
           Already have an account?{" "}
           <a
-            href="/Student-login"
+            href="/student-login"
             className="hover:underline hover:text-cyan-300"
           >
             Login

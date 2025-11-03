@@ -100,7 +100,7 @@ export default function StudentLogin() {
         <div className="mt-6 text-center text-sm sm:text-base text-gray-400">
           Don’t have an account?{" "}
           <a
-            href="/Student-signup"
+            href="/student-signup"
             className="hover:underline hover:text-cyan-300"
           >
             Sign Up
