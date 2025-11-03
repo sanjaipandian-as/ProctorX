@@ -24,10 +24,16 @@ const app = express();
 
 app.use(
   cors({
-    origin: "https://proctorxofficial.vercel.app",
+    origin: [
+      "http://localhost:5173",
+      "https://proctorx-six.vercel.app",
+      "https://proctorxofficial.vercel.app"
+    ],
     credentials: true
   })
 );
+app.options("*", cors());
+
 
 app.use(express.json());
 
