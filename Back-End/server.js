@@ -24,7 +24,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: "https://proctor-x-beta.vercel.app",
+    origin: "http://proctorxofficial.vercel.app",
     credentials: true
   })
 );
