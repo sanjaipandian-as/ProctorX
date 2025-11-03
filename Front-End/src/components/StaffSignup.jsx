@@ -12,6 +12,7 @@ function StaffSignup() {
     profilePicture: null,
   });
   const [preview, setPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     if (e.target.name === "profilePicture") {
@@ -26,6 +27,9 @@ function StaffSignup() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return; 
+    setLoading(true);
+
     const data = new FormData();
     data.append("name", formData.name);
     data.append("email", formData.email);
@@ -37,15 +41,23 @@ function StaffSignup() {
       const res = await API.post("/teachers/signup", data);
       const result = res.data;
 
-      if (res.status === 200) {
+      console.log("Signup response:", res);
+
+      if (res.status >= 200 && res.status < 300) {
         alert(result.message || "Signup Successful!");
         navigate("/staff-login");
       } else {
         alert(result.message || "Signup failed. Please try again");
       }
     } catch (error) {
-      alert("Error signing up staff");
-      console.error(error);
+      if (error.response && error.response.status === 409) {
+        alert("Email already exists! Please log in instead.");
+      } else {
+        alert("Error signing up staff. Please try again later.");
+      }
+      console.error("Signup error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -58,12 +70,10 @@ function StaffSignup() {
         </h1>
         <p className="text-gray-400 text-center mb-8 text-sm sm:text-base">
           Join the{" "}
-          <span className="text-indigo-400 font-semibold">ProctorX</span> platform
+          <span className="text-indigo-400 font-semibold">ProctorX</span>{" "}
+          platform
         </p>
-
-        {/* Signup Form */}
         <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
-          {/* Full Name */}
           <div>
             <label className="block text-sm font-medium text-gray-300">
               Full Name
@@ -79,7 +89,7 @@ function StaffSignup() {
             />
           </div>
 
-          {/* Email */}
+          
           <div>
             <label className="block text-sm font-medium text-gray-300">
               Email Address
@@ -95,7 +105,7 @@ function StaffSignup() {
             />
           </div>
 
-          {/* Password */}
+        
           <div>
             <label className="block text-sm font-medium text-gray-300">
               Password
@@ -111,7 +121,7 @@ function StaffSignup() {
             />
           </div>
 
-          {/* Profile Picture */}
+          
           <div>
             <label className="block text-sm font-medium text-gray-300">
               Profile Picture
@@ -131,13 +141,18 @@ function StaffSignup() {
             )}
           </div>
 
-          {/* Buttons */}
+          
           <div className="space-y-3">
             <button
               type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-lg transition-all transform hover:scale-[1.02] text-sm sm:text-base"
+              disabled={loading}
+              className={`w-full ${
+                loading
+                  ? "bg-gray-700 cursor-not-allowed"
+                  : "bg-indigo-600 hover:bg-indigo-700"
+              } text-white font-semibold py-3 rounded-xl shadow-lg transition-all transform hover:scale-[1.02] text-sm sm:text-base`}
             >
-              Sign Up
+              {loading ? "Signing up..." : "Sign Up"}
             </button>
 
             <button
@@ -150,7 +165,7 @@ function StaffSignup() {
           </div>
         </form>
 
-        {/* Footer */}
+        
         <p className="text-gray-400 text-center mt-6 text-sm sm:text-base">
           Already have an account?{" "}
           <a href="/staff-login" className="text-indigo-400 hover:underline">

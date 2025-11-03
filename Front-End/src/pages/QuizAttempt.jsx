@@ -124,9 +124,7 @@ const InstructionsModal = ({ isOpen, onClose, quiz }) => (
                   <p className="text-sm font-medium text-gray-500">
                     Max. Duration
                   </p>
-                  <p className="text-lg font-semibold text-gray-800">
-                    1h
-                  </p>
+                  <p className="text-lg font-semibold text-gray-800">1h</p>
                 </div>
                 <div className="pt-2 sm:pt-0">
                   <p className="text-sm font-medium text-gray-500">
@@ -289,6 +287,10 @@ const QuizFlow = () => {
   const { quizId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const [isMobileDevice, setIsMobileDevice] = useState(() =>
+    /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  );
 
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1050,7 +1052,9 @@ const QuizFlow = () => {
                     <SetupCheckItem
                       title="Permissions"
                       status={
-                        cameraEnabled && screenEnabled ? "checked" : "unchecked"
+                        cameraEnabled && (isMobileDevice ? true : screenEnabled)
+                          ? "checked"
+                          : "unchecked"
                       }
                     >
                       <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
@@ -1085,37 +1089,38 @@ const QuizFlow = () => {
                           )}
                         </div>
 
-                        
-                        <div className="flex flex-col space-y-4 w-full sm:w-48">
-                          <div className="w-full h-auto aspect-video sm:h-32 sm:aspect-auto bg-gray-900 rounded-lg flex items-center justify-center">
-                            {screenEnabled ? (
-                              <video
-                                ref={screenFeedRef}
-                                autoPlay
-                                playsInline
-                                muted
-                                className="w-full h-full object-cover rounded-lg"
-                              />
+                        {!isMobileDevice && (
+                          <div className="flex flex-col space-y-4 w-full sm:w-48">
+                            <div className="w-full h-auto aspect-video sm:h-32 sm:aspect-auto bg-gray-900 rounded-lg flex items-center justify-center">
+                              {screenEnabled ? (
+                                <video
+                                  ref={screenFeedRef}
+                                  autoPlay
+                                  playsInline
+                                  muted
+                                  className="w-full h-full object-cover rounded-lg"
+                                />
+                              ) : (
+                                <ScreenShare className="text-gray-500" />
+                              )}
+                            </div>
+                            {!screenEnabled ? (
+                              <button
+                                onClick={handleEnableScreenShare}
+                                className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700 text-sm sm:text-base"
+                              >
+                                Enable Screen Share
+                              </button>
                             ) : (
-                              <ScreenShare className="text-gray-500" />
+                              <button
+                                onClick={stopScreenShare}
+                                className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700 text-sm sm:text-base"
+                              >
+                                Stop Screen Share
+                              </button>
                             )}
                           </div>
-                          {!screenEnabled ? (
-                            <button
-                              onClick={handleEnableScreenShare}
-                              className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700 text-sm sm:text-base"
-                            >
-                              Enable Screen Share
-                            </button>
-                          ) : (
-                            <button
-                              onClick={stopScreenShare}
-                              className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700 text-sm sm:text-base"
-                            >
-                              Stop Screen Share
-                            </button>
-                          )}
-                        </div>
+                        )}
                       </div>
                     </SetupCheckItem>
                     <SetupCheckItem
@@ -1185,7 +1190,7 @@ const QuizFlow = () => {
                             onKeyDown={(e) => handleSecurityCodeKeyDown(e, i)}
                             disabled={
                               !cameraEnabled ||
-                              !screenEnabled ||
+                              (!isMobileDevice && !screenEnabled) ||
                               !isFullScreen ||
                               !hasAcknowledgedBug ||
                               isOtpVerified
@@ -1231,7 +1236,7 @@ const QuizFlow = () => {
                     isVerifying ||
                     !honourCodeAgreed ||
                     !cameraEnabled ||
-                    !screenEnabled ||
+                    (!isMobileDevice && !screenEnabled) ||
                     !isFullScreen ||
                     (securityCode.join("").length !== 6 && !isOtpVerified)
                   }
@@ -1269,7 +1274,6 @@ const QuizFlow = () => {
       };
 
       return (
-        
         <div className="flex flex-col min-h-screen bg-white text-gray-900 font-sans">
           <Toaster position="top-center" reverseOrder={false} />
           <InstructionsModal
@@ -1278,7 +1282,6 @@ const QuizFlow = () => {
             quiz={quiz}
           />
 
-          
           <header className="flex items-stretch justify-between flex-shrink-0 px-2 sm:px-0 bg-white">
             <div className="flex items-center py-3">
               <GraduationCap className="h-6 w-10 sm:h-8 sm:w-12 pl-2 sm:pl-5 text-red-900" />
@@ -1303,7 +1306,6 @@ const QuizFlow = () => {
           </header>
           <hr className="border-1" />
 
-          
           <div className="flex flex-col lg:flex-row flex-1">
             <aside className="w-full lg:w-1/6 bg-stone-100 border-black-800 lg:border-r-2 flex flex-col flex-shrink-0">
               <div className="bg-yellow-50 p-2 pt-2">
@@ -1315,15 +1317,20 @@ const QuizFlow = () => {
                     Your camera feed, audio and screen are being proctored.
                   </span>
                 </div>
-                <div className="flex items-center space-x-2 mt-2 w-full max-w-md mx-auto lg:max-w-full">
+                <div
+                  className={`flex items-center ${
+                    !isMobileDevice && "space-x-2"
+                  } mt-2 w-full max-w-md mx-auto lg:max-w-full`}
+                >
                   <ProctoringFeed stream={cameraStream} type="camera" />
-                  <ProctoringFeed stream={screenStream} type="screen" />
+                  {!isMobileDevice && (
+                    <ProctoringFeed stream={screenStream} type="screen" />
+                  )}
                 </div>
               </div>
 
               <hr className="border-t-1 border-red-400" />
 
-              
               <div className="flex-1 lg:mt-4 p-4 lg:p-0">
                 <h2
                   onClick={() => setIsInstructionsOpen(true)}
