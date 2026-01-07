@@ -58,3 +58,9 @@ mongoose.connect(process.env.MONGO_URI, {
 }).catch((err) => {
   console.error('Database connection error:', err);
 });
+
+
+// A simple route for the cron job to hit
+app.get('/', (req, res) => {
+  res.send('ProctorX Backend is Running!');
+});
