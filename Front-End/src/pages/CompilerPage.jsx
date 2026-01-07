@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import {
   ChevronDown,
@@ -8,12 +8,62 @@ import {
   Clock
 } from "lucide-react";
 import axios from "axios";
+import toast, { Toaster } from "react-hot-toast";
 
 import API from "../../Api";
 export default function CompilerPage() {
   const [language, setLanguage] = useState("python");
   const [timer, setTimer] = useState(0);
   const [timerRunning, setTimerRunning] = useState(true);
+  const [warnings, setWarnings] = useState(5);
+  const warningsRef = useRef(warnings);
+  const toastIdRef = useRef(null);
+
+  const reduceLife = useCallback((message) => {
+    if (toastIdRef.current) {
+      toast.dismiss(toastIdRef.current);
+    }
+
+    setWarnings((prevWarnings) => {
+      const newWarnings = prevWarnings - 1;
+
+      if (newWarnings <= 0) {
+        toast.error(
+          "You have exceeded the maximum number of warnings. Access revoked.",
+          { duration: 4000 }
+        );
+        warningsRef.current = 0;
+        // In a real scenario, we might redirect or block the UI here
+      } else {
+        toastIdRef.current = toast.error(
+          `${message} You have ${newWarnings} lives left.`,
+          { icon: "⚠️", duration: 4000 }
+        );
+      }
+
+      return newWarnings;
+    });
+  }, []);
+
+  useEffect(() => {
+    const handlePaste = (e) => {
+      e.preventDefault();
+      reduceLife("Pasting is not allowed.");
+    };
+
+    const handleCopy = (e) => {
+      e.preventDefault();
+      toast.error("Copying is not allowed during the assessment.");
+    };
+
+    window.addEventListener("paste", handlePaste);
+    window.addEventListener("copy", handleCopy);
+
+    return () => {
+      window.removeEventListener("paste", handlePaste);
+      window.removeEventListener("copy", handleCopy);
+    };
+  }, [reduceLife]);
 
   // Problem data from backend
   const [problem, setProblem] = useState(null);
@@ -90,7 +140,7 @@ print(count_subarrays(nums, left, right))`);
           const codingQuestion = quizWithCoding.questions.find(q => q.questionType === 'coding');
           setProblem(codingQuestion);
 
-          
+
           if (codingQuestion.starterCode && codingQuestion.starterCode[language]) {
             setCode(codingQuestion.starterCode[language]);
           }
@@ -285,6 +335,16 @@ print(count_subarrays(nums, left, right))`);
 
   return (
     <div className="h-screen w-full flex flex-col font-sans text-gray-800 overflow-hidden">
+      <Toaster position="top-center" reverseOrder={false} />
+
+      {/* Floating Lives Indicator */}
+      <div className="fixed top-4 right-4 z-[9999] bg-white border-2 border-red-500 rounded-full px-4 py-2 flex items-center gap-2 shadow-lg animate-bounce hover:animate-none group cursor-help">
+        <span className="text-red-600 font-bold text-lg">❤️</span>
+        <span className="font-black text-gray-900">{warnings} LIVES</span>
+        <div className="absolute top-full right-0 mt-2 w-48 bg-gray-800 text-white text-[10px] p-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          Anti-Cheat Active: Pasting or leaving the screen will reduce your lives.
+        </div>
+      </div>
 
       {/* Header */}
 
@@ -451,6 +511,25 @@ print(count_subarrays(nums, left, right))`);
                 scrollBeyondLastLine: false,
                 padding: { top: 16, bottom: 16 },
                 fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace"
+              }}
+              onMount={(editor, monaco) => {
+                editor.onKeyDown((e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.keyCode === monaco.KeyCode.KeyV) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    reduceLife("Pasting is not allowed in the editor.");
+                  }
+                });
+
+                // Block the paste action specifically for context menu or other triggers
+                const clipboard = editor.getContribution('editor.contrib.clipboard');
+                if (clipboard) {
+                  const originalPaste = clipboard._onPaste;
+                  clipboard._onPaste = function (e) {
+                    reduceLife("Pasting is not allowed in the editor.");
+                    return; // Block
+                  };
+                }
               }}
             />
           </div>

@@ -701,34 +701,64 @@ const QuizFlow = () => {
     }
   }, [step, timeLeft, handleSubmit]);
 
-  useEffect(() => {
-    if (step === 4 && !isFullScreen && !isAwaitingPermission) {
-      if (toastIdRef.current) {
-        toast.dismiss(toastIdRef.current);
-      }
+  const reduceLife = useCallback((message) => {
+    if (toastIdRef.current) {
+      toast.dismiss(toastIdRef.current);
+    }
 
-      setWarnings((prevWarnings) => {
-        const newWarnings = prevWarnings - 1;
+    setWarnings((prevWarnings) => {
+      const newWarnings = prevWarnings - 1;
 
-        if (newWarnings <= 0) {
-          toast.error(
-            "You have exceeded the maximum number of warnings. Your quiz will be submitted automatically.",
-            { duration: 4000 }
-          );
-          warningsRef.current = 0;
-          handleSubmit();
-        } else {
-          toastIdRef.current = toast.error(
-            `You have left the test environment. You have ${newWarnings} lives left.`,
-            { icon: "⚠️", duration: 4000 }
-          );
+      if (newWarnings <= 0) {
+        toast.error(
+          "You have exceeded the maximum number of warnings. Your quiz will be submitted automatically.",
+          { duration: 4000 }
+        );
+        warningsRef.current = 0;
+        handleSubmit();
+      } else {
+        toastIdRef.current = toast.error(
+          `${message} You have ${newWarnings} lives left.`,
+          { icon: "⚠️", duration: 4000 }
+        );
+        if (message.includes("test environment")) {
           setStep(3);
         }
+      }
 
-        return newWarnings;
-      });
+      return newWarnings;
+    });
+  }, [handleSubmit]);
+
+  useEffect(() => {
+    if (step === 4 && !isFullScreen && !isAwaitingPermission) {
+      reduceLife("You have left the test environment.");
     }
-  }, [isFullScreen, step, handleSubmit, isAwaitingPermission]);
+  }, [isFullScreen, step, isAwaitingPermission, reduceLife]);
+
+  useEffect(() => {
+    const handlePaste = (e) => {
+      if (step === 4) {
+        e.preventDefault();
+        reduceLife("Pasting is not allowed.");
+      }
+    };
+
+    const handleCopy = (e) => {
+      if (step === 4) {
+        e.preventDefault();
+        toast.error("Copying is not allowed during the assessment.");
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    window.addEventListener("copy", handleCopy);
+
+    return () => {
+      window.removeEventListener("paste", handlePaste);
+      window.removeEventListener("copy", handleCopy);
+    };
+  }, [step, reduceLife]);
 
   useEffect(() => {
     const handleBlur = () => {
@@ -1634,6 +1664,23 @@ const QuizFlow = () => {
                               value={getCode(currentQuestionIndex, getLanguage(currentQuestionIndex))}
                               onChange={(value) => setCode(currentQuestionIndex, getLanguage(currentQuestionIndex), value)}
                               theme="light"
+                              onMount={(editor, monaco) => {
+                                editor.onKeyDown((e) => {
+                                  if ((e.ctrlKey || e.metaKey) && e.keyCode === monaco.KeyCode.KeyV) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    reduceLife("Pasting is not allowed in the editor.");
+                                  }
+                                });
+                                // Block the paste action specifically for context menu or other triggers
+                                const clipboard = editor.getContribution('editor.contrib.clipboard');
+                                if (clipboard) {
+                                  clipboard._onPaste = function (e) {
+                                    reduceLife("Pasting is not allowed in the editor.");
+                                    return; // Block
+                                  };
+                                }
+                              }}
                               options={{
                                 minimap: { enabled: false },
                                 fontSize: 14,
