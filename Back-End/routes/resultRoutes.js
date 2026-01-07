@@ -103,7 +103,28 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
         });
 
         const totalTC = testcaseResults.length;
-        obtained = totalTC > 0 ? Math.round((passedCount / totalTC) * marks) : 0;
+
+        // Custom marking scheme based on passed test cases
+        const markingScheme = {
+          0: 0,
+          1: 1,
+          2: 3,
+          3: 4,
+          4: 5,
+          5: 6,
+          6: 8,
+          7: 9,
+          8: 10
+        };
+
+        if (totalTC <= 8) {
+          obtained = markingScheme[passedCount] ?? 0;
+          // Ensure we don't exceed the intended marks if it's set differently
+          // Although the scheme specifically maps counts to scores
+        } else {
+          obtained = totalTC > 0 ? Math.round((passedCount / totalTC) * marks) : 0;
+        }
+
         totalScore += obtained;
 
         return {
