@@ -1,5 +1,4 @@
 const fs = require("fs-extra");
-console.log("RUNNER FILE LOADED FROM =", __filename);
 
 const path = require("path");
 path.normalize = p => p.replace(/\\/g, "/");
@@ -42,7 +41,6 @@ function dockerArgsForRun(jobDir, image, binds = [], memoryMb, cpus, extra = [])
     //   hostPath = `/mnt/${drive}${hostPath.slice(2)}`;
     // }
 
-    console.log("DOCKER MOUNT PATH =", `${hostPath}:${b.container}:rw`);
     args.push("-v", `${hostPath}:${b.container}:rw`);
   });
 
@@ -114,9 +112,7 @@ async function runJob(payload) {
     image = IMAGE_CPP;
     sourceFilename = "main.cpp";
 
-    console.log("Writing C++ file to:", path.join(jobDir, sourceFilename));
     await writeFileSafe(jobDir, sourceFilename, payload.code || "");
-    console.log("C++ file exists?", fs.existsSync(path.join(jobDir, sourceFilename)));
 
     compileStep = {
       cmd: ["g++", "-O2", "main.cpp", "-std=c++17", "-o", "main.out"],
@@ -175,9 +171,6 @@ async function runJob(payload) {
   for (let i = 0; i < tests.length; i++) {
     const t = tests[i];
 
-    console.log(`\n=== Running Test ${i + 1} ===`);
-    console.log("Input:", t.input);
-
     await writeFileSafe(jobDir, `input_${i}.txt`, t.input || "");
 
     const cmdParts = runCmdTemplate;
@@ -194,9 +187,6 @@ async function runJob(payload) {
     );
 
     const execRes = await execDocker(args, timeLimitMs + 500);
-
-    console.log(`Test ${i + 1} Output:`, execRes.stdout.trim());
-    console.log(`Test ${i + 1} Stderr:`, execRes.stderr);
 
     results.tests.push({
       index: i,

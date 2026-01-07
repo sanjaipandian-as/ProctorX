@@ -7,8 +7,6 @@ const { runJob } = require("./runner");
 const { ensureTmpRoot } = require("./utils");
 
 
-console.log("TMP_ROOT =", process.env.TMP_ROOT);
-
 const app = express();
 app.use(cors()); // Enable CORS for all routes
 app.use(bodyParser.json({ limit: "1mb" }));
