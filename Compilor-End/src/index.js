@@ -12,6 +12,10 @@ console.log("TMP_ROOT =", process.env.TMP_ROOT);
 const app = express();
 app.use(cors()); // Enable CORS for all routes
 app.use(bodyParser.json({ limit: "1mb" }));
+app.get('/', (req, res) => {
+  res.send('ProctorX Backend is Running!');
+});
+
 ensureTmpRoot();
 app.post("/run", async (req, res) => {
   try {

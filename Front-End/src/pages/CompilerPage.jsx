@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 
+import API from "../../Api";
 export default function CompilerPage() {
   const [language, setLanguage] = useState("python");
   const [timer, setTimer] = useState(0);
@@ -77,7 +78,7 @@ print(count_subarrays(nums, left, right))`);
       try {
         setLoading(true);
         // Fetch all public quizzes
-        const response = await axios.get('http://localhost:8000/api/quizzes/public');
+        const response = await API.get('/api/quizzes/public');
 
         // Find first quiz with coding questions
         const quizWithCoding = response.data.find(quiz =>
@@ -138,7 +139,7 @@ print(count_subarrays(nums, left, right))`);
     try {
       const selectedTestData = tests[selectedTest - 1];
 
-      const res = await axios.post("http://localhost:4000/run", {
+      const res = await axios.post("https://proctorx-1.onrender.com/run", {
         language,
         code,
         tests: [{ input: selectedTestData.input }]
