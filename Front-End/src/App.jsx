@@ -14,6 +14,9 @@ import QuizFlow from "./pages/QuizAttempt";
 import QuizResults from "./pages/QuizResults";
 import StudentDashboard from "./components/StudentDashboard";
 import About from "./pages/AboutUs";
+import CompilerPage from "./pages/CompilerPage";
+import DescriptiveEditor from "./components/DescriptiveEditor";
+
 function App() {
     return (
         <AuthProvider>
@@ -31,6 +34,9 @@ function App() {
             <Route path="/results/:resultId" element={<QuizResults />} />
             <Route path="/student-profile" element={<StudentDashboard />} />
             <Route path="/about-us" element={<About />} />
+            <Route path="/Compilor/:quizId" element={<CompilerPage />} />
+            <Route path="/descriptive-editor" element={<DescriptiveEditor />} />
+
         </Routes>
         </AuthProvider>
     );

@@ -1,0 +1,176 @@
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PROCTORX COMPILER ARCHITECTURE                       │
+│                    One Test = One Docker Container Execution                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────┐
+│   FRONTEND   │
+│ CompilerPage │
+└──────┬───────┘
+       │ POST /run
+       │ {
+       │   language: "python",
+       │   code: "def count_subarrays...",
+       │   tests: [
+       │     { input: "4\n2 3\n2 1 4 3" },    ← Test 1
+       │     { input: "5\n1 2\n1 2 3 4 5" }, ← Test 2
+       │     ...                              ← Tests 3-8
+       │   ]
+       │ }
+       ↓
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            BACKEND (runner.js)                                │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  Step 1: CREATE JOB DIRECTORY                                                │
+│  ┌────────────────────────────────────────────────────────────┐             │
+│  │ jobId = "453ac1d1-0fb7-4814-aeba-a1b0cd9c3b23"             │             │
+│  │ jobDir = "C:/ProctorX/Compilor-End/tmp/453ac1d1..."       │             │
+│  │ mkdir(jobDir)                                               │             │
+│  └────────────────────────────────────────────────────────────┘             │
+│                                                                               │
+│  Step 2: WRITE SOURCE CODE (Once)                                            │
+│  ┌────────────────────────────────────────────────────────────┐             │
+│  │ Write: jobDir/main.py                                       │             │
+│  │ Content: "def count_subarrays(nums, left, right): ..."     │             │
+│  └────────────────────────────────────────────────────────────┘             │
+│                                                                               │
+│  Step 3: COMPILE (if C++/Java)                                               │
+│  ┌────────────────────────────────────────────────────────────┐             │
+│  │ [SKIPPED for Python - interpreted language]                │             │
+│  └────────────────────────────────────────────────────────────┘             │
+│                                                                               │
+│  Step 4: RUN EACH TEST IN ISOLATED CONTAINER                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ FOR i = 0 to 7:  ← 8 iterations, 8 separate containers                │    │
+│  │                                                                        │    │
+│  │   ┌──────────────────────────────────────────────────────┐           │    │
+│  │   │ TEST ${i + 1} EXECUTION                               │           │    │
+│  │   ├──────────────────────────────────────────────────────┤           │    │
+│  │   │                                                        │           │    │
+│  │   │ 4a. Write input file:                                 │           │    │
+│  │   │     jobDir/input_${i}.txt = tests[i].input            │           │    │
+│  │   │                                                        │           │    │
+│  │   │ 4b. Build Docker command:                             │           │    │
+│  │   │     docker run --rm \                                 │           │    │
+│  │   │       --network none \          ← No internet         │           │    │
+│  │   │       --memory 256m \            ← RAM limit          │           │    │
+│  │   │       --cpus 0.5 \               ← CPU limit          │           │    │
+│  │   │       --pids-limit 64 \          ← Process limit      │           │    │
+│  │   │       --cap-drop ALL \           ← No privileges      │           │    │
+│  │   │       --user runner \            ← Non-root           │           │    │
+│  │   │       -v ${jobDir}:/workspace:rw \                    │           │    │
+│  │   │       python:3.11-alpine \                            │           │    │
+│  │   │       sh -c "timeout 3s python3 main.py < input_${i}.txt" │       │    │
+│  │   │                                                        │           │    │
+│  │   │ 4c. Execute & Capture:                                │           │    │
+│  │   │     stdout: "3\n"                                     │           │    │
+│  │   │     stderr: ""                                        │           │    │
+│  │   │     code: 0                                           │           │    │
+│  │   │     killed: false                                     │           │    │
+│  │   │                                                        │           │    │
+│  │   │ 4d. Store result:                                     │           │    │
+│  │   │     results.tests[${i}] = { stdout, stderr, code, killed } │     │    │
+│  │   │                                                        │           │    │
+│  │   └──────────────────────────────────────────────────────┘           │    │
+│  │                                                                        │    │
+│  │   ⚠️  IMPORTANT: Container is DESTROYED after each test               │    │
+│  │   ✅  Fresh process, fresh memory, fresh stdin/stdout                 │    │
+│  │   ✅  No state leakage between tests                                  │    │
+│  │                                                                        │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                               │
+│  Step 5: CLEANUP                                                              │
+│  ┌────────────────────────────────────────────────────────────┐             │
+│  │ fs.remove(jobDir)  ← Delete temp directory                 │             │
+│  └────────────────────────────────────────────────────────────┘             │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+       │
+       │ RESPONSE:
+       │ {
+       │   jobId: "453ac1d1...",
+       │   language: "python",
+       │   tests: [
+       │     { index: 0, stdout: "3\n", code: 0, killed: false },  ← Test 1
+       │     { index: 1, stdout: "8\n", code: 0, killed: false },  ← Test 2
+       │     { index: 2, stdout: "2\n", code: 0, killed: false },  ← Test 3
+       │     ...                                                    ← Tests 4-8
+       │   ]
+       │ }
+       ↓
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         FRONTEND PROCESSING                                   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  FOR EACH testResult in response.tests:                                      │
+│    ┌─────────────────────────────────────────────────────────┐              │
+│    │ Compare:                                                 │              │
+│    │   actualOutput = testResult.stdout.trim()  // "3"       │              │
+│    │   expectedOutput = tests[i].expected       // "3"       │              │
+│    │                                                          │              │
+│    │ Result:                                                  │              │
+│    │   passed = (actualOutput === expectedOutput)  // true   │              │
+│    │                                                          │              │
+│    │ Store:                                                   │              │
+│    │   testResults[i] = {                                    │              │
+│    │     id: i + 1,                                          │              │
+│    │     passed: true,                                       │              │
+│    │     output: "3",                                        │              │
+│    │     error: ""                                           │              │
+│    │   }                                                      │              │
+│    └─────────────────────────────────────────────────────────┘              │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+       │
+       ↓
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              UI DISPLAY                                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  ┌─────────────────────────────────────────────────────────┐                │
+│  │ ✅ Test Case 1  → Click → Shows: Input, Expected, Actual │                │
+│  │ ✅ Test Case 2  → Click → Shows: Input, Expected, Actual │                │
+│  │ ✅ Test Case 3  → Click → Shows: Input, Expected, Actual │                │
+│  │ ✅ Test Case 4  → Click → Shows: Input, Expected, Actual │                │
+│  │ ✅ Test Case 5  → Click → Shows: Input, Expected, Actual │                │
+│  │ ✅ Test Case 6  → Click → Shows: Input, Expected, Actual │                │
+│  │ ✅ Test Case 7  → Click → Shows: Input, Expected, Actual │                │
+│  │ ✅ Test Case 8  → Click → Shows: Input, Expected, Actual │                │
+│  └─────────────────────────────────────────────────────────┘                │
+│                                                                               │
+│  Banner: "You have passed 8/8 tests"                                         │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                           KEY DESIGN PRINCIPLES
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ ISOLATION
+   • Each test = New Docker container
+   • No shared state between tests
+   • Container destroyed after execution
+
+✅ SECURITY
+   • Network disabled (--network none)
+   • No root access (--user runner)
+   • Resource limits (RAM, CPU, processes)
+   • Capabilities dropped (--cap-drop ALL)
+
+✅ ACCURACY
+   • Per-test timeout (3 seconds)
+   • Per-test exit code capture
+   • Per-test stdout/stderr capture
+   • Independent failure handling
+
+✅ SCALABILITY
+   • Stateless execution
+   • Horizontal scaling ready
+   • Load balancer compatible
+   • Multi-server deployment possible
+
+═══════════════════════════════════════════════════════════════════════════════
+```

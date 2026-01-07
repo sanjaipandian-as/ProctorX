@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { AlertCircle, CheckCircle2, XCircle, X, ShieldCheck } from 'lucide-react';
+import { AlertCircle, CheckCircle2, XCircle, X, ShieldCheck, Code2, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { motion } from 'framer-motion';
@@ -80,23 +80,187 @@ const QuestionPalette = ({ responses }) => (
   <div className="w-full p-3 sm:p-4">
     <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-3 sm:mb-4">Question Palette</h3>
     <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2">
-      {responses.map((res, index) => (
-        <a
-          key={index}
-          href={`#q-${index + 1}`}
-          className={`flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded font-semibold text-white transition-colors ${
-            res.isCorrect ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'
-          }`}
-        >
-          {index + 1}
-        </a>
-      ))}
+      {responses.map((res, index) => {
+        let bgColor = 'bg-red-500 hover:bg-red-600';
+
+        if (res.questionType?.toLowerCase() === 'descriptive') {
+          bgColor = 'bg-amber-500 hover:bg-amber-600';
+        } else if (res.isCorrect) {
+          bgColor = 'bg-green-500 hover:bg-green-600';
+        } else if (res.questionType?.toLowerCase() === 'coding') {
+          const passed = res.testcases?.filter(tc => tc.passed).length || 0;
+          if (passed > 0) bgColor = 'bg-yellow-500 hover:bg-yellow-600';
+        }
+
+        return (
+          <a
+            key={index}
+            href={`#q-${index + 1}`}
+            className={`flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded font-semibold text-white transition-colors ${bgColor}`}
+          >
+            {index + 1}
+          </a>
+        );
+      })}
     </div>
   </div>
 );
 
 const QuestionCard = ({ response, index }) => {
-  const { questionText, options, studentAnswer, correctAnswer, isCorrect } = response;
+  const {
+    questionText,
+    options,
+    studentAnswer,
+    correctAnswer,
+    isCorrect,
+    questionType,
+    codeSubmitted,
+    testcases,
+    obtainedMarks,
+    marks,
+    language
+  } = response;
+
+  const [isCodeExpanded, setIsCodeExpanded] = useState(false);
+
+  if (questionType?.toLowerCase() === "coding" || testcases?.length > 0) {
+    const passedTestCases = testcases?.filter(tc => tc.passed).length || 0;
+    const totalTestCases = testcases?.length || 0;
+    const isPass = passedTestCases === totalTestCases;
+
+    return (
+      <motion.div
+        id={`q-${index + 1}`}
+        className="p-4 sm:p-6 border-b-8 border-gray-200"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: index * 0.05 }}
+      >
+        <div className="flex justify-between items-start mb-3 sm:mb-4 flex-wrap">
+          <div className="flex-1 pr-2 sm:pr-4">
+            <p className="text-base sm:text-lg font-medium text-gray-800">
+              <span className="text-red-600 font-bold">Q{index + 1}.</span> {questionText}
+            </p>
+            <div className="mt-2 flex items-center gap-3">
+              <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 bg-blue-100 text-blue-700 rounded uppercase flex items-center gap-1">
+                <Code2 size={12} /> {language || 'Coding'}
+              </span>
+              <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 bg-gray-100 text-gray-700 rounded">
+                Marks: {obtainedMarks} / {marks}
+              </span>
+            </div>
+          </div>
+          {isPass ? (
+            <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 flex-shrink-0" />
+          ) : (
+            <XCircle className="h-6 w-6 sm:h-8 sm:w-8 text-red-500 flex-shrink-0" />
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {/* Code Section */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+            <button
+              onClick={() => setIsCodeExpanded(!isCodeExpanded)}
+              className="w-full flex items-center justify-between px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Terminal size={14} />
+                <span>Submitted Code</span>
+              </div>
+              {isCodeExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+            {isCodeExpanded && (
+              <pre className="p-4 bg-gray-900 text-gray-100 text-xs sm:text-sm font-mono overflow-x-auto">
+                <code>{codeSubmitted || "// No code submitted"}</code>
+              </pre>
+            )}
+          </div>
+
+          {/* Test Cases Results */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex justify-between items-center text-sm font-semibold text-gray-700">
+              <span>Test Case Results</span>
+              <span className={isPass ? "text-green-600" : "text-amber-600"}>
+                {passedTestCases} / {totalTestCases} Passed
+              </span>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {testcases?.map((tc, tcIndex) => (
+                <div key={tcIndex} className="p-3 sm:p-4 text-sm flex items-start gap-4">
+                  <div className="mt-1">
+                    {tc.passed ? (
+                      <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                      </div>
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center">
+                        <XCircle className="w-3.5 h-3.5 text-red-600" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Input</p>
+                      <pre className="p-2 bg-gray-50 rounded text-xs text-gray-700 font-mono whitespace-pre-wrap">{tc.input || "(none)"}</pre>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Output</p>
+                      <pre className={`p-2 rounded text-xs font-mono whitespace-pre-wrap ${tc.passed ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                        {tc.output || "(empty)"}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+  if (questionType?.toLowerCase() === "descriptive") {
+    return (
+      <motion.div
+        id={`q-${index + 1}`}
+        className="p-4 sm:p-6 border-b-8 border-gray-200"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: index * 0.05 }}
+      >
+        <div className="flex justify-between items-start mb-3 sm:mb-4 flex-wrap">
+          <div className="flex-1 pr-2 sm:pr-4">
+            <p className="text-base sm:text-lg font-medium text-gray-800">
+              <span className="text-red-600 font-bold">Q{index + 1}.</span> {questionText}
+            </p>
+            <div className="mt-2 flex items-center gap-3">
+              <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 bg-purple-100 text-purple-700 rounded uppercase">
+                Descriptive
+              </span>
+              <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 bg-gray-100 text-gray-700 rounded">
+                Marks: {marks}
+              </span>
+            </div>
+          </div>
+          <AlertCircle className="h-6 w-6 sm:h-8 sm:w-8 text-amber-500 flex-shrink-0" />
+        </div>
+
+        <div className="mt-4">
+          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Your Answer</p>
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 text-sm sm:text-base leading-relaxed whitespace-pre-wrap min-h-[100px]">
+            {studentAnswer || (
+              <span className="text-gray-400 italic">No answer submitted</span>
+            )}
+          </div>
+          <p className="mt-3 text-xs text-amber-600 flex items-center gap-1">
+            <ShieldCheck size={14} /> This answer will be evaluated manually by the instructor.
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Original MCQ rendering
   return (
     <motion.div
       id={`q-${index + 1}`}
@@ -116,7 +280,7 @@ const QuestionCard = ({ response, index }) => {
         )}
       </div>
       <div className="space-y-2 sm:space-y-3">
-        {options.map((option, optIndex) => {
+        {options?.map((option, optIndex) => {
           const isSelectedAnswer = option === studentAnswer;
           const isCorrectAnswer = option === correctAnswer;
           let stateClass = 'border-gray-300 bg-gray-100 hover:bg-gray-200 text-gray-700';
@@ -193,11 +357,18 @@ const QuizResultsPage = () => {
     hour12: true,
   });
 
-  const scorePercentage = (result.score / result.totalQuestions) * 100;
-  const incorrectValue = result.totalQuestions - result.score;
-  const incorrectPercentage = (incorrectValue / result.totalQuestions) * 100;
-  const attemptedCount = result.responses?.filter((r) => r.studentAnswer).length || 0;
-  const attemptedPercentage = (attemptedCount / result.totalQuestions) * 100;
+  const totalPossibleMarks = result.responses?.reduce((acc, r) => acc + (r.marks || 0), 0) || 0;
+  const scorePercentage = totalPossibleMarks > 0 ? (result.score / totalPossibleMarks) * 100 : 0;
+  const incorrectValue = result.responses?.filter((r) =>
+    r.questionType?.toLowerCase() !== 'descriptive' &&
+    !r.isCorrect &&
+    (r.studentAnswer || (r.questionType?.toLowerCase() === 'coding' && r.codeSubmitted))
+  ).length || 0;
+  const incorrectPercentage = result.totalQuestions > 0 ? (incorrectValue / result.totalQuestions) * 100 : 0;
+  const attemptedCount = result.responses?.filter((r) =>
+    r.studentAnswer || (r.questionType?.toLowerCase() === 'coding' && r.codeSubmitted)
+  ).length || 0;
+  const attemptedPercentage = result.totalQuestions > 0 ? (attemptedCount / result.totalQuestions) * 100 : 0;
 
   let resultMessageConfig;
   if (scorePercentage >= 50) {
@@ -230,7 +401,7 @@ const QuizResultsPage = () => {
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
             <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 text-center">Performance</h3>
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-1 gap-3">
-              <CircularStatCard label="Score" value={`${result.score}/${result.totalQuestions}`} percentage={scorePercentage} />
+              <CircularStatCard label="Score" value={`${result.score}/${totalPossibleMarks}`} percentage={scorePercentage} />
               <CircularStatCard label="Accuracy" value={`${Math.round(result.accuracy)}%`} percentage={result.accuracy} />
               <CircularStatCard label="Attempted" value={`${attemptedCount}/${result.totalQuestions}`} percentage={attemptedPercentage} />
               <CircularStatCard label="Incorrect" value={incorrectValue} percentage={incorrectPercentage} color="#ef4444" />

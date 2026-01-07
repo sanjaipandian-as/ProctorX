@@ -22,6 +22,7 @@ console.log("CLOUDINARY_API_SECRET:", process.env.CLOUDINARY_API_SECRET ? "Loade
 
 const app = express();
 
+
 app.use(
   cors({
     origin: [

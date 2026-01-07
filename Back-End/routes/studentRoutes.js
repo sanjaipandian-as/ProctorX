@@ -6,10 +6,14 @@ const jwt = require('jsonwebtoken');
 const { getUpload } = require('../middleware/uploadMiddleware');
 const { isAuthenticatedUser } = require('../controllers/authController');
 const studentUpload = getUpload('students');
+const Result = require("../models/Result");
+const Quiz = require("../models/Quiz");
+// REMOVED: import responseSchema... (It was breaking the code and wasn't used)
 
 Students.post('/signup', studentUpload.single('profilePicture'), async (req, res) => {
   try {
     const { name, email, password } = req.body;
+
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Please provide all required fields" });
     }
@@ -37,11 +41,11 @@ Students.post('/signup', studentUpload.single('profilePicture'), async (req, res
       email: student.email,
       role: 'student'
     };
+
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.status(201).json({ student, token });
   } catch (error) {
-    console.error("Signup error:", error);
     res.status(500).json({ message: "Error creating student", error: error.message });
   }
 });
@@ -49,6 +53,7 @@ Students.post('/signup', studentUpload.single('profilePicture'), async (req, res
 Students.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+
     if (!email || !password) {
       return res.status(400).json({ message: "Please provide email and password" });
     }
@@ -69,11 +74,11 @@ Students.post('/login', async (req, res) => {
       email: student.email,
       role: 'student'
     };
+
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.status(200).json({ student, token });
   } catch (error) {
-    console.error("Login error:", error);
     res.status(500).json({ message: "Error logging in", error: error.message });
   }
 });
@@ -81,35 +86,38 @@ Students.post('/login', async (req, res) => {
 Students.get('/dashboard', isAuthenticatedUser, async (req, res) => {
   try {
     const student = req.user;
+
     if (!student || student.role !== 'student') {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const Result = require('../models/Result');
-    const quizzes = await Result.find({ studentId: student._id })
-      .populate('quizId', 'title totalQuestions')
-      .sort({ completedAt: -1 });
+    const results = await Result.find({
+      user: student._id,
+      userModel: "Student"
+    })
+      .populate("quiz", "title quizId questions")
+      .sort({ createdAt: -1 });
 
-    const formattedQuizzes = quizzes.map(q => ({
-      resultId: q._id,
-      quizTitle: q.quizId?.title || 'Unknown Quiz',
-      score: q.score,
-      totalQuestions: q.quizId?.totalQuestions || 0,
-      accuracy: q.accuracy || 0,
-      completedAt: q.completedAt,
+    const formattedQuizzes = results.map(r => ({
+      resultId: r._id,
+      quizTitle: r.quiz?.title || "Unknown Quiz",
+      quizId: r.quiz?.quizId || "",
+      score: r.score,
+      totalQuestions: r.totalQuestions,
+      accuracy: r.accuracy,
+      completedAt: r.completedAt
     }));
 
     res.status(200).json({
       profile: {
         name: student.name,
         email: student.email,
-        profilePicture: student.profilePicture,
+        profilePicture: student.profilePicture
       },
-      quizzes: formattedQuizzes,
+      quizzes: formattedQuizzes
     });
   } catch (error) {
-    console.error('Dashboard error:', error);
-    res.status(500).json({ message: 'Error loading dashboard', error: error.message });
+    res.status(500).json({ message: "Error loading dashboard", error: error.message });
   }
 });
 
@@ -121,7 +129,6 @@ Students.get("/me", isAuthenticatedUser, async (req, res) => {
     const { password, ...studentData } = student.toObject();
     res.status(200).json(studentData);
   } catch (error) {
-    console.error("Error fetching student profile:", error);
     res.status(500).json({ message: "Error fetching profile", error: error.message });
   }
 });
@@ -131,7 +138,6 @@ Students.get('/', async (req, res) => {
     const students = await Student.find();
     res.status(200).json(students);
   } catch (error) {
-    console.error("Error fetching students:", error);
     res.status(500).json({ message: "Error fetching students", error: error.message });
   }
 });
@@ -140,9 +146,9 @@ Students.get('/:id', async (req, res) => {
   try {
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ message: "Student not found" });
+
     res.status(200).json(student);
   } catch (error) {
-    console.error("Error fetching student:", error);
     res.status(500).json({ message: "Error fetching student", error: error.message });
   }
 });
@@ -150,6 +156,10 @@ Students.get('/:id', async (req, res) => {
 Students.put('/:id', isAuthenticatedUser, studentUpload.single('profilePicture'), async (req, res) => {
   try {
     const { name, email, password } = req.body;
+
+    if (req.params.id !== req.user.id) {
+      return res.status(403).json({ message: "You can only update your own profile." });
+    }
 
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ message: "Student not found" });
@@ -162,20 +172,23 @@ Students.put('/:id', isAuthenticatedUser, studentUpload.single('profilePicture')
     await student.save();
     res.status(200).json(student);
   } catch (error) {
-    console.error("Error updating student:", error);
     res.status(500).json({ message: "Error updating student", error: error.message });
   }
 });
 
 Students.delete('/:id', isAuthenticatedUser, async (req, res) => {
   try {
+    if (req.params.id !== req.user.id) {
+      return res.status(403).json({ message: "You can only delete your own profile." });
+    }
+
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ message: "Student not found" });
 
     await Student.findByIdAndDelete(req.params.id);
+
     res.status(200).json({ message: "Student deleted successfully" });
   } catch (error) {
-    console.error("Error deleting student:", error);
     res.status(500).json({ message: "Error deleting student", error: error.message });
   }
 });

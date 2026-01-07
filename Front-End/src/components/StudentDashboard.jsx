@@ -9,7 +9,7 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { Loader2, AlertCircle, BookOpen, Star, Award, ArrowRight } from 'lucide-react';
+import { Loader2, AlertCircle, BookOpen, Star, Award, ArrowRight, ShieldCheck } from 'lucide-react';
 import API from "../../Api";
 import BG_TEAL from '../assets/BG_TEA.png';
 import LOGO from "../assets/LOGO.png";
@@ -119,13 +119,13 @@ const StudentDashboard = () => {
     };
 
     fetchProfileAndResults();
-  }, []); 
+  }, []);
 
   const summaryStats = useMemo(() => {
     if (!Array.isArray(quizzes) || quizzes.length === 0) return { totalQuizzes: 0, averageScore: "0.0", bestScore: "0.0" };
     const validQuizzes = quizzes.filter(q => typeof q.accuracy === 'number');
     if (validQuizzes.length === 0) return { totalQuizzes: quizzes.length, averageScore: "0.0", bestScore: "0.0" };
-    
+
     const totalQuizzes = quizzes.length;
     const averageScore = (validQuizzes.reduce((acc, q) => acc + q.accuracy, 0) / validQuizzes.length).toFixed(1);
     const bestScore = Math.max(...validQuizzes.map(q => q.accuracy)).toFixed(1);
@@ -134,7 +134,7 @@ const StudentDashboard = () => {
 
   const chartData = useMemo(() =>
     Array.isArray(quizzes) ? quizzes
-      .filter(q => q.completedAt) 
+      .filter(q => q.completedAt)
       .sort((a, b) => new Date(a.completedAt) - new Date(b.completedAt))
       .slice(-10)
       .map(q => ({
@@ -161,7 +161,7 @@ const StudentDashboard = () => {
     <div className="min-h-screen flex flex-col bg-black text-white">
       <header className="fixed top-0 w-full z-50 flex items-center justify-between px-4 md:px-6 bg-white/10 backdrop-blur-md border-b border-white/10 shadow-md h-16">
         <div className="flex items-center gap-3">
-          <img src={LOGO} alt="ProctorX Logo" className="h-10 w-10 text-blue-400"/>
+          <img src={LOGO} alt="ProctorX Logo" className="h-10 w-10 text-blue-400" />
           <span className="text-xl font-bold text-white">ProctorX</span>
           <span className="text-xl font-light text-gray-500 hidden sm:inline">/</span>
           <span className="text-lg text-gray-300 hidden sm:inline">Student Dashboard</span>
@@ -202,9 +202,9 @@ const StudentDashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-4">
-          <Card 
-            className="lg:col-span-2 relative pb-0" 
-            
+          <Card
+            className="lg:col-span-2 relative pb-0"
+
           >
             <h2 className="text-xl font-semibold text-white mb-4">Recent Performance Trend (Last 10)</h2>
             {chartData.length > 1 ? (
@@ -249,6 +249,51 @@ const StudentDashboard = () => {
           </Card>
         </div>
 
+        <div className="mb-10">
+          <h2 className="text-2xl font-semibold text-white mb-5 flex items-center gap-3">
+            Descriptive Evaluations
+            <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-900/40 text-amber-500 rounded-full border border-amber-500/30 uppercase tracking-wider">Review Required</span>
+          </h2>
+          {quizzes.some(q => q.responses?.some(r => r.questionType?.toLowerCase() === 'descriptive')) ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {quizzes
+                .filter(q => q.responses?.some(r => r.questionType?.toLowerCase() === 'descriptive'))
+                .slice(0, 4)
+                .map((q) => {
+                  const pendingCount = q.responses?.filter(r => r.questionType?.toLowerCase() === 'descriptive').length || 0;
+                  return (
+                    <Card key={`eval-${q._id}`} className="hover:bg-[#222222] !p-4 cursor-pointer border-l-4 border-l-amber-500" onClick={() => navigate(`/results/${q._id}`)}>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-100 group-hover:text-amber-500 transition-colors truncate max-w-[200px]">{q.quiz?.title || "Untitled Quiz"}</h4>
+                          <p className="text-[11px] text-gray-500 mt-1">Submitted: {new Date(q.completedAt).toLocaleDateString()}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Status</p>
+                          <span className="text-xs text-amber-500 font-medium">Under Review</span>
+                        </div>
+                      </div>
+                      <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-gray-400">
+                        <span className="flex items-center gap-1">
+                          <AlertCircle size={12} className="text-amber-500" />
+                          {pendingCount} Question{pendingCount > 1 ? 's' : ''} to grade
+                        </span>
+                        <span className="text-[#00E1F9] hover:underline">View Details &rarr;</span>
+                      </div>
+                    </Card>
+                  );
+                })}
+            </div>
+          ) : (
+            <Card className="text-center py-10 text-gray-500 border-dashed border-white/10 bg-transparent">
+              <div className="flex flex-col items-center gap-2">
+                <ShieldCheck size={32} className="text-gray-700" />
+                <p>No descriptive answers are currently pending evaluation.</p>
+              </div>
+            </Card>
+          )}
+        </div>
+
         <div>
           <h2 className="text-2xl font-semibold text-white mb-5">Recent Results</h2>
           {quizzes.length === 0 ? (
@@ -273,7 +318,9 @@ const StudentDashboard = () => {
                     <div className="flex items-center justify-end gap-4 md:gap-6 px-4 py-3 md:px-5 md:py-5 border-t border-[#2A2A2A] md:border-t-0 md:border-l">
                       <div className="text-center">
                         <p className="text-xs text-gray-400">Score</p>
-                        <p className={`text-lg font-semibold ${scoreColor}`}>{quizResult.score ?? 'N/A'}/{quizResult.totalQuestions ?? 'N/A'}</p>
+                        <p className={`text-lg font-semibold ${scoreColor}`}>
+                          {quizResult.score ?? 'N/A'}/{(quizResult.responses?.reduce((acc, r) => acc + (r.marks || 0), 0)) || quizResult.totalQuestions || 'N/A'}
+                        </p>
                       </div>
                       <div className="text-center">
                         <p className="text-xs text-gray-400">Accuracy</p>

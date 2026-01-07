@@ -1,10 +1,26 @@
-const mongoose = require("mongoose");
+const mongoose = require("mongoose")
 
 const questionSchema = new mongoose.Schema({
+    questionType: { type: String, enum: ["mcq", "descriptive", "coding"], required: true },
     questionText: { type: String, required: true },
-    options: [{ type: String, required: true }],
-    correctAnswer: { type: Number, required: true }
-});
+    options: [{ type: String }],
+    correctAnswer: { type: Number },
+    descriptiveAnswer: { type: String },
+    language: { type: String },
+    starterCode: {
+        python: { type: String, default: "" },
+        javascript: { type: String, default: "" },
+        java: { type: String, default: "" },
+        cpp: { type: String, default: "" }
+    },
+    marks: { type: Number, required: true },
+    testcases: [
+        {
+            input: { type: String },
+            output: { type: String }
+        }
+    ]
+})
 
 const quizSchema = new mongoose.Schema({
     quizId: { type: String, required: true, unique: true },
@@ -14,10 +30,10 @@ const quizSchema = new mongoose.Schema({
     allowedStudents: { type: Number, required: true },
     otp: { type: String, length: 6 },
     otpExpiresAt: { type: Date },
-    status: { type: String, enum: ['pending', 'active', 'completed'], default: 'pending' },
+    status: { type: String, enum: ["pending", "active", "completed"], default: "pending" },
     createdAt: { type: Date, default: Date.now }
-});
+})
 
-quizSchema.index({ quizId: 1 }, { unique: true });
+quizSchema.index({ quizId: 1 }, { unique: true })
 
-module.exports = mongoose.model("Quiz", quizSchema);
+module.exports = mongoose.model("Quiz", quizSchema)

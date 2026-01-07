@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { GrStatusInfo } from "react-icons/gr";
 import { motion, AnimatePresence } from "framer-motion";
+import DescriptiveEditor from "../components/DescriptiveEditor";
 
 
 const ProctoringFeed = ({ type }) => (
@@ -269,23 +270,33 @@ const QuizAttemptPage = ({ quiz }) => {
               <hr className="w-6/7" />
 
               <div className="space-y-6 pt-5">
-                {currentQuestion.options.map((option, idx) => (
-                  <label
-                    key={idx}
-                    className={`flex items-center p-4 border-3 cursor-pointer transition-colors w-full max-w-md h-14 ${answers[currentQuestionIndex] === idx
-                      ? "bg-blue-50 border-blue-600"
-                      : "bg-gray-100 border-gray-500 hover:bg-gray-200"
-                      }`}
-                  >
-                    <input
-                      type="radio"
-                      checked={answers[currentQuestionIndex] === idx}
-                      onChange={() => handleAnswerChange(idx)}
-                      className="h-5 w-5 mr-4 accent-blue-600"
+                {currentQuestion.questionType?.toLowerCase() === "descriptive" || (!currentQuestion.options || currentQuestion.options.length === 0) ? (
+                  <div className="max-w-4xl">
+                    <DescriptiveEditor
+                      value={answers[currentQuestionIndex] || ""}
+                      onChange={(val) => handleAnswerChange(val)}
+                      placeholder="Write your answer here..."
                     />
-                    <span className="text-black-500">{option}</span>
-                  </label>
-                ))}
+                  </div>
+                ) : (
+                  currentQuestion.options?.map((option, idx) => (
+                    <label
+                      key={idx}
+                      className={`flex items-center p-4 border-3 cursor-pointer transition-colors w-full max-w-md h-14 ${answers[currentQuestionIndex] === idx
+                        ? "bg-blue-50 border-blue-600"
+                        : "bg-gray-100 border-gray-500 hover:bg-gray-200"
+                        }`}
+                    >
+                      <input
+                        type="radio"
+                        checked={answers[currentQuestionIndex] === idx}
+                        onChange={() => handleAnswerChange(idx)}
+                        className="h-5 w-5 mr-4 accent-blue-600"
+                      />
+                      <span className="text-black-500">{option}</span>
+                    </label>
+                  ))
+                )}
 
                 <button
                   onClick={() => handleAnswerChange(null)}

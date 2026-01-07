@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require("mongoose")
 
 const teacherSchema = new mongoose.Schema(
   {
@@ -9,9 +9,9 @@ const teacherSchema = new mongoose.Schema(
     createdQuizzes: [{ type: mongoose.Schema.Types.ObjectId, ref: "Quiz" }],
     lastLogin: { type: Date },
     profilePicture: { type: String },
-    isActive: { type: Boolean, default: true },
+    isActive: { type: Boolean, default: true }
   },
   { timestamps: true }
-);
+)
 
-module.exports = mongoose.model("Teacher", teacherSchema);
+module.exports = mongoose.model("Teacher", teacherSchema)

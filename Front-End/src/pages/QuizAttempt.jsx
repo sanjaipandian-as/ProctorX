@@ -27,13 +27,19 @@ import {
   X,
   Omega,
   LogIn,
+  ChevronDown,
+  ChevronUp,
+  XCircle,
+  CheckCircle,
 } from "lucide-react";
+import Editor from "@monaco-editor/react";
 import { GrStatusInfo } from "react-icons/gr";
 import { motion, AnimatePresence } from "framer-motion";
 import API from "../../Api";
 import LOGO from "../assets/LOGO.png";
 import Proctor from "../assets/PROCTOR.png";
 import ProctoredX from "../assets/PrctoredX.png";
+import DescriptiveEditor from "../components/DescriptiveEditor";
 
 const ProctoringFeed = ({ stream, type }) => {
   const videoRef = useRef(null);
@@ -49,9 +55,8 @@ const ProctoringFeed = ({ stream, type }) => {
         autoPlay
         playsInline
         muted
-        className={`w-full h-full object-cover rounded-lg ${
-          !stream && "hidden"
-        }`}
+        className={`w-full h-full object-cover rounded-lg ${!stream && "hidden"
+          }`}
       />
       {!stream && (
         <div className="flex flex-col items-center">
@@ -255,9 +260,8 @@ const SetupCheckItem = ({ title, status, children, check }) => {
       <div>{statusIcons[status]}</div>
       <div className="flex-1">
         <h3
-          className={`font-semibold text-base sm:text-lg ${
-            status === "checked" ? "text-gray-900" : "text-gray-700"
-          }`}
+          className={`font-semibold text-base sm:text-lg ${status === "checked" ? "text-gray-900" : "text-gray-700"
+            }`}
         >
           {title}
         </h3>
@@ -322,6 +326,176 @@ const QuizFlow = () => {
   const toastIdRef = useRef(null);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const fullScreenSize = useRef(null);
+
+  // --- Compiler State ---
+  const [codingAnswers, setCodingAnswers] = useState({}); // { [questionIndex]: { [lang]: code } }
+  const [selectedLanguages, setSelectedLanguages] = useState({}); // { [questionIndex]: lang }
+  const [testResults, setTestResults] = useState({}); // { [questionIndex]: [results] }
+  const [compilerOutput, setCompilerOutput] = useState("");
+  const [isRunning, setIsRunning] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [activeTab, setActiveTab] = useState("runTests"); // "run", "runTests"
+  const [selectedTestCase, setSelectedTestCase] = useState(0);
+
+  const getCode = (index, lang) => {
+    if (codingAnswers[index] && codingAnswers[index][lang]) {
+      return codingAnswers[index][lang];
+    }
+    const q = quiz.questions[index];
+    if (q && q.starterCode && q.starterCode[lang]) {
+      return q.starterCode[lang];
+    }
+    return "";
+  };
+
+  const setCode = (index, lang, code) => {
+    setCodingAnswers(prev => ({
+      ...prev,
+      [index]: {
+        ...(prev[index] || {}),
+        [lang]: code
+      }
+    }));
+  };
+
+  const getLanguage = (index) => {
+    return selectedLanguages[index] || "python";
+  };
+
+  const handleLanguageChange = (index, lang) => {
+    setSelectedLanguages(prev => ({
+      ...prev,
+      [index]: lang
+    }));
+  };
+
+  const getTests = (index) => {
+    const q = quiz.questions[index];
+    if (q && q.testcases) {
+      return q.testcases.filter(tc => tc.input || tc.output).map((tc, i) => ({
+        id: i + 1,
+        input: tc.input,
+        expected: tc.output
+      }));
+    }
+    return [];
+  };
+
+  const runCode = async (index) => {
+    const lang = getLanguage(index);
+    const code = getCode(index, lang);
+    const tests = getTests(index);
+
+    if (tests.length === 0) {
+      toast.error("No test cases found for this question.");
+      return;
+    }
+
+    setIsRunning(true);
+    setCompilerOutput("⏳ Running your code...");
+
+    try {
+      const selectedTestData = tests[selectedTestCase] || tests[0];
+
+      const res = await axios.post("http://localhost:4000/run", {
+        language: lang,
+        code,
+        tests: [{ input: selectedTestData.input }]
+      }, {
+        timeout: 15000
+      });
+
+      if (res.data.compile && res.data.compile.code !== 0) {
+        setCompilerOutput(`❌ Compilation Error:\n\n${res.data.compile.stderr || res.data.compile.stdout}`);
+        setIsRunning(false);
+        return;
+      }
+
+      if (res.data.tests && res.data.tests.length > 0) {
+        const testResult = res.data.tests[0];
+        if (testResult.killed) {
+          setCompilerOutput("⏱️ Time Limit Exceeded\n\nYour code took too long to execute (>5 seconds).");
+        } else if (testResult.code !== 0) {
+          setCompilerOutput(`❌ Runtime Error:\n\n${testResult.stderr || testResult.stdout || "Unknown error occurred"}`);
+        } else {
+          const outputText = testResult.stdout.trim();
+          setCompilerOutput(outputText || "(empty output)");
+        }
+      } else {
+        setCompilerOutput("⚠️ No output received from the server.");
+      }
+    } catch (err) {
+      setCompilerOutput(`❌ Error: ${err.message}`);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const runAllTests = async (index) => {
+    const lang = getLanguage(index);
+    const code = getCode(index, lang);
+    const tests = getTests(index);
+
+    if (tests.length === 0) {
+      toast.error("No test cases found for this question.");
+      return;
+    }
+
+    setIsRunning(true);
+    setCompilerOutput("⏳ Running all tests...");
+
+    try {
+      const testsPayload = tests.map(t => ({ input: t.input }));
+
+      const res = await axios.post("http://localhost:4000/run", {
+        language: lang,
+        code,
+        tests: testsPayload
+      }, {
+        timeout: 30000
+      });
+
+      if (res.data.compile && res.data.compile.code !== 0) {
+        setCompilerOutput(`❌ Compilation Error:\n\n${res.data.compile.stderr || res.data.compile.stdout}`);
+        setIsRunning(false);
+        return;
+      }
+
+      const results = [];
+      if (res.data.tests && res.data.tests.length > 0) {
+        res.data.tests.forEach((testResult, i) => {
+          const expectedOutput = tests[i].expected?.trim() || "";
+          const actualOutput = testResult.stdout?.trim() || "";
+          const passed = !testResult.killed && testResult.code === 0 && actualOutput === expectedOutput;
+
+          results.push({
+            id: tests[i].id,
+            passed,
+            output: actualOutput,
+            error: testResult.stderr,
+            killed: testResult.killed
+          });
+        });
+      }
+
+      setTestResults(prev => ({
+        ...prev,
+        [index]: results
+      }));
+
+      // Update output for the selected test
+      const currentRes = results[selectedTestCase] || results[0];
+      if (currentRes) {
+        if (currentRes.killed) setCompilerOutput("⏱️ Time Limit Exceeded");
+        else if (currentRes.error) setCompilerOutput(`❌ Runtime Error:\n\n${currentRes.error}`);
+        else setCompilerOutput(currentRes.output || "(empty output)");
+      }
+    } catch (err) {
+      setCompilerOutput(`❌ Error: ${err.message}`);
+    } finally {
+      setIsRunning(false);
+    }
+  };
 
   useEffect(() => {
     warningsRef.current = warnings;
@@ -424,7 +598,7 @@ const QuizFlow = () => {
         console.error("Authorization failed or error fetching data:", err);
         setError(
           err.response?.data?.message ||
-            "An error occurred while loading the quiz."
+          "An error occurred while loading the quiz."
         );
       } finally {
         setLoading(false);
@@ -460,7 +634,30 @@ const QuizFlow = () => {
       timeTaken: quiz.durationInMinutes * 60 - timeLeft,
       warnings: 5 - warningsRef.current,
       penalties: 0,
-      answers: answers.map((a) => a?.answer ?? null),
+      answers: quiz.questions.map((q, i) => {
+        if (q.questionType?.toLowerCase() === 'coding' || q.testcases?.length > 0) {
+          const lang = getLanguage(i);
+          const results = testResults[i] || [];
+          // Create an outputs map for the backend evaluation logic
+          const outputs = {};
+          const tests = getTests(i);
+          results.forEach((r, idx) => {
+            const tc = tests[idx];
+            if (tc) {
+              outputs[tc.input] = r.output;
+            }
+          });
+
+          return {
+            type: 'coding',
+            code: getCode(i, lang),
+            language: lang,
+            outputs: outputs, // Map by input
+            results: results  // Full results array (more reliable)
+          };
+        }
+        return answers[i]?.answer ?? null;
+      }),
     };
 
     try {
@@ -730,8 +927,8 @@ const QuizFlow = () => {
           ? "answered"
           : "unanswered"
         : newAnswers[currentQuestionIndex].answer !== null
-        ? "answered-review"
-        : "review";
+          ? "answered-review"
+          : "review";
     setAnswers(newAnswers);
   };
 
@@ -837,13 +1034,12 @@ const QuizFlow = () => {
             {steps.map((s, index) => (
               <div key={s.id} className="flex flex-col items-center">
                 <div
-                  className={`w-9 h-9 flex items-center justify-center font-bold transition-all ${
-                    s.id < step
-                      ? "bg-green-600 text-white"
-                      : step === s.id
+                  className={`w-9 h-9 flex items-center justify-center font-bold transition-all ${s.id < step
+                    ? "bg-green-600 text-white"
+                    : step === s.id
                       ? "bg-red-600 text-white scale-110"
                       : "bg-white border-2 border-gray-500 text-black-500"
-                  }`}
+                    }`}
                 >
                   {s.id < step ? <CheckCircle2 size={20} /> : s.id}
                 </div>
@@ -1129,11 +1325,10 @@ const QuizFlow = () => {
                     >
                       <button
                         onClick={handleFullScreen}
-                        className={`px-4 py-2 text-white rounded flex items-center space-x-2 font-medium text-sm sm:text-base ${
-                          isFullScreen
-                            ? "bg-red-600 hover:bg-red-700"
-                            : "bg-green-600 hover:bg-green-700"
-                        }`}
+                        className={`px-4 py-2 text-white rounded flex items-center space-x-2 font-medium text-sm sm:text-base ${isFullScreen
+                          ? "bg-red-600 hover:bg-red-700"
+                          : "bg-green-600 hover:bg-green-700"
+                          }`}
                       >
                         <Expand size={16} />
                         <span>
@@ -1154,11 +1349,10 @@ const QuizFlow = () => {
                       />
                       <label
                         htmlFor="bugAcknowledge"
-                        className={`text-sm text-black ${
-                          !isFullScreen
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
+                        className={`text-sm text-black ${!isFullScreen
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                          }`}
                       >
                         <strong>Important Notice:</strong> Hey folks, we are
                         facing a bug. Before you begin, please{" "}
@@ -1274,188 +1468,412 @@ const QuizFlow = () => {
       };
 
       return (
-        <div className="flex flex-col min-h-screen bg-white text-gray-900 font-sans">
-          <Toaster position="top-center" reverseOrder={false} />
-          <InstructionsModal
-            isOpen={isInstructionsOpen}
-            onClose={() => setIsInstructionsOpen(false)}
-            quiz={quiz}
-          />
+        <>
+          <div className="flex flex-col min-h-screen bg-white text-gray-900 font-sans">
+            <Toaster position="top-center" reverseOrder={false} />
+            <InstructionsModal
+              isOpen={isInstructionsOpen}
+              onClose={() => setIsInstructionsOpen(false)}
+              quiz={quiz}
+            />
 
-          <header className="flex items-stretch justify-between flex-shrink-0 px-2 sm:px-0 bg-white">
-            <div className="flex items-center py-3">
-              <GraduationCap className="h-6 w-10 sm:h-8 sm:w-12 pl-2 sm:pl-5 text-red-900" />
-              <h1 className="text-base sm:text-lg font-bold pl-1 sm:pl-2 text-gray-800">
-                {quiz.title}
-              </h1>
-            </div>
-
-            <div className="flex items-stretch">
-              <div className="flex items-center font-medium text-black-600 text-sm sm:text-base px-2 sm:px-6">
-                <Clock className="mr-1 mt-0.3" size={18} />
-                <span>{formatTime(timeLeft)} left</span>
+            <header className="flex items-stretch justify-between flex-shrink-0 px-2 sm:px-0 bg-white">
+              <div className="flex items-center py-3">
+                <GraduationCap className="h-6 w-10 sm:h-8 sm:w-12 pl-2 sm:pl-5 text-red-900" />
+                <h1 className="text-base sm:text-lg font-bold pl-1 sm:pl-2 text-gray-800">
+                  {quiz.title}
+                </h1>
               </div>
 
-              <button
-                onClick={handleSubmit}
-                className="px-4 sm:px-12 text-sm sm:text-md font-medium text-white bg-gray-900 hover:bg-black-700 focus:outline-none focus:ring-2 focus:ring-black-500 focus:ring-opacity-50"
-              >
-                Finish Assessment
-              </button>
-            </div>
-          </header>
-          <hr className="border-1" />
+              <div className="flex items-stretch">
+                <div className="flex items-center font-medium text-black-600 text-sm sm:text-base px-2 sm:px-6">
+                  <Clock className="mr-1 mt-0.3" size={18} />
+                  <span>{formatTime(timeLeft)} left</span>
+                </div>
 
-          <div className="flex flex-col lg:flex-row flex-1">
-            <aside className="w-full lg:w-1/6 bg-stone-100 border-black-800 lg:border-r-2 flex flex-col flex-shrink-0">
-              <div className="bg-yellow-50 p-2 pt-2">
-                <div className="flex items-center text-sm space-x-2 text-black-800 max-w-md mx-auto lg:max-w-full">
-                  <span className="text-red-700">
-                    <ScanEye size={30} />
-                  </span>
-                  <span>
-                    Your camera feed, audio and screen are being proctored.
-                  </span>
-                </div>
-                <div
-                  className={`flex items-center ${
-                    !isMobileDevice && "space-x-2"
-                  } mt-2 w-full max-w-md mx-auto lg:max-w-full`}
+                <button
+                  onClick={handleSubmit}
+                  className="px-4 sm:px-12 text-sm sm:text-md font-medium text-white bg-gray-900 hover:bg-black-700 focus:outline-none focus:ring-2 focus:ring-black-500 focus:ring-opacity-50"
                 >
-                  <ProctoringFeed stream={cameraStream} type="camera" />
-                  {!isMobileDevice && (
-                    <ProctoringFeed stream={screenStream} type="screen" />
-                  )}
-                </div>
+                  Finish Assessment
+                </button>
               </div>
+            </header>
+            <hr className="border-1" />
 
-              <hr className="border-t-1 border-red-400" />
+            <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+              <aside className="w-full lg:w-1/6 bg-stone-100 border-black-800 lg:border-r-2 flex flex-col flex-shrink-0 overflow-y-auto">
+                <div className="bg-yellow-50 p-2 pt-2">
+                  <div className="flex items-center text-sm space-x-2 text-black-800 max-w-md mx-auto lg:max-w-full">
+                    <span className="text-red-700">
+                      <ScanEye size={30} />
+                    </span>
+                    <span>
+                      Your camera feed, audio and screen are being proctored.
+                    </span>
+                  </div>
+                  <div
+                    className={`flex items-center ${!isMobileDevice && "space-x-2"
+                      } mt-2 w-full max-w-md mx-auto lg:max-w-full`}
+                  >
+                    <ProctoringFeed stream={cameraStream} type="camera" />
+                    {!isMobileDevice && (
+                      <ProctoringFeed stream={screenStream} type="screen" />
+                    )}
+                  </div>
+                </div>
 
-              <div className="flex-1 lg:mt-4 p-4 lg:p-0">
-                <h2
-                  onClick={() => setIsInstructionsOpen(true)}
-                  className="font-semibold mb-3 text-center cursor-pointer text-gray-900 flex items-center justify-center gap-1"
-                >
-                  <GrStatusInfo size={22} className="text-black font-bold" />
-                  Instructions
-                </h2>
-                <hr className="w-3/4 mx-auto border-t-2 border-gray-300 my-4" />
+                <hr className="border-t-1 border-red-400" />
 
-                <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-3 gap-2 lg:gap-3 lg:pl-5">
-                  {quiz.questions.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleQuestionNavigation(index)}
-                      className={`h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 rounded-md font-bold flex items-center justify-center ${getStatusColor(
-                        answers[index]?.status
-                      )} ${
-                        currentQuestionIndex === index
+                <div className="flex-1 lg:mt-4 p-4 lg:p-0">
+                  <h2
+                    onClick={() => setIsInstructionsOpen(true)}
+                    className="font-semibold mb-3 text-center cursor-pointer text-gray-900 flex items-center justify-center gap-1"
+                  >
+                    <GrStatusInfo size={22} className="text-black font-bold" />
+                    Instructions
+                  </h2>
+                  <hr className="w-3/4 mx-auto border-t-2 border-gray-300 my-4" />
+
+                  <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-3 gap-2 lg:gap-3 lg:pl-5">
+                    {quiz.questions.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleQuestionNavigation(index)}
+                        className={`h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 rounded-md font-bold flex items-center justify-center ${getStatusColor(
+                          answers[index]?.status
+                        )} ${currentQuestionIndex === index
                           ? "ring-2 ring-red-500"
                           : ""
-                      }`}
-                    >
-                      {index + 1}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </aside>
-            <div className="flex-1 flex flex-col pt-2">
-              <main className="flex-1 flex flex-col px-4 py-4 sm:px-8 sm:py-6 lg:pl-32 lg:pt-16">
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center">
-                  <button
-                    onClick={handleMarkForReview}
-                    className="flex items-center space-x-2 py-2 sm:py-5 cursor-pointer text-gray-800 rounded font-medium"
-                  >
-                    <Bookmark size={16} />
-                    <span>Mark for Review</span>
-                  </button>
-                  <div className="flex items-center mr-0 sm:mr-40 space-x-0 self-end sm:self-center">
-                    <span className="bg-green-100 text-green-700 text-sm font-semibold px-2 py-0.5">
-                      +1
-                    </span>
-                    <span className="bg-red-100 text-red-700 text-sm font-semibold px-3 py-0.5">
-                      0
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex-1">
-                  <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-4 mt-2 sm:mt-5 text-gray-500">
-                    Question {currentQuestionIndex + 1} of{" "}
-                    {quiz.questions.length}
-                  </h3>
-                  <p className="text-lg sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
-                    {currentQuestion.questionText}
-                  </p>
-                  <hr className="w-full lg:w-6/7" />
-
-                  <div className="space-y-4 sm:space-y-6 pt-4 sm:pt-5">
-                    {currentQuestion.options.map((option, index) => (
-                      <label
-                        key={index}
-                        className={`flex items-center p-3 sm:p-4 border-3 cursor-pointer transition-colors w-full lg:max-w-md min-h-[3.5rem] ${
-                          answers[currentQuestionIndex]?.answer === index
-                            ? "bg-blue-50 border-blue-600"
-                            : "bg-gray-100 border-gray-500 hover:bg-gray-200"
-                        }`}
+                          }`}
                       >
-                        <input
-                          type="radio"
-                          name={`q-${currentQuestionIndex}`}
-                          checked={
-                            answers[currentQuestionIndex]?.answer === index
-                          }
-                          onChange={() => handleAnswerChange(index)}
-                          className="h-5 w-5 mr-4 accent-blue-600"
-                        />
-                        <span className="text-black-500 text-sm sm:text-base">
-                          {option}
-                        </span>
-                      </label>
+                        {index + 1}
+                      </button>
                     ))}
-
-                    <button
-                      onClick={() => handleAnswerChange(null)}
-                      className="flex items-center px-4 py-2 text-red-700 rounded font-medium space-x-2 w-max mt-4 sm:mt-2"
-                    >
-                      <Eraser size={18} />
-                      <span className="text-sm sm:text-base">
-                        Clear Response
-                      </span>
-                    </button>
                   </div>
                 </div>
-              </main>
+              </aside>
+              <div className="flex-1 flex flex-col pt-2 overflow-hidden">
+                <main className={`flex-1 flex flex-col overflow-hidden ${(currentQuestion.questionType?.toLowerCase() === "coding" || currentQuestion.testcases?.length > 0) ? "px-0 py-0" : "px-4 py-4 sm:px-8 sm:py-6 lg:pl-32 lg:pt-16 overflow-y-auto"}`}>
+                  {(currentQuestion.questionType?.toLowerCase() === "coding" || currentQuestion.testcases?.length > 0) ? (
+                    <div className="h-full w-full flex flex-col font-sans text-gray-800 overflow-hidden">
+                      <div className="flex-1 grid grid-cols-1 overflow-hidden">
+                        <div className={`grid h-full bg-white overflow-hidden transition-all duration-300 ${isExpanded ? "grid-rows-[min-content_48px_1fr_40%]" : "grid-rows-[min-content_48px_1fr_40px]"}`}>
 
-              <footer className="flex-shrink-0 flex justify-between items-center mt-2 pt-2 border-t bg-gray-200 px-4 sm:px-8">
-                <button
-                  onClick={() =>
-                    handleQuestionNavigation(currentQuestionIndex - 1)
-                  }
-                  disabled={currentQuestionIndex === 0}
-                  className="px-3 py-2 sm:px-5 flex items-center space-x-2 cursor-pointer rounded font-medium disabled:opacity-50 text-sm sm:text-base"
-                >
-                  <ArrowLeft size={16} />
-                  <span className="hidden sm:inline">Previous</span>
-                </button>
+                          {/* Question Text for Coding */}
+                          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 overflow-y-auto max-h-[25vh]">
+                            <h2 className="text-xl font-bold text-gray-900 mb-2">
+                              Problem Statement
+                            </h2>
+                            <div
+                              className="text-[15px] leading-relaxed text-gray-700 prose prose-slate max-w-none"
+                              dangerouslySetInnerHTML={{ __html: currentQuestion.questionText }}
+                            />
+                            <div className="mt-4 flex items-center gap-4">
+                              <span className="text-sm font-semibold px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                Marks: {currentQuestion.marks}
+                              </span>
+                            </div>
+                          </div>
 
-                <button
-                  onClick={() =>
-                    handleQuestionNavigation(currentQuestionIndex + 1)
-                  }
-                  disabled={
-                    currentQuestionIndex === quiz.questions.length - 1
-                  }
-                  className="px-3 py-2 sm:px-8 flex items-center cursor-pointer space-x-2 text-black rounded font-medium text-sm sm:text-base"
-                >
-                  <span className="hidden sm:inline">Next</span>
-                  <ArrowRight size={18} />
-                </button>
-              </footer>
+                          {/* Editor Toolbar */}
+                          <div className="h-12 flex items-center justify-between border-b border-gray-200 bg-white px-4 flex-shrink-0">
+                            <div className="flex h-full items-center gap-4">
+                              <div className="relative">
+                                <select
+                                  value={getLanguage(currentQuestionIndex)}
+                                  onChange={(e) => handleLanguageChange(currentQuestionIndex, e.target.value)}
+                                  className="appearance-none bg-gray-100 border border-gray-300 px-3 py-1 pr-8 rounded text-sm font-bold text-gray-700 hover:bg-gray-200 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                >
+                                  <option value="python">PYTHON</option>
+                                  <option value="cpp">C++</option>
+                                  <option value="java">JAVA</option>
+                                  <option value="javascript">JAVASCRIPT</option>
+                                </select>
+                                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              </div>
+
+                              <div className="h-6 w-[1px] bg-gray-300" />
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => { setActiveTab("run"); runCode(currentQuestionIndex); }}
+                                  disabled={isRunning}
+                                  className={`px-4 py-1.5 rounded text-sm font-bold transition-all flex items-center gap-2 ${isRunning
+                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                    : "bg-gray-800 text-white hover:bg-gray-700"
+                                    }`}
+                                >
+                                  {isRunning && activeTab === "run" ? (
+                                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                  ) : null}
+                                  Run
+                                </button>
+                                <button
+                                  onClick={() => { setActiveTab("runTests"); runAllTests(currentQuestionIndex); }}
+                                  disabled={isRunning}
+                                  className={`px-4 py-1.5 rounded text-sm font-bold transition-all flex items-center gap-2 ${isRunning
+                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                    : "bg-blue-600 text-white hover:bg-blue-700"
+                                    }`}
+                                >
+                                  {isRunning && activeTab === "runTests" ? (
+                                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                  ) : null}
+                                  Run All Tests
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Code Editor */}
+                          <div className="h-full relative overflow-hidden bg-[#fffffe]">
+                            <Editor
+                              height="100%"
+                              language={getLanguage(currentQuestionIndex) === 'cpp' ? 'cpp' : getLanguage(currentQuestionIndex)}
+                              value={getCode(currentQuestionIndex, getLanguage(currentQuestionIndex))}
+                              onChange={(value) => setCode(currentQuestionIndex, getLanguage(currentQuestionIndex), value)}
+                              theme="light"
+                              options={{
+                                minimap: { enabled: false },
+                                fontSize: 14,
+                                lineNumbers: "on",
+                                automaticLayout: true,
+                                scrollBeyondLastLine: false,
+                                padding: { top: 16, bottom: 16 },
+                                fontFamily: "'Menlo', 'Monaco', 'Courier New', monospace"
+                              }}
+                            />
+                          </div>
+
+                          {/* Bottom Panel - Test Results */}
+                          <div className="h-full flex flex-col border-t border-gray-300 bg-gray-50 overflow-hidden">
+                            <div className="h-10 bg-gray-100 border-b border-gray-300 flex items-center px-4 flex-shrink-0">
+                              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Test Results</span>
+                              <div className="ml-auto flex items-center gap-4">
+                                {testResults[currentQuestionIndex] && (
+                                  <span className="text-xs font-bold text-gray-600">
+                                    Passed: {testResults[currentQuestionIndex].filter(r => r.passed).length}/{getTests(currentQuestionIndex).length}
+                                  </span>
+                                )}
+                                <button
+                                  onClick={() => setIsExpanded(!isExpanded)}
+                                  className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                >
+                                  {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className={`flex-1 flex min-h-0 overflow-hidden ${!isExpanded ? "hidden" : ""}`}>
+                              {/* Test Cases Sidebar */}
+                              <div className="w-48 border-r border-gray-200 bg-gray-50 flex flex-col flex-shrink-0">
+                                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                  {getTests(currentQuestionIndex).map((t, i) => {
+                                    const result = testResults[currentQuestionIndex]?.find(r => r.id === t.id);
+                                    return (
+                                      <button
+                                        key={t.id}
+                                        onClick={() => setSelectedTestCase(i)}
+                                        className={`w-full flex items-center justify-between px-4 py-3 text-left border-b border-gray-200 transition-colors ${selectedTestCase === i
+                                          ? "bg-white border-l-4 border-l-blue-600 shadow-sm"
+                                          : "hover:bg-gray-100"
+                                          }`}
+                                      >
+                                        <span className={`text-sm font-medium ${selectedTestCase === i ? "text-blue-700" : "text-gray-600"}`}>
+                                          Test Case {t.id}
+                                        </span>
+                                        {result && (
+                                          result.passed ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-red-600" />
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* Test Case Details */}
+                              <div className="flex-1 p-5 overflow-y-auto bg-white custom-scrollbar">
+                                {getTests(currentQuestionIndex).length > 0 ? (
+                                  <div className="space-y-4">
+                                    <div>
+                                      <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Input</h4>
+                                      <pre className="p-3 bg-gray-50 border border-gray-200 rounded font-mono text-sm overflow-x-auto">
+                                        {getTests(currentQuestionIndex)[selectedTestCase]?.input || "(no input)"}
+                                      </pre>
+                                    </div>
+                                    <div>
+                                      <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Expected Output</h4>
+                                      <pre className="p-3 bg-gray-50 border border-gray-200 rounded font-mono text-sm overflow-x-auto text-gray-700">
+                                        {getTests(currentQuestionIndex)[selectedTestCase]?.expected || "(no output)"}
+                                      </pre>
+                                    </div>
+                                    <div>
+                                      <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Actual Output</h4>
+                                      <div className="relative">
+                                        <pre className={`p-3 border rounded font-mono text-sm overflow-x-auto min-h-[60px] ${compilerOutput.includes("❌") || compilerOutput.includes("⏱️")
+                                          ? "bg-red-50 border-red-200 text-red-700"
+                                          : "bg-gray-50 border-gray-200 text-gray-900"
+                                          }`}>
+                                          {compilerOutput || "Click 'Run' to see output"}
+                                        </pre>
+                                        {testResults[currentQuestionIndex] && (
+                                          <div className="absolute top-2 right-2">
+                                            {testResults[currentQuestionIndex][selectedTestCase]?.passed ? (
+                                              <span className="text-[10px] font-bold px-2 py-0.5 bg-green-100 text-green-700 rounded uppercase">Matched</span>
+                                            ) : testResults[currentQuestionIndex][selectedTestCase] ? (
+                                              <span className="text-[10px] font-bold px-2 py-0.5 bg-red-100 text-red-700 rounded uppercase">Mismatched</span>
+                                            ) : null}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="h-full flex items-center justify-center text-gray-400 text-sm">
+                                    No test cases configured for this problem.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col">
+                      <div className="flex flex-col sm:flex-row justify-between sm:items-center">
+                        <button
+                          onClick={handleMarkForReview}
+                          className="flex items-center space-x-2 py-2 sm:py-5 cursor-pointer text-gray-800 rounded font-medium"
+                        >
+                          <Bookmark size={16} />
+                          <span>Mark for Review</span>
+                        </button>
+                        <div className="flex items-center mr-0 sm:mr-40 space-x-0 self-end sm:self-center">
+                          <span className="bg-green-100 text-green-700 text-sm font-semibold px-2 py-0.5">
+                            +{currentQuestion.marks}
+                          </span>
+                          <span className="bg-red-100 text-red-700 text-sm font-semibold px-3 py-0.5">
+                            0
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex-1">
+                        <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-4 mt-2 sm:mt-5 text-gray-500">
+                          Question {currentQuestionIndex + 1} of{" "}
+                          {quiz.questions.length}
+                        </h3>
+                        <p className="text-lg sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
+                          {currentQuestion.questionText}
+                        </p>
+                        <hr className="w-full lg:w-6/7" />
+
+                        <div className="space-y-4 sm:space-y-6 pt-4 sm:pt-5">
+                          {(currentQuestion.questionType?.toLowerCase() === "descriptive" || (!currentQuestion.options || currentQuestion.options.length === 0 || currentQuestion.options.every(opt => !opt))) && (currentQuestion.questionType?.toLowerCase() !== "coding" && (!currentQuestion.testcases || currentQuestion.testcases.length === 0)) ? (
+                            <div className="lg:max-w-5xl">
+                              <DescriptiveEditor
+                                value={answers[currentQuestionIndex]?.answer || ""}
+                                onChange={(val) => handleAnswerChange(val)}
+                                placeholder={`Write your answer for question ${currentQuestionIndex + 1}...`}
+                              />
+                            </div>
+                          ) : (
+                            currentQuestion.options?.map((option, index) => (
+                              <label
+                                key={index}
+                                className={`flex items-center p-3 sm:p-4 border-3 cursor-pointer transition-colors w-full lg:max-w-md min-h-[3.5rem] ${answers[currentQuestionIndex]?.answer === index
+                                  ? "bg-blue-50 border-blue-600"
+                                  : "bg-gray-100 border-gray-500 hover:bg-gray-200"
+                                  }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name={`q-${currentQuestionIndex}`}
+                                  checked={
+                                    answers[currentQuestionIndex]?.answer === index
+                                  }
+                                  onChange={() => handleAnswerChange(index)}
+                                  className="h-5 w-5 mr-4 accent-blue-600"
+                                />
+                                <span className="text-black-500 text-sm sm:text-base">
+                                  {option}
+                                </span>
+                              </label>
+                            )) ?? (
+                              <div className="text-gray-500 italic">No options available for this question.</div>
+                            )
+                          )}
+
+                          <button
+                            onClick={() => handleAnswerChange(null)}
+                            className="flex items-center px-4 py-2 text-red-700 rounded font-medium space-x-2 w-max mt-4 sm:mt-2"
+                          >
+                            <Eraser size={18} />
+                            <span className="text-sm sm:text-base">
+                              Clear Response
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </main>
+
+                <footer className="flex-shrink-0 flex justify-between items-center mt-2 pt-2 border-t bg-gray-200 px-4 sm:px-8">
+                  <button
+                    onClick={() =>
+                      handleQuestionNavigation(currentQuestionIndex - 1)
+                    }
+                    disabled={currentQuestionIndex === 0}
+                    className="px-3 py-2 sm:px-5 flex items-center space-x-2 cursor-pointer rounded font-medium disabled:opacity-50 text-sm sm:text-base"
+                  >
+                    <ArrowLeft size={16} />
+                    <span className="hidden sm:inline">Previous</span>
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      handleQuestionNavigation(currentQuestionIndex + 1)
+                    }
+                    disabled={
+                      currentQuestionIndex === quiz.questions.length - 1
+                    }
+                    className="px-3 py-2 sm:px-8 flex items-center cursor-pointer space-x-2 text-black rounded font-medium text-sm sm:text-base"
+                  >
+                    <span className="hidden sm:inline">Next</span>
+                    <ArrowRight size={18} />
+                  </button>
+                </footer>
+              </div>
             </div>
           </div>
-        </div>
+          <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #ccc;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #bbb;
+        }
+        .prose pre {
+          background-color: #f8f9fa;
+          padding: 1rem;
+          border-radius: 0.5rem;
+          border: 1px solid #e9ecef;
+          font-family: monospace;
+          white-space: pre-wrap;
+        }
+      `}</style>
+        </>
       );
     }
   };
