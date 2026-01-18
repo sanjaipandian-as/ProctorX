@@ -36,10 +36,10 @@ function dockerArgsForRun(jobDir, image, binds = [], memoryMb, cpus, extra = [])
 
   binds.forEach(b => {
     let hostPath = b.host.replace(/\\/g, "/");
-    // if (hostPath[1] === ":") {
-    //   const drive = hostPath[0].toLowerCase();
-    //   hostPath = `/mnt/${drive}${hostPath.slice(2)}`;
-    // }
+    if (hostPath[1] === ":") {
+      const drive = hostPath[0].toLowerCase();
+      hostPath = `/${drive}${hostPath.slice(2)}`;
+    }
 
     args.push("-v", `${hostPath}:${b.container}:rw`);
   });

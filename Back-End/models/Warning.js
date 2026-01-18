@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const warningSchema = new mongoose.Schema({
     quizId: { type: mongoose.Schema.Types.ObjectId, ref: "Quiz", required: true },
-    studentId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    studentId: { type: mongoose.Schema.Types.ObjectId, ref: "Student", required: true },
     type: { 
         type: String, 
         enum: ["cheating", "late", "distraction", "other"], // predefined types

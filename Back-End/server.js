@@ -10,6 +10,7 @@ import teacherRoutes from './routes/teacherRoutes.js';
 import otpService from './routes/otpService.js';
 import quizRoutes from './routes/quizzRoutes.js';
 import resultRoutes from './routes/resultRoutes.js';
+import monitorRoutes from './monitoring/monitorRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,6 +46,7 @@ app.use('/students', studentRoutes);
 app.use('/otp', otpService);
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/results', resultRoutes);
+app.use('/api/monitoring', monitorRoutes);
 
 const PORT = process.env.PORT || 5000;
 
