@@ -11,6 +11,7 @@ import otpService from './routes/otpService.js';
 import quizRoutes from './routes/quizzRoutes.js';
 import resultRoutes from './routes/resultRoutes.js';
 import aiQuestionRoutes from './routes/AIquestionGenarate.js';
+import monitorRoutes from './monitoring/monitorRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,8 +47,9 @@ app.use('/otp', otpService);
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/ai', aiQuestionRoutes);
+app.use('/api/monitoring', monitorRoutes);
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
@@ -65,3 +67,5 @@ mongoose.connect(process.env.MONGO_URI, {
 app.get('/', (req, res) => {
   res.send('ProctorX Backend is Running!');
 });
+
+export default app;

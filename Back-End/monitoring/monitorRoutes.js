@@ -1,10 +1,11 @@
-// const express = require('express');
-// const router = express.Router();
-// const { isAuthenticatedUser } = require('../controllers/authController');
-// const monitorController = require('../controllers/monitorController');
+import express from 'express';
+import { isAuthenticatedUser } from '../controllers/authController.js';
+import * as monitorController from './monitorController.js';
 
-// router.post('/warn', isAuthenticatedUser, monitorController.logWarning);
-// router.post('/penalty', isAuthenticatedUser, monitorController.applyPenalty);
-// router.get('/warnings/:studentId/:quizId', isAuthenticatedUser, monitorController.getStudentWarnings);
+const router = express.Router();
 
-// module.exports = router;
+router.post('/warn', isAuthenticatedUser, monitorController.logWarning);
+router.post('/penalty', isAuthenticatedUser, monitorController.applyPenalty);
+router.get('/warnings/:studentId/:quizId', isAuthenticatedUser, monitorController.getStudentWarnings);
+
+export default router;
