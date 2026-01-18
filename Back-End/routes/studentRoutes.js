@@ -1,13 +1,14 @@
-const express = require('express');
+import express from 'express';
+import Student from '../models/Student.js';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { getUpload } from '../middleware/uploadMiddleware.js';
+import { isAuthenticatedUser } from '../controllers/authController.js';
+import Result from '../models/Result.js';
+import Quiz from '../models/Quiz.js';
+
 const Students = express.Router();
-const Student = require('../models/Student');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const { getUpload } = require('../middleware/uploadMiddleware');
-const { isAuthenticatedUser } = require('../controllers/authController');
 const studentUpload = getUpload('students');
-const Result = require("../models/Result");
-const Quiz = require("../models/Quiz");
 // REMOVED: import responseSchema... (It was breaking the code and wasn't used)
 
 Students.post('/signup', studentUpload.single('profilePicture'), async (req, res) => {
@@ -193,4 +194,4 @@ Students.delete('/:id', isAuthenticatedUser, async (req, res) => {
   }
 });
 
-module.exports = Students;
+export default Students;

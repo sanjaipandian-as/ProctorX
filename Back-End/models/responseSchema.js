@@ -1,4 +1,4 @@
-const mongoose = require("mongoose")
+import mongoose from 'mongoose';
 
 const responseSchema = new mongoose.Schema(
   {
@@ -31,4 +31,4 @@ const responseSchema = new mongoose.Schema(
   { _id: false }
 )
 
-module.exports = responseSchema
+export default responseSchema;

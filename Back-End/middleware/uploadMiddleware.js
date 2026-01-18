@@ -1,7 +1,7 @@
-const multer = require("multer");
-const path = require('path');
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("../config/cloudinary")
+import multer from 'multer';
+import path from 'path';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import cloudinary from '../config/cloudinary.js';
 
 
 
@@ -31,4 +31,4 @@ const getUpload = (folder) => {
   });
 };
 
-module.exports = { getUpload };
+export { getUpload };

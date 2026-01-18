@@ -1,10 +1,11 @@
-const express = require("express");
-const mongoose = require("mongoose");
+import express from 'express';
+import mongoose from 'mongoose';
+import Result from '../models/Result.js';
+import Quiz from '../models/Quiz.js';
+import Student from '../models/Student.js';
+import { isAuthenticatedUser } from '../controllers/authController.js';
+
 const router = express.Router();
-const Result = require("../models/Result");
-const Quiz = require("../models/Quiz");
-const Student = require("../models/Student");
-const { isAuthenticatedUser } = require("../controllers/authController");
 
 router.post("/submit", isAuthenticatedUser, async (req, res) => {
   try {
@@ -441,4 +442,4 @@ router.delete("/results/:resultId", isAuthenticatedUser, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

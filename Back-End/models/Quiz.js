@@ -1,4 +1,4 @@
-const mongoose = require("mongoose")
+import mongoose from 'mongoose';
 
 const questionSchema = new mongoose.Schema({
     questionType: { type: String, enum: ["mcq", "descriptive", "coding"], required: true },
@@ -36,4 +36,4 @@ const quizSchema = new mongoose.Schema({
 
 quizSchema.index({ quizId: 1 }, { unique: true })
 
-module.exports = mongoose.model("Quiz", quizSchema)
+export default mongoose.model("Quiz", quizSchema);

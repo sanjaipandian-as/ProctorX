@@ -1,10 +1,11 @@
-const express = require('express');
+import express from 'express';
+import { generateOTP } from '../utils/otp.js';
+import { sendEmail } from '../utils/emailService.js';
+import OTP from '../models/OTP.js';
+import { isAuthenticatedUser } from '../controllers/authController.js';
+import { authorizeRoles } from '../middleware/roleMiddleware.js';
+
 const router = express.Router();
-const { generateOTP } = require('../utils/otp');
-const { sendEmail } = require('../utils/emailService');
-const OTP = require('../models/OTP');
-const { isAuthenticatedUser } = require('../controllers/authController')
-const {authorizeRoles} =require('../middleware/roleMiddleware')
 
 
 router.post('/send', isAuthenticatedUser, authorizeRoles('teacher'), async (req, res) => {
@@ -45,4 +46,4 @@ router.post('/verify', async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

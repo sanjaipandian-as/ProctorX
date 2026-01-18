@@ -1,6 +1,6 @@
-const jwt = require('jsonwebtoken');
-const Student = require('../models/Student');
-const Teacher = require('../models/Teacher');
+import jwt from 'jsonwebtoken';
+import Student from '../models/Student.js';
+import Teacher from '../models/Teacher.js';
 
 const isAuthenticatedUser = async (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
@@ -28,4 +28,4 @@ const isAuthenticatedUser = async (req, res, next) => {
   }
 };
 
-module.exports = { isAuthenticatedUser };
+export { isAuthenticatedUser };

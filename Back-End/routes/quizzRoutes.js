@@ -1,9 +1,10 @@
-const express = require('express');
+import express from 'express';
+import crypto from 'crypto';
+import Quiz from '../models/Quiz.js';
+import { isAuthenticatedUser } from '../controllers/authController.js';
+import { sendEmail } from '../utils/emailService.js';
+
 const router = express.Router();
-const crypto = require('crypto');
-const Quiz = require("../models/Quiz");
-const { isAuthenticatedUser } = require('../controllers/authController');
-const { sendEmail } = require("../utils/emailService");
 
 function generateOTP() {
   return crypto.randomInt(100000, 999999).toString();
@@ -356,4 +357,4 @@ router.delete('/:quizId', isAuthenticatedUser, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,5 +1,5 @@
-const mongoose = require("mongoose")
-const responseSchema = require("./responseSchema")
+import mongoose from 'mongoose';
+import responseSchema from './responseSchema.js';
 
 const resultSchema = new mongoose.Schema(
   {
@@ -29,4 +29,4 @@ const resultSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
-module.exports = mongoose.model("Result", resultSchema)
+export default mongoose.model("Result", resultSchema);

@@ -1,13 +1,14 @@
-const express = require('express');
+import express from 'express';
+import Teacher from '../models/Teacher.js';
+import Student from '../models/Student.js';
+import Result from '../models/Result.js';
+import Quiz from '../models/Quiz.js';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { getUpload } from '../middleware/uploadMiddleware.js';
+import { isAuthenticatedUser } from '../controllers/authController.js';
+
 const Teachers = express.Router();
-const Teacher = require('../models/Teacher');
-const Student = require('../models/Student');
-const Result = require("../models/Result");
-const Quiz = require("../models/Quiz");
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const { getUpload } = require('../middleware/uploadMiddleware');
-const { isAuthenticatedUser } = require('../controllers/authController');
 const teacherUpload = getUpload('teachers');
 
 Teachers.post('/signup', teacherUpload.single('profilePicture'), async (req, res) => {
@@ -180,4 +181,4 @@ Teachers.delete('/delete/:id', isAuthenticatedUser, async (req, res) => {
   }
 });
 
-module.exports = Teachers;
+export default Teachers;
