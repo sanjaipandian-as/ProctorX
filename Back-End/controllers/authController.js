@@ -20,8 +20,12 @@ const isAuthenticatedUser = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
-    
-    req.user = user;
+
+    req.user = {
+      id: user._id.toString(),
+      role: decoded.role,
+      ...user.toObject()
+    };
     next();
   } catch (error) {
     res.status(401).json({ message: "Invalid token" });
