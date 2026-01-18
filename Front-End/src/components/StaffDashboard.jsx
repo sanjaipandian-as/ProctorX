@@ -3,7 +3,7 @@ import axios from "axios";
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { useAuth } from "../context/AuthContext";
-import { Plus, Users, BookOpen, BarChart3, LogOut, Clock, Target, TrendingUp, Home, ArrowLeft, AlertCircle, Check, X, Loader2, Save, Code, FileText, CheckSquare } from "lucide-react";
+import { Plus, Users, BookOpen, BarChart3, LogOut, Clock, Target, TrendingUp, Home, ArrowLeft, AlertCircle, Check, X, Loader2, Save, Code, FileText, CheckSquare, Sparkles } from "lucide-react";
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import API from "../../Api";
@@ -982,12 +982,20 @@ export default function TeacherDashboard() {
                             Analytics
                         </button>
                     </div>
-                    <button
-                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#00E1F9] text-black hover:bg-[#00B0CC] transition shadow-lg font-medium w-full md:w-auto"
-                        onClick={() => navigate("/create-quiz")}
-                    >
-                        <PlusIcon /> Create New Quiz
-                    </button>
+                    <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                        <button
+                            className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition shadow-lg font-medium w-full md:w-auto"
+                            onClick={() => navigate("/ai-quiz")}
+                        >
+                            <Sparkles className="h-4 w-4" /> Create Quiz using AI
+                        </button>
+                        <button
+                            className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#00E1F9] text-black hover:bg-[#00B0CC] transition shadow-lg font-medium w-full md:w-auto"
+                            onClick={() => navigate("/create-quiz")}
+                        >
+                            <PlusIcon /> Create New Quiz
+                        </button>
+                    </div>
                 </div>
 
                 {loading ? (<div className="flex justify-center items-center h-64"><p className="text-gray-400 text-lg">Loading quizzes...</p></div>) : filteredQuizzes.length === 0 ? (<p className="text-gray-500 text-center py-10">No quizzes match your criteria. Create one or adjust filters!</p>) : (
