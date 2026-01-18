@@ -1,6 +1,6 @@
-const monitoringService = require('./monitoringService');
+import * as monitoringService from './monitoringService.js';
 
-exports.logWarning = async (req, res) => {
+export const logWarning = async (req, res) => {
     try {
         const { studentId, quizId, type } = req.body;
         const result = await monitoringService.logWarning(studentId, quizId, type);
@@ -10,7 +10,7 @@ exports.logWarning = async (req, res) => {
     }
 };
 
-exports.applyPenalty = async (req, res) => {
+export const applyPenalty = async (req, res) => {
     try {
         const { studentId, quizId, points } = req.body;
         const result = await monitoringService.applyPenalty(studentId, quizId, points);
@@ -20,7 +20,7 @@ exports.applyPenalty = async (req, res) => {
     }
 };
 
-exports.getStudentWarnings = async (req, res) => {
+export const getStudentWarnings = async (req, res) => {
     try {
         const { studentId, quizId } = req.params;
         const result = await monitoringService.getStudentWarnings(studentId, quizId);
