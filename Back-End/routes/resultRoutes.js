@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.post("/submit", isAuthenticatedUser, async (req, res) => {
   try {
-    const { quizId, warnings, penalties, answers } = req.body;
+    const { quizId, warnings, penalties, answers, violations } = req.body;
     const userId = req.user.id;
     const userRole = req.user.role === "teacher" ? "Teacher" : "Student";
 
@@ -163,7 +163,8 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
       accuracy,
       warnings: warnings || 0,
       penalties: penalties || 0,
-      responses: detailedResponses
+      responses: detailedResponses,
+      violations: violations || []
     });
 
     await newResult.save();
@@ -177,12 +178,13 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
             timeTaken: Number(req.body.timeTaken) || 0,
             submittedAt: new Date(),
             totalMarks: maxMarks
-          },
-          attemptedQuizzes: {
-            quizId: quiz._id,
-            hasAttempted: true
           }
+        },
+        $set: {
+          "attemptedQuizzes.$[elem].status": "submitted"
         }
+      }, {
+        arrayFilters: [{ "elem.quizId": quiz._id }]
       });
     }
 
@@ -433,11 +435,191 @@ router.delete("/results/:resultId", isAuthenticatedUser, async (req, res) => {
       return res.status(403).json({ message: "Forbidden: You are not the owner of this quiz" });
     }
 
+    const studentId = result.user;
+    const quizId = result.quiz;
+
     await Result.findByIdAndDelete(resultId);
 
-    res.status(200).json({ message: "Student result deleted successfully" });
+    // Clean up student's attempt history so they can start fresh
+    await Student.findByIdAndUpdate(studentId, {
+      $pull: {
+        results: { quizId: quizId },
+        attemptedQuizzes: { quizId: quizId }
+      }
+    });
+
+    res.status(200).json({ message: "Student result and attempt history deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Error deleting result", error: error.message });
+  }
+});
+
+// --- Attempt Management ---
+
+// Check attempt status
+router.get("/attempt-status/:quizId", isAuthenticatedUser, async (req, res) => {
+  try {
+    const { quizId } = req.params;
+    const student = await Student.findById(req.user.id);
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
+    const quiz = await Quiz.findOne({ quizId });
+    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
+
+    const attempt = student.attemptedQuizzes.find(a => a.quizId.toString() === quiz._id.toString());
+
+    if (!attempt || attempt.status === 'not_started') {
+      return res.json({ status: "not_started" });
+    }
+
+    if (attempt.status === 'submitted') {
+      const resultExists = await Result.findOne({
+        quiz: quiz._id,
+        user: req.user.id,
+        userModel: "Student"
+      });
+
+      if (resultExists) {
+        return res.json({ status: "completed", resultId: resultExists._id });
+      } else {
+        // Inconsistency found: Status is submitted but no Result exists.
+        // Downgrade to in_progress to allow recovery.
+        attempt.status = 'in_progress';
+        await student.save();
+        // Continue to return in_progress below
+      }
+    }
+
+    // Fix for missing startedAt (self-healing for old attempts)
+    if (attempt.status === 'in_progress' && !attempt.startedAt) {
+      attempt.startedAt = new Date();
+      await student.save();
+    }
+
+    // Status is 'started' or 'in_progress'
+    return res.json({
+      status: "in_progress",
+      startedAt: attempt.startedAt,
+      warnings: attempt.currentWarnings,
+      answers: attempt.savedAnswers,
+      violations: attempt.violationLogs,
+      durationInMinutes: quiz.durationInMinutes
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Start an attempt
+router.post("/start-attempt/:quizId", isAuthenticatedUser, async (req, res) => {
+  try {
+    const { quizId } = req.params;
+    const { otp } = req.body;
+    const student = await Student.findById(req.user.id);
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
+    const quiz = await Quiz.findOne({ quizId });
+    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
+
+    let attemptIndex = student.attemptedQuizzes.findIndex(a => a.quizId.toString() === quiz._id.toString());
+    const isResuming = attemptIndex !== -1 && student.attemptedQuizzes[attemptIndex].status === 'in_progress';
+
+    // If not resuming, we MUST verify OTP
+    if (!isResuming) {
+      if (!otp) return res.status(400).json({ message: "Security Code is required to start the assessment." });
+
+      const otpString = otp.toString();
+      const demoQuizzes = ['QZ708443', 'QZ840043', 'QZ303385', 'QZ588027'];
+      const isDemoAccess = demoQuizzes.includes(quizId) && otpString === '000000';
+
+      if (!isDemoAccess) {
+        if (!quiz.otp || !quiz.otpExpiresAt) {
+          return res.status(400).json({ message: 'A Security Code has not been generated for this quiz.' });
+        }
+        if (quiz.otpExpiresAt < new Date()) {
+          return res.status(400).json({ message: 'The Security Code has expired.' });
+        }
+        if (quiz.otp.toString() !== otpString) {
+          return res.status(400).json({ message: 'Invalid Security Code.' });
+        }
+      }
+    }
+
+    if (attemptIndex !== -1) {
+      const currentStatus = student.attemptedQuizzes[attemptIndex].status;
+
+      if (currentStatus === 'submitted') {
+        const resultExists = await Result.findOne({
+          quiz: quiz._id,
+          user: req.user.id,
+          userModel: "Student"
+        });
+
+        if (resultExists) {
+          return res.status(400).json({ message: "Quiz already submitted" });
+        } else {
+          // Inconsistency: result missing. Allow starting/resuming.
+          student.attemptedQuizzes[attemptIndex].status = 'in_progress';
+          await student.save();
+          // Proceed to return resumption
+        }
+      }
+
+      // If status is 'not_started', update to 'in_progress'
+      if (currentStatus === 'not_started') {
+        student.attemptedQuizzes[attemptIndex].status = 'in_progress';
+        student.attemptedQuizzes[attemptIndex].startedAt = new Date();
+        await student.save();
+      }
+
+      return res.json({
+        message: currentStatus === 'not_started' ? "Attempt started" : "Attempt resumed",
+        startedAt: student.attemptedQuizzes[attemptIndex].startedAt
+      });
+    }
+
+    // Create new attempt
+    student.attemptedQuizzes.push({
+      quizId: quiz._id,
+      status: 'in_progress',
+      startedAt: new Date(),
+      currentWarnings: 5,
+      savedAnswers: [],
+      violationLogs: []
+    });
+
+    await student.save();
+    res.json({ message: "Attempt started", startedAt: new Date() });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Sync attempt state
+router.post("/sync-attempt/:quizId", isAuthenticatedUser, async (req, res) => {
+  try {
+    const { quizId } = req.params;
+    const { warnings, answers, violations } = req.body;
+    const student = await Student.findById(req.user.id);
+
+    const quiz = await Quiz.findOne({ quizId });
+    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
+
+    const attemptIndex = student.attemptedQuizzes.findIndex(a => a.quizId.toString() === quiz._id.toString());
+
+    if (attemptIndex === -1) {
+      return res.status(400).json({ message: "Attempt not started" });
+    }
+
+    student.attemptedQuizzes[attemptIndex].currentWarnings = warnings;
+    student.attemptedQuizzes[attemptIndex].savedAnswers = answers;
+    student.attemptedQuizzes[attemptIndex].violationLogs = violations;
+    student.attemptedQuizzes[attemptIndex].lastSync = new Date();
+
+    await student.save();
+    res.json({ message: "State synced" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 

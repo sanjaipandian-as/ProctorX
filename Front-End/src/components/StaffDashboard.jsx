@@ -769,6 +769,30 @@ export default function TeacherDashboard() {
 
                             <QuestionPalette responses={selectedResultDetail.responses || []} />
 
+                            {selectedResultDetail.violations && selectedResultDetail.violations.length > 0 && (
+                                <div className="bg-[#1a0a0a] border border-red-900/30 rounded-lg p-5 mb-6">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <AlertCircle className="h-5 w-5 text-red-500" />
+                                        <h3 className="text-lg font-bold text-white uppercase tracking-wider">Proctoring Log</h3>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {selectedResultDetail.violations.map((v, i) => (
+                                            <div key={i} className="flex items-start gap-4 p-3 bg-black/40 border border-red-900/10 rounded-lg">
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">{v.type || "Violation"}</span>
+                                                        <span className="text-[10px] text-gray-600 font-mono">
+                                                            {new Date(v.timestamp).toLocaleTimeString()}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-sm text-gray-300">{v.message}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <h2 className="text-xl font-semibold text-white mb-4 mt-6">Question Review</h2>
                             <div className="w-full">
                                 {selectedResultDetail.responses?.map((res, index) => (

@@ -26,7 +26,16 @@ const studentSchema = new mongoose.Schema(
     attemptedQuizzes: [
       {
         quizId: { type: mongoose.Schema.Types.ObjectId, ref: "Quiz" },
-        hasAttempted: { type: Boolean, default: false }
+        status: {
+          type: String,
+          enum: ['not_started', 'started', 'in_progress', 'submitted'],
+          default: 'not_started'
+        },
+        startedAt: { type: Date },
+        lastSync: { type: Date },
+        currentWarnings: { type: Number, default: 5 },
+        savedAnswers: [mongoose.Schema.Types.Mixed],
+        violationLogs: [mongoose.Schema.Types.Mixed]
       }
     ]
   },

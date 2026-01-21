@@ -28,6 +28,7 @@ const quizSchema = new mongoose.Schema({
     questions: [questionSchema],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "Teacher", required: true },
     allowedStudents: { type: Number, required: true },
+    durationInMinutes: { type: Number, default: 60 },
     otp: { type: String, length: 6 },
     otpExpiresAt: { type: Date },
     status: { type: String, enum: ["pending", "active", "completed"], default: "pending" },

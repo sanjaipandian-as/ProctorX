@@ -250,7 +250,7 @@ const InstructionsModal = ({ isOpen, onClose, quiz }) => (
 
 const SetupCheckItem = ({ title, status, children, check }) => {
   const statusIcons = {
-    checked: <CheckCircle2 className="text-red-600" />,
+    checked: <CheckCircle2 className="text-green-600" />,
     unchecked: (
       <div className="w-5 h-5 border-2 border-gray-400 rounded-full"></div>
     ),
@@ -277,7 +277,7 @@ const SetupCheckItem = ({ title, status, children, check }) => {
 const SidebarChecklistItem = ({ label, isChecked }) => (
   <div className="flex items-center space-x-2">
     {isChecked ? (
-      <CheckCircle2 className="h-4 w-4 text-red-600 flex-shrink-0" />
+      <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
     ) : (
       <div className="w-4 h-4 border-2 border-gray-400 rounded-full flex-shrink-0"></div>
     )}
@@ -322,12 +322,18 @@ const QuizFlow = () => {
   const screenStreamRef = useRef(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState([]);
-  const [timeLeft, setTimeLeft] = useState(3600);
+  const [timeLeft, setTimeLeft] = useState(null);
   const toastIdRef = useRef(null);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const fullScreenSize = useRef(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
+  const [violationLogs, setViolationLogs] = useState([]);
+  const violationLogsRef = useRef([]);
+  const handleSubmitRef = useRef(null);
+  const syncStateRef = useRef(null);
+  const isResumingRef = useRef(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // --- Compiler State ---
   const [codingAnswers, setCodingAnswers] = useState({}); // { [questionIndex]: { [lang]: code } }
@@ -521,30 +527,13 @@ const QuizFlow = () => {
     setScreenEnabled(false);
   }, []);
 
-  const formatTime = useCallback(
-    (seconds) => {
-      if (!quiz) return "00:00";
-      if (seconds < 0) seconds = 0;
-
-      if (quiz.durationInMinutes >= 60) {
-        const h = Math.floor(seconds / 3600)
-          .toString()
-          .padStart(2, "0");
-        const m = Math.floor((seconds % 3600) / 60)
-          .toString()
-          .padStart(2, "0");
-        const s = (seconds % 60).toString().padStart(2, "0");
-        return `${h}:${m}:${s}`;
-      } else {
-        const m = Math.floor(seconds / 60)
-          .toString()
-          .padStart(2, "0");
-        const s = (seconds % 60).toString().padStart(2, "0");
-        return `${m}:${s}`;
-      }
-    },
-    [quiz]
-  );
+  const formatTime = (seconds) => {
+    if (seconds === null || seconds === undefined || isNaN(seconds)) return "00:00";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    return `${h > 0 ? h + ":" : ""}${m < 10 ? "0" + m : m}:${s < 10 ? "0" + s : s}`;
+  };
 
   useEffect(() => {
     const fetchAndAuthorizeQuiz = async () => {
@@ -576,26 +565,93 @@ const QuizFlow = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         const quizData = quizRes.data;
+        const duration = quizData.durationInMinutes || 60;
         setQuiz({
           platformName: "ProctorX",
           title: quizData.title,
-          proctoringProvider: "Remote",
+          proctoringProvider: quizData.proctoringProvider || "ProctorX Safeguard",
           duration:
-            quizData.durationInMinutes >= 60
-              ? `${quizData.durationInMinutes / 60}h`
-              : `${quizData.durationInMinutes}m`,
-          durationInMinutes: quizData.durationInMinutes,
+            duration >= 60
+              ? `${duration / 60}h`
+              : `${duration}m`,
+          durationInMinutes: duration,
           questions: quizData.questions || [],
           studentName: user.name,
           studentEmail: user.email,
         });
-        setAnswers(
-          Array.from({ length: quizData.questions.length }, () => ({
-            answer: null,
-            status: "unanswered",
-          }))
-        );
-        setTimeLeft(quizData.durationInMinutes * 60 || 3600);
+
+        // --- Session Restoration ---
+        const attemptRes = await API.get(`/api/results/attempt-status/${quizId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (attemptRes.data.status === "completed") {
+          navigate(`/results/${attemptRes.data.resultId}`, { replace: true });
+          return;
+        }
+
+        if (attemptRes.data.status === "in_progress") {
+          isResumingRef.current = true;
+          const { startedAt, warnings, answers: savedAnswers, violations: savedViolations } = attemptRes.data;
+
+          // Recalculate Time Left
+          let startTime = new Date(startedAt).getTime();
+          // If startTime is Invalid or 1970 (null), use current time as fallback
+          if (isNaN(startTime) || startTime === 0) {
+            startTime = Date.now();
+          }
+
+          const totalSeconds = duration * 60;
+          const now = new Date().getTime();
+          const elapsedSeconds = Math.floor((now - startTime) / 1000);
+          const remainingSeconds = Math.max(0, totalSeconds - elapsedSeconds);
+
+          if (isNaN(remainingSeconds) || remainingSeconds <= 0) {
+            if (!isNaN(remainingSeconds) && remainingSeconds <= 0) {
+              toast.error("Your assessment time has expired.");
+            }
+            setTimeLeft(0);
+          } else {
+            setTimeLeft(remainingSeconds);
+          }
+
+          setWarnings(warnings);
+          warningsRef.current = warnings;
+
+          if (savedAnswers && savedAnswers.length > 0) {
+            setAnswers(savedAnswers);
+          } else {
+            setAnswers(
+              Array.from({ length: quizData.questions.length }, () => ({
+                answer: null,
+                status: "unanswered",
+              }))
+            );
+          }
+
+          if (savedViolations) {
+            setViolationLogs(savedViolations);
+            violationLogsRef.current = savedViolations;
+          }
+
+          // Force Step 3 for re-verification
+          setStep(3);
+          setIsOtpVerified(true); // OTP already verified for this attempt
+          setHonourCodeAgreed(true); // Already agreed in previous session
+          toast.success("Resuming your session. Please re-verify proctoring permissions.");
+        } else {
+          setAnswers(
+            Array.from({ length: quizData.questions.length }, () => ({
+              answer: null,
+              status: "unanswered",
+            }))
+          );
+          setTimeLeft(quizData.durationInMinutes * 60 || 3600);
+          setStep(1);
+          setIsOtpVerified(false);
+          setHonourCodeAgreed(false);
+          isResumingRef.current = false;
+        }
       } catch (err) {
         console.error("Authorization failed or error fetching data:", err);
         setError(
@@ -663,6 +719,7 @@ const QuizFlow = () => {
         }
         return answers[i]?.answer ?? null;
       }),
+      violations: violationLogsRef.current
     };
 
     try {
@@ -681,6 +738,9 @@ const QuizFlow = () => {
       toast.error(
         "There was an error submitting your results. Please try again."
       );
+    } finally {
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   }, [
     quiz,
@@ -693,10 +753,48 @@ const QuizFlow = () => {
   ]);
 
   useEffect(() => {
+    handleSubmitRef.current = handleSubmit;
+  }, [handleSubmit]);
+
+  const syncState = useCallback(async () => {
+    if (step !== 4 || isSyncing) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      setIsSyncing(true);
+      await API.post(`/api/results/sync-attempt/${quizId}`, {
+        warnings: warningsRef.current,
+        answers: answers,
+        violations: violationLogsRef.current
+      }, { headers: { Authorization: `Bearer ${token}` } });
+    } catch (err) {
+      console.error("Sync failed:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [step, answers, quizId, isSyncing]);
+
+  useEffect(() => {
+    syncStateRef.current = syncState;
+  }, [syncState]);
+
+  useEffect(() => {
+    if (step === 4) {
+      const interval = setInterval(syncState, 30000); // Sync every 30 seconds
+      return () => clearInterval(interval);
+    }
+  }, [step, syncState]);
+
+  useEffect(() => {
+    warningsRef.current = warnings;
+  }, [warnings]);
+
+  useEffect(() => {
     if (step === 4) {
       if (timeLeft <= 0) {
         toast.error("Time is up! Submitting your quiz now.");
-        handleSubmit();
+        if (handleSubmitRef.current) handleSubmitRef.current();
         return;
       }
       const timer = setInterval(() => {
@@ -704,40 +802,60 @@ const QuizFlow = () => {
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [step, timeLeft, handleSubmit]);
+  }, [step, timeLeft]);
 
-  const reduceLife = useCallback((message) => {
+  const reduceLife = useCallback((message, type = "Proctoring Violation") => {
     if (toastIdRef.current) {
       toast.dismiss(toastIdRef.current);
     }
+
+    const newLog = {
+      type,
+      message: `${message}`,
+      timestamp: new Date()
+    };
+
+    violationLogsRef.current = [...violationLogsRef.current, newLog];
+    setViolationLogs([...violationLogsRef.current]);
 
     setWarnings((prevWarnings) => {
       const newWarnings = prevWarnings - 1;
 
       if (newWarnings <= 0) {
         toast.error(
-          "You have exceeded the maximum number of warnings. Your quiz will be submitted automatically.",
+          "Maximum proctoring warnings exceeded. Your assessment is being submitted automatically for review.",
           { duration: 4000 }
         );
+
+        const autoSubmitLog = {
+          type: "Auto-Submission",
+          message: "Assessment automatically submitted due to repeated proctoring violations.",
+          timestamp: new Date()
+        };
+        violationLogsRef.current = [...violationLogsRef.current, autoSubmitLog];
+        setViolationLogs([...violationLogsRef.current]);
+
         warningsRef.current = 0;
-        handleSubmit();
+        if (handleSubmitRef.current) handleSubmitRef.current();
       } else {
         toastIdRef.current = toast.error(
-          `${message} You have ${newWarnings} lives left.`,
+          `${message} You have ${newWarnings} ${newWarnings === 1 ? "life" : "lives"} left.`,
           { icon: "⚠️", duration: 4000 }
         );
-        if (message.includes("test environment")) {
+        // Ensure user is moved out of Step 4 on a critical proctoring violation like fullscreen exit
+        if (type === "Fullscreen Violation" || type === "Clipboard Violation" || message.includes("test environment")) {
           setStep(3);
         }
       }
 
+      if (syncStateRef.current) syncStateRef.current();
       return newWarnings;
     });
-  }, [handleSubmit]);
+  }, []); // Now stable!
 
   useEffect(() => {
     if (step === 4 && !isFullScreen && !isAwaitingPermission) {
-      reduceLife("You have left the test environment.");
+      reduceLife("Fullscreen mode was exited (Escape key or window focus lost).", "Fullscreen Violation");
     }
   }, [isFullScreen, step, isAwaitingPermission, reduceLife]);
 
@@ -745,7 +863,10 @@ const QuizFlow = () => {
     const handlePaste = (e) => {
       if (step === 4) {
         e.preventDefault();
-        reduceLife("Pasting is not allowed.");
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        }
+        reduceLife("Unauthorized paste attempt detected. Your life was decreased.", "Clipboard Violation");
       }
     };
 
@@ -906,25 +1027,42 @@ const QuizFlow = () => {
   };
 
   const handleBeginAssessment = async () => {
+    const token = localStorage.getItem("token");
+
     if (isOtpVerified) {
-      if (isFullScreen) {
-        setStep(4);
-      } else {
+      if (!isFullScreen) {
         toast.error("Please re-enter full-screen mode to continue.");
+        return;
+      }
+
+      try {
+        setIsVerifying(true);
+        // Ensure attempt is started on backend
+        await API.post(`/api/results/start-attempt/${quizId}`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setStep(4);
+      } catch (err) {
+        console.error("Failed to start assessment:", err);
+        const errorMessage = err.response?.data?.message || "Failed to start assessment. Please try again.";
+        toast.error(errorMessage);
+      } finally {
+        setIsVerifying(false);
       }
       return;
     }
 
     setIsVerifying(true);
     setSecurityCodeError(null);
-    const token = localStorage.getItem("token");
     try {
       const code = securityCode.join("");
-      await API.post(
-        `/api/quizzes/${quizId}/verify-student-otp`,
+
+      // Start attempt - this now handles OTP verification on the backend atomically
+      await API.post(`/api/results/start-attempt/${quizId}`,
         { otp: code },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+
       setIsOtpVerified(true);
       setStep(4);
     } catch (err) {
@@ -1015,7 +1153,7 @@ const QuizFlow = () => {
                         Proctoring
                       </span>
                       <span className="block font-semibold text-sm sm:text-base text-gray-900">
-                        {quiz.proctoringProvider}
+                        {quiz.proctoringProvider || "ProctorX Safeguard"}
                       </span>
                     </div>
                   </div>
@@ -1025,8 +1163,8 @@ const QuizFlow = () => {
                       <span className="text-xs sm:text-sm text-gray-600">
                         Max. Duration
                       </span>
-                      <span className="text-gray-900">
-                        1Hr
+                      <span className="text-gray-900 font-bold">
+                        {quiz.duration || "N/A"}
                       </span>
                     </div>
                   </div>
@@ -1379,15 +1517,11 @@ const QuizFlow = () => {
                         onChange={(e) =>
                           setHasAcknowledgedBug(e.target.checked)
                         }
-                        disabled={!isFullScreen}
-                        className="mt-1 h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                        className="mt-1 h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500 flex-shrink-0"
                       />
                       <label
                         htmlFor="bugAcknowledge"
-                        className={`text-sm text-black ${!isFullScreen
-                          ? "opacity-50 cursor-not-allowed"
-                          : ""
-                          }`}
+                        className="text-sm text-black"
                       >
                         <strong>Important Notice:</strong> Hey folks, we are
                         facing a bug. Before you begin, please{" "}
@@ -1405,33 +1539,41 @@ const QuizFlow = () => {
                           ? "checked"
                           : "unchecked"
                       }
-                      check="Enter the 6-digit code from your invigilator."
+                      check={isOtpVerified ? "OTP already verified. Please re-enable proctoring features below." : "Enter the 6-digit code from your invigilator."}
                     >
-                      <div className="flex space-x-2 sm:space-x-3">
-                        {securityCode.map((digit, i) => (
-                          <input
-                            key={i}
-                            ref={(el) => (inputRefs.current[i] = el)}
-                            type="text"
-                            maxLength="1"
-                            value={digit}
-                            onChange={(e) => handleSecurityCodeChange(e, i)}
-                            onKeyDown={(e) => handleSecurityCodeKeyDown(e, i)}
-                            disabled={
-                              !cameraEnabled ||
-                              (!isMobileDevice && !screenEnabled) ||
-                              !isFullScreen ||
-                              !hasAcknowledgedBug ||
-                              isOtpVerified
-                            }
-                            className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-gray-300 bg-white rounded text-center text-xl sm:text-2xl text-gray-900 disabled:bg-gray-100 focus:border-red-600 focus:ring-0"
-                          />
-                        ))}
-                      </div>
-                      {securityCodeError && (
-                        <p className="text-sm text-red-600 mt-2">
-                          {securityCodeError}
-                        </p>
+                      {!isOtpVerified ? (
+                        <>
+                          <div className="flex space-x-2 sm:space-x-3">
+                            {securityCode.map((digit, i) => (
+                              <input
+                                key={i}
+                                ref={(el) => (inputRefs.current[i] = el)}
+                                type="text"
+                                maxLength="1"
+                                value={digit}
+                                onChange={(e) => handleSecurityCodeChange(e, i)}
+                                onKeyDown={(e) => handleSecurityCodeKeyDown(e, i)}
+                                disabled={
+                                  !cameraEnabled ||
+                                  (!isMobileDevice && !screenEnabled) ||
+                                  !isFullScreen ||
+                                  !hasAcknowledgedBug
+                                }
+                                className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-gray-300 bg-white rounded text-center text-xl sm:text-2xl text-gray-900 disabled:bg-gray-100 focus:border-red-600 focus:ring-0"
+                              />
+                            ))}
+                          </div>
+                          {securityCodeError && (
+                            <p className="text-sm text-red-600 mt-2">
+                              {securityCodeError}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex items-center space-x-2 text-green-600">
+                          <CheckCircle2 className="h-5 w-5" />
+                          <span className="text-sm font-medium">Security code verified successfully</span>
+                        </div>
                       )}
                     </SetupCheckItem>
                   </div>
@@ -1467,6 +1609,7 @@ const QuizFlow = () => {
                     !cameraEnabled ||
                     (!isMobileDevice && !screenEnabled) ||
                     !isFullScreen ||
+                    !hasAcknowledgedBug ||
                     (securityCode.join("").length !== 6 && !isOtpVerified)
                   }
                   className="px-4 py-2 sm:px-8 bg-red-600 text-white rounded font-medium hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 flex items-center space-x-2 text-sm sm:text-base"
@@ -1521,10 +1664,12 @@ const QuizFlow = () => {
               </div>
 
               <div className="flex items-stretch">
-                <div className="flex items-center font-medium text-black-600 text-sm sm:text-base px-2 sm:px-6">
-                  <Clock className="mr-1 mt-0.3" size={18} />
-                  <span>{formatTime(timeLeft)} left</span>
-                </div>
+                {timeLeft !== null && (
+                  <div className="flex items-center font-medium text-black-600 text-sm sm:text-base px-2 sm:px-6">
+                    <Clock className="mr-1 mt-0.3" size={18} />
+                    <span>{formatTime(timeLeft)} left</span>
+                  </div>
+                )}
 
                 <button
                   onClick={handleSubmit}

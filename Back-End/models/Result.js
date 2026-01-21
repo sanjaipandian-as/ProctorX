@@ -24,6 +24,11 @@ const resultSchema = new mongoose.Schema(
     warnings: { type: Number, default: 0 },
     penalties: { type: Number, default: 0 },
     responses: [responseSchema],
+    violations: [{
+      type: { type: String },
+      message: { type: String },
+      timestamp: { type: Date, default: Date.now }
+    }],
     completedAt: { type: Date, default: Date.now }
   },
   { timestamps: true }

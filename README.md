@@ -84,11 +84,13 @@ The platform integrates:
 - **Coding Problems** with multi-language support
 
 #### 🔒 Quiz Access & Security
-- **OTP-Based Authentication**: Teacher generates OTP valid for 5 minutes
-- **Student Limit Control**: Restrict access to declared number of students
-- **One Attempt Policy**: Each student gets only one attempt per quiz
-- **Randomization**: Questions and options shuffled per student
-- **Time Limits**: Configurable quiz duration with auto-submit
+- **Atomic Session Start**: Time capture ONLY begins when the student clicks "Begin Assessment".
+- **Self-Healing Session Persistence**: Automatic state restoration (time, answers, warnings) after reloads.
+- **Fault-Tolerant Timer**: Smart recalculation of remaining time based on server-side `startedAt` timestamps.
+- **One Attempt Policy**: Each student gets only one attempt per quiz, strictly enforced via a 3-status system.
+- **Randomization**: Questions and options shuffled per student.
+- **Dynamic Time Limits**: Configurable quiz duration with real-time countdown.
+- **Robust Reset Mechanism**: Teachers can fully wipe attempts, allowing a clean restart from Step 1.
 
 #### 🤖 AI Integration
 - **Automated Question Generation**: Generate quiz questions using Google Gemini API

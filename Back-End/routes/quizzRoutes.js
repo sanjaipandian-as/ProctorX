@@ -16,7 +16,7 @@ function generateQuizId() {
 
 router.post('/create', isAuthenticatedUser, async (req, res) => {
   try {
-    const { title, questions, allowedStudents } = req.body;
+    const { title, questions, allowedStudents, durationInMinutes } = req.body;
     const teacherId = req.user.id;
     const quizId = generateQuizId();
 
@@ -45,10 +45,10 @@ router.post('/create', isAuthenticatedUser, async (req, res) => {
           ...base,
           language: q.language,
           starterCode: q.starterCode || {
-             python: "",
-             javascript: "",
-             java: "",
-             cpp: "" 
+            python: "",
+            javascript: "",
+            java: "",
+            cpp: ""
           },
           testcases: q.testcases || []
         };
@@ -61,6 +61,7 @@ router.post('/create', isAuthenticatedUser, async (req, res) => {
       title,
       questions: processedQuestions,
       allowedStudents,
+      durationInMinutes: durationInMinutes || 60,
       createdBy: teacherId
     });
 
@@ -76,7 +77,7 @@ router.post('/create', isAuthenticatedUser, async (req, res) => {
         subject: 'Your Quiz Security Code',
         text: `Your Security Code is: ${otp}`
       });
-    } catch (emailError) {}
+    } catch (emailError) { }
 
     res.status(201).json({
       message: 'Quiz created. Security Code sent to creator.',
@@ -92,7 +93,7 @@ router.post('/create', isAuthenticatedUser, async (req, res) => {
 
 router.put('/:quizId', isAuthenticatedUser, async (req, res) => {
   try {
-    const { title, questions, status } = req.body;
+    const { title, questions, status, durationInMinutes } = req.body;
     const quiz = await Quiz.findOne({ quizId: req.params.quizId });
 
     if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
@@ -123,10 +124,10 @@ router.put('/:quizId', isAuthenticatedUser, async (req, res) => {
           ...base,
           language: q.language,
           starterCode: q.starterCode || {
-             python: "",
-             javascript: "",
-             java: "",
-             cpp: "" 
+            python: "",
+            javascript: "",
+            java: "",
+            cpp: ""
           },
           testcases: q.testcases || []
         };
@@ -137,6 +138,9 @@ router.put('/:quizId', isAuthenticatedUser, async (req, res) => {
     quiz.title = title;
     quiz.questions = processedQuestions;
     quiz.status = status;
+    if (durationInMinutes !== undefined) {
+      quiz.durationInMinutes = durationInMinutes;
+    }
 
     await quiz.save();
     res.status(200).json({ message: 'Quiz updated successfully', quiz });
@@ -244,6 +248,8 @@ router.get('/public/:quizId', async (req, res) => {
     const sanitizedQuiz = {
       quizId: quiz.quizId,
       title: quiz.title,
+      durationInMinutes: quiz.durationInMinutes || 60,
+      proctoringProvider: quiz.proctoringProvider || "ProctorX Safeguard",
       questions: quiz.questions.map(q => {
         const base = {
           questionText: q.questionText,
@@ -292,6 +298,8 @@ router.get('/:quizId', isAuthenticatedUser, async (req, res) => {
       quizId: quiz.quizId,
       title: quiz.title,
       createdBy: quiz.createdBy,
+      durationInMinutes: quiz.durationInMinutes || 60,
+      proctoringProvider: quiz.proctoringProvider || "ProctorX Safeguard",
       questions: Array.isArray(quiz.questions)
         ? quiz.questions.map(q => {
           const base = {
@@ -304,13 +312,13 @@ router.get('/:quizId', isAuthenticatedUser, async (req, res) => {
           if (q.questionType === "mcq") {
             return { ...base, options: q.options };
           }
-          
+
           if (q.questionType === "coding") {
-            return { 
-                ...base, 
-                language: q.language, 
-                starterCode: q.starterCode, 
-                testcases: q.testcases 
+            return {
+              ...base,
+              language: q.language,
+              starterCode: q.starterCode,
+              testcases: q.testcases
             };
           }
           return base;

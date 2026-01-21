@@ -141,16 +141,14 @@ Teachers.delete('/quiz/:customQuizId/student/:studentId/reset', isAuthenticatedU
       return res.status(403).json({ message: "Forbidden: You are not the owner of this quiz" });
     }
 
-    const deletedResult = await Result.findOneAndDelete({
+    // 1. Delete the Result document (if it exists)
+    await Result.findOneAndDelete({
       quiz: quiz._id,
       user: studentId,
       userModel: "Student"
     });
 
-    if (!deletedResult) {
-      return res.status(404).json({ message: 'Result for this student not found' });
-    }
-
+    // 2. Always pull from the student model to clear attempt state
     await Student.findByIdAndUpdate(studentId, {
       $pull: {
         results: { quizId: quiz._id },
