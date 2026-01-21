@@ -84,15 +84,15 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
         const validTestcases = (question.testcases || []).filter(tc => tc.input || tc.output);
 
         validTestcases.forEach((tc, idx) => {
-          // Try matching by input key first, then by index if results are provided as array
           let output = "";
-          if (ans.outputs && typeof ans.outputs[tc.input] !== 'undefined') {
-            output = ans.outputs[tc.input];
-          } else if (ans.results && Array.isArray(ans.results) && ans.results[idx]) {
-            output = ans.results[idx].output;
+          // Safe guard against null/undefined 'ans' or missing 'outputs'/'results'
+          if (ans && ans.outputs && typeof ans.outputs[tc.input] !== 'undefined') {
+            output = String(ans.outputs[tc.input]);
+          } else if (ans && ans.results && Array.isArray(ans.results) && ans.results[idx]) {
+            output = String(ans.results[idx].output || "");
           }
 
-          const passed = output.trim() === tc.output.trim();
+          const passed = output.trim() === (tc.output || "").trim();
           if (passed) passedCount++;
 
           testcaseResults.push({
@@ -120,8 +120,6 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
 
         if (totalTC <= 8) {
           obtained = markingScheme[passedCount] ?? 0;
-          // Ensure we don't exceed the intended marks if it's set differently
-          // Although the scheme specifically maps counts to scores
         } else {
           obtained = totalTC > 0 ? Math.round((passedCount / totalTC) * marks) : 0;
         }
@@ -131,7 +129,7 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
         return {
           questionType: "coding",
           questionText: question.questionText,
-          language: ans.language || "python",
+          language: ans?.language || "python",
           codeSubmitted: submittedCode,
           codeScore: obtained,
           testcases: testcaseResults,
@@ -145,7 +143,7 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
       return {
         questionType: question.questionType || "descriptive",
         questionText: question.questionText,
-        studentAnswer: ans.answer || "",
+        studentAnswer: ans?.answer || ans || "",
         isCorrect: false, // Descriptive is manually graded
         marks,
         obtainedMarks: 0
@@ -153,7 +151,7 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
     });
 
     const totalQuestions = quiz.questions.length;
-    const maxMarks = quiz.questions.reduce((a, b) => a + Number(b.marks), 0);
+    const maxMarks = quiz.questions.reduce((a, b) => a + Number(b.marks || 0), 0);
     const accuracy = maxMarks > 0 ? (totalScore / maxMarks) * 100 : 0;
 
     const newResult = new Result({
@@ -163,8 +161,8 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
       score: totalScore,
       totalQuestions,
       accuracy,
-      warnings,
-      penalties,
+      warnings: warnings || 0,
+      penalties: penalties || 0,
       responses: detailedResponses
     });
 
@@ -176,7 +174,7 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
           results: {
             quizId: quiz._id,
             score: totalScore,
-            timeTaken: 0,
+            timeTaken: Number(req.body.timeTaken) || 0,
             submittedAt: new Date(),
             totalMarks: maxMarks
           },
@@ -193,6 +191,7 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
       resultId: newResult._id
     });
   } catch (error) {
+    console.error("DEBUG: Submit route error:", error);
     if (error.name === "ValidationError") {
       return res.status(400).json({ message: "Submission failed.", errors: error.errors });
     }

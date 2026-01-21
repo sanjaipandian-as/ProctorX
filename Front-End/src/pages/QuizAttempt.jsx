@@ -326,6 +326,8 @@ const QuizFlow = () => {
   const toastIdRef = useRef(null);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const fullScreenSize = useRef(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   // --- Compiler State ---
   const [codingAnswers, setCodingAnswers] = useState({}); // { [questionIndex]: { [lang]: code } }
@@ -629,6 +631,9 @@ const QuizFlow = () => {
   }, [quizId, navigate, user, stopCamera, stopScreenShare]);
 
   const handleSubmit = useCallback(async () => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
     const submissionData = {
       quizId: quizId,
       timeTaken: quiz.durationInMinutes * 60 - timeLeft,
@@ -804,7 +809,7 @@ const QuizFlow = () => {
     if (screenStream && screenFeedRef.current) {
       screenFeedRef.current.srcObject = screenStream;
     }
-  }, [cameraStream, screenStream]);
+  }, [cameraStream, screenStream, step, isFullScreen, cameraEnabled, screenEnabled]);
 
   useEffect(() => {
     if (step < 3) {
@@ -1020,8 +1025,8 @@ const QuizFlow = () => {
                       <span className="text-xs sm:text-sm text-gray-600">
                         Max. Duration
                       </span>
-                      <span className="block font-semibold text-sm sm:text-base text-gray-900">
-                        {quiz.duration}
+                      <span className="text-gray-900">
+                        1Hr
                       </span>
                     </div>
                   </div>
@@ -1523,9 +1528,11 @@ const QuizFlow = () => {
 
                 <button
                   onClick={handleSubmit}
-                  className="px-4 sm:px-12 text-sm sm:text-md font-medium text-white bg-gray-900 hover:bg-black-700 focus:outline-none focus:ring-2 focus:ring-black-500 focus:ring-opacity-50"
+                  disabled={isSubmitting}
+                  className="px-4 sm:px-12 text-sm sm:text-md font-medium text-white bg-gray-900 hover:bg-black-700 focus:outline-none focus:ring-2 focus:ring-black-500 focus:ring-opacity-50 disabled:opacity-50 flex items-center gap-2"
                 >
-                  Finish Assessment
+                  {isSubmitting && <Loader2 className="animate-spin h-4 w-4" />}
+                  {isSubmitting ? "Submitting..." : "Finish Assessment"}
                 </button>
               </div>
             </header>
