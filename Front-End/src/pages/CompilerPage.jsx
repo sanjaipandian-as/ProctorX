@@ -189,7 +189,7 @@ print(count_subarrays(nums, left, right))`);
     try {
       const selectedTestData = tests[selectedTest - 1];
 
-      const res = await axios.post("https://proctorx-1.onrender.com/run", {
+      const res = await axios.post("https://proctorx-1-9qkn.onrender.com/run", {
         language,
         code,
         tests: [{ input: selectedTestData.input }]
