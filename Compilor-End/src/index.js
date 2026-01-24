@@ -8,7 +8,21 @@ const { ensureTmpRoot } = require("./utils");
 
 
 const app = express();
-app.use(cors()); // Enable CORS for all routes
+
+// CORS configuration to allow requests from frontend
+const corsOptions = {
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://proctorxofficial.vercel.app'
+  ],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: "1mb" }));
 app.get('/', (req, res) => {
   res.send('ProctorX Backend is Running!');
