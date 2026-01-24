@@ -6,10 +6,8 @@ const cors = require("cors");
 const { runJob } = require("./runner");
 const { ensureTmpRoot } = require("./utils");
 
-
 const app = express();
 
-// CORS configuration to allow requests from frontend
 const corsOptions = {
   origin: [
     'http://localhost:5173',
@@ -23,12 +21,16 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
 app.use(bodyParser.json({ limit: "1mb" }));
+
 app.get('/', (req, res) => {
   res.send('ProctorX Backend is Running!');
 });
 
 ensureTmpRoot();
+
 app.post("/run", async (req, res) => {
   try {
     const payload = req.body;
@@ -38,6 +40,7 @@ app.post("/run", async (req, res) => {
     res.status(500).json({ error: String(err) });
   }
 });
+
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
   console.log("compiler service listening on", port);
