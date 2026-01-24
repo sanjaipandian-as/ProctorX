@@ -227,7 +227,7 @@ print(count_subarrays(nums, left, right))`);
       if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
         setOutput("⏱️ Request Timeout\n\nThe server took too long to respond. Please try again.");
       } else if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
-        setOutput("🔌 Network Error\n\nCannot connect to the compiler service.\n\nPlease ensure:\n1. Compiler-End server is running on port 4000\n2. Run: cd c:\\ProctorX\\Compilor-End && npm start");
+        setOutput("🔌 Network Error\n\nCannot connect to the compiler service.\n\nPlease ensure the compiler service is active.");
       } else if (err.response) {
         const errorMsg = err.response.data?.error || err.response.statusText || "Unknown server error";
         setOutput(`❌ Server Error (${err.response.status}):\n\n${errorMsg}`);
@@ -315,7 +315,7 @@ print(count_subarrays(nums, left, right))`);
       if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
         setOutput("⏱️ Request Timeout\n\nThe server took too long to respond. Please try again.");
       } else if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
-        setOutput("🔌 Network Error\n\nCannot connect to the compiler service.\n\nPlease ensure:\n1. Compiler-End server is running on port 4000\n2. Run: cd c:\\ProctorX\\Compilor-End && npm start");
+        setOutput("🔌 Network Error\n\nCannot connect to the compiler service.\n\nPlease ensure the compiler service is active.");
       } else if (err.response) {
         const errorMsg = err.response.data?.error || err.response.statusText || "Unknown server error";
         setOutput(`❌ Server Error (${err.response.status}):\n\n${errorMsg}`);

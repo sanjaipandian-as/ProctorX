@@ -42,7 +42,7 @@ import ProctoredX from "../assets/PrctoredX.png";
 import DescriptiveEditor from "../components/DescriptiveEditor";
 
 // Compiler Service Configuration
-const COMPILER_URL = import.meta.env.VITE_COMPILER_URL || "http://localhost:4000";
+const COMPILER_URL = "https://proctorx-1-9qkn.onrender.com";
 
 
 const ProctoringFeed = ({ stream, type }) => {
