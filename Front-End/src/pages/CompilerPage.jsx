@@ -249,7 +249,7 @@ print(count_subarrays(nums, left, right))`);
       // Prepare all tests for the backend
       const testsPayload = tests.map(t => ({ input: t.input }));
 
-      const res = await axios.post("http://localhost:4000/run", {
+      const res = await axios.post("https://proctorx-1-9qkn.onrender.com/run", {
         language,
         code,
         tests: testsPayload

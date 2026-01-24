@@ -41,6 +41,10 @@ import Proctor from "../assets/PROCTOR.png";
 import ProctoredX from "../assets/PrctoredX.png";
 import DescriptiveEditor from "../components/DescriptiveEditor";
 
+// Compiler Service Configuration
+const COMPILER_URL = import.meta.env.VITE_COMPILER_URL || "http://localhost:4000";
+
+
 const ProctoringFeed = ({ stream, type }) => {
   const videoRef = useRef(null);
   useEffect(() => {
@@ -405,7 +409,7 @@ const QuizFlow = () => {
     try {
       const selectedTestData = tests[selectedTestCase] || tests[0];
 
-      const res = await axios.post("https://proctorx-1-9qkn.onrender.com/run", {
+      const res = await axios.post(`${COMPILER_URL}/run`, {
         language: lang,
         code,
         tests: [{ input: selectedTestData.input }]
@@ -428,6 +432,17 @@ const QuizFlow = () => {
         } else {
           const outputText = testResult.stdout.trim();
           setCompilerOutput(outputText || "(empty output)");
+        }
+
+        // Update answer status to 'answered' if not already 'passed'
+        const newAnswers = [...answers];
+        if (newAnswers[index]?.status !== 'passed' && newAnswers[index]?.status !== 'answered-review' && newAnswers[index]?.status !== 'review') {
+          newAnswers[index] = {
+            ...newAnswers[index],
+            status: "answered",
+            answer: code // Store code as answer
+          };
+          setAnswers(newAnswers);
         }
       } else {
         setCompilerOutput("⚠️ No output received from the server.");
@@ -455,7 +470,7 @@ const QuizFlow = () => {
     try {
       const testsPayload = tests.map(t => ({ input: t.input }));
 
-      const res = await axios.post("https://proctorx-1-9qkn.onrender.com/run", {
+      const res = await axios.post(`${COMPILER_URL}/run`, {
         language: lang,
         code,
         tests: testsPayload
@@ -470,11 +485,14 @@ const QuizFlow = () => {
       }
 
       const results = [];
+      let allPassed = true;
       if (res.data.tests && res.data.tests.length > 0) {
         res.data.tests.forEach((testResult, i) => {
           const expectedOutput = tests[i].expected?.trim() || "";
           const actualOutput = testResult.stdout?.trim() || "";
           const passed = !testResult.killed && testResult.code === 0 && actualOutput === expectedOutput;
+
+          if (!passed) allPassed = false;
 
           results.push({
             id: tests[i].id,
@@ -484,12 +502,26 @@ const QuizFlow = () => {
             killed: testResult.killed
           });
         });
+      } else {
+        allPassed = false;
       }
 
       setTestResults(prev => ({
         ...prev,
         [index]: results
       }));
+
+      // Update answer status
+      const newAnswers = [...answers];
+      const currentStatus = newAnswers[index]?.status;
+      if (currentStatus !== 'answered-review' && currentStatus !== 'review') {
+        newAnswers[index] = {
+          ...newAnswers[index],
+          status: allPassed ? "passed" : "answered",
+          answer: code
+        };
+        setAnswers(newAnswers);
+      }
 
       // Update output for the selected test
       const currentRes = results[selectedTestCase] || results[0];
@@ -504,6 +536,17 @@ const QuizFlow = () => {
       setIsRunning(false);
     }
   };
+
+  // Update compiler output when selected test case or results change
+  useEffect(() => {
+    const results = testResults[currentQuestionIndex];
+    if (results && results[selectedTestCase]) {
+      const currentRes = results[selectedTestCase];
+      if (currentRes.killed) setCompilerOutput("⏱️ Time Limit Exceeded");
+      else if (currentRes.error) setCompilerOutput(`❌ Runtime Error:\n\n${currentRes.error}`);
+      else setCompilerOutput(currentRes.output || "(empty output)");
+    }
+  }, [selectedTestCase, testResults, currentQuestionIndex]);
 
   useEffect(() => {
     warningsRef.current = warnings;
@@ -1632,6 +1675,8 @@ const QuizFlow = () => {
       const currentQuestion = quiz.questions[currentQuestionIndex];
       const getStatusColor = (status) => {
         switch (status) {
+          case "passed":
+            return "bg-emerald-500 text-white"; // Bright green for all tests passed
           case "answered":
             return "bg-green-600 text-white";
           case "unanswered":

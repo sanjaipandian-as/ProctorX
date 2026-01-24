@@ -1,7 +1,7 @@
 const path = require("path");
 const fs = require("fs-extra");
 
-const tmpRoot = process.env.TMP_ROOT;
+const tmpRoot = process.env.TMP_ROOT || path.join(__dirname, "../tmp");
 
 async function ensureTmpRoot() {
   await fs.ensureDir(tmpRoot);

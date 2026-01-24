@@ -8,12 +8,12 @@ const { getTmpDirPath } = require("./utils");
 
 const DEFAULT_CPU = process.env.DEFAULT_CPU || "0.5";
 const DEFAULT_MEMORY_MB = parseInt(process.env.DEFAULT_MEMORY_MB || "256", 10);
-const DEFAULT_TIME_MS = parseInt(process.env.DEFAULT_TIME_MS || "3000", 10);
+const DEFAULT_TIME_MS = parseInt(process.env.DEFAULT_TIME_MS || "10000", 10);
 
-const IMAGE_PY = process.env.DOCKER_IMAGE_PYTHON;
-const IMAGE_CPP = process.env.DOCKER_IMAGE_CPP;
-const IMAGE_JAVA = process.env.DOCKER_IMAGE_JAVA;
-const IMAGE_NODE = process.env.DOCKER_IMAGE_NODE;
+const IMAGE_PY = process.env.DOCKER_IMAGE_PYTHON || "proctorx-python";
+const IMAGE_CPP = process.env.DOCKER_IMAGE_CPP || "proctorx-cpp";
+const IMAGE_JAVA = process.env.DOCKER_IMAGE_JAVA || "proctorx-java";
+const IMAGE_NODE = process.env.DOCKER_IMAGE_NODE || "proctorx-node";
 
 async function writeFileSafe(dir, filename, content) {
   await fs.outputFile(path.join(dir, filename), content, { mode: 0o644 });
@@ -68,6 +68,11 @@ function execDocker(args, timeoutMs) {
       proc.kill("SIGKILL");
     }, timeoutMs);
 
+    proc.on("error", err => {
+      clearTimeout(timer);
+      resolve({ code: -1, signal: null, stdout: "", stderr: `Docker Error: ${err.message}`, killed: false });
+    });
+
     proc.on("close", (code, signal) => {
       clearTimeout(timer);
       resolve({ code, signal, stdout, stderr, killed });
@@ -78,7 +83,6 @@ function execDocker(args, timeoutMs) {
 async function runJob(payload) {
   const jobId = uuidv4();
   const jobDir = getTmpDirPath(jobId);
-
   await fs.ensureDir(jobDir);
 
   const language = payload.language.toLowerCase();
@@ -186,7 +190,8 @@ async function runJob(payload) {
       ["sh", "-c", `timeout ${timeoutSec}s ${runCmd} < /workspace/input_${i}.txt`]
     );
 
-    const execRes = await execDocker(args, timeLimitMs + 500);
+    // Increase margin significantly for Windows overhead (starting container can take 2-4 seconds)
+    const execRes = await execDocker(args, timeLimitMs + 5000);
 
     results.tests.push({
       index: i,
