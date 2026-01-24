@@ -405,7 +405,7 @@ const QuizFlow = () => {
     try {
       const selectedTestData = tests[selectedTestCase] || tests[0];
 
-      const res = await axios.post("http://localhost:4000/run", {
+      const res = await axios.post("https://proctorx-1-9qkn.onrender.com/run", {
         language: lang,
         code,
         tests: [{ input: selectedTestData.input }]
@@ -455,7 +455,7 @@ const QuizFlow = () => {
     try {
       const testsPayload = tests.map(t => ({ input: t.input }));
 
-      const res = await axios.post("http://localhost:4000/run", {
+      const res = await axios.post("https://proctorx-1-9qkn.onrender.com/run", {
         language: lang,
         code,
         tests: testsPayload
