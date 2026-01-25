@@ -14,6 +14,8 @@ const IMAGE_PY = process.env.DOCKER_IMAGE_PYTHON || "proctorx-python";
 const IMAGE_CPP = process.env.DOCKER_IMAGE_CPP || "proctorx-cpp";
 const IMAGE_JAVA = process.env.DOCKER_IMAGE_JAVA || "proctorx-java";
 const IMAGE_NODE = process.env.DOCKER_IMAGE_NODE || "proctorx-node";
+const EXECUTION_MODE = process.env.EXECUTION_MODE || "docker"; // "docker" or "direct"
+
 
 async function writeFileSafe(dir, filename, content) {
   await fs.outputFile(path.join(dir, filename), content, { mode: 0o644 });
@@ -71,6 +73,35 @@ function execDocker(args, timeoutMs) {
     proc.on("error", err => {
       clearTimeout(timer);
       resolve({ code: -1, signal: null, stdout: "", stderr: `Docker Error: ${err.message}`, killed: false });
+    });
+
+    proc.on("close", (code, signal) => {
+      clearTimeout(timer);
+      resolve({ code, signal, stdout, stderr, killed });
+    });
+  });
+}
+
+function execDirect(cmd, args, options, timeoutMs) {
+  return new Promise(resolve => {
+    const proc = spawn(cmd, args, options);
+
+    let stdout = "";
+    let stderr = "";
+
+    proc.stdout.on("data", d => stdout += d.toString());
+    proc.stderr.on("data", d => stderr += d.toString());
+
+    let killed = false;
+
+    const timer = setTimeout(() => {
+      killed = true;
+      proc.kill("SIGKILL");
+    }, timeoutMs);
+
+    proc.on("error", err => {
+      clearTimeout(timer);
+      resolve({ code: -1, signal: null, stdout: "", stderr: `Execution Error: ${err.message}`, killed: false });
     });
 
     proc.on("close", (code, signal) => {
@@ -151,18 +182,23 @@ async function runJob(payload) {
   // COMPILATION
   if (compileStep) {
     const compileCmd = compileStep.cmd.join(" ");
-    const args = dockerArgsForRun(
-      jobDir,
-      image,
-      [bind],
-      memoryMb,
-      cpus,
-      ["sh", "-c", compileCmd]
-    );
+    let compileRes;
 
-    // Give compilation more time (e.g., 10 seconds or user limit, whichever is higher)
-    const compileTimeout = Math.max(timeLimitMs, 10000);
-    const compileRes = await execDocker(args, compileTimeout);
+    if (EXECUTION_MODE === "direct") {
+      compileRes = await execDirect("sh", ["-c", compileCmd], { cwd: jobDir }, Math.max(timeLimitMs, 10000));
+    } else {
+      const args = dockerArgsForRun(
+        jobDir,
+        image,
+        [bind],
+        memoryMb,
+        cpus,
+        ["sh", "-c", compileCmd]
+      );
+      const compileTimeout = Math.max(timeLimitMs, 10000);
+      compileRes = await execDocker(args, compileTimeout);
+    }
+
     results.compile = compileRes;
 
     if (compileRes.code !== 0 || compileRes.stderr) {
@@ -174,24 +210,28 @@ async function runJob(payload) {
   // RUN TESTS
   for (let i = 0; i < tests.length; i++) {
     const t = tests[i];
-
     await writeFileSafe(jobDir, `input_${i}.txt`, t.input || "");
 
     const cmdParts = runCmdTemplate;
     const runCmd = cmdParts.map(c => (c.includes(" ") ? `"${c}"` : c)).join(" ");
     const timeoutSec = Math.max(1, Math.ceil(timeLimitMs / 1000));
 
-    const args = dockerArgsForRun(
-      jobDir,
-      image,
-      [bind],
-      memoryMb,
-      cpus,
-      ["sh", "-c", `timeout ${timeoutSec}s ${runCmd} < /workspace/input_${i}.txt`]
-    );
-
-    // Increase margin significantly for Windows overhead (starting container can take 2-4 seconds)
-    const execRes = await execDocker(args, timeLimitMs + 5000);
+    let execRes;
+    if (EXECUTION_MODE === "direct") {
+      // Use standard shell redirection in direct mode
+      const fullCmd = `timeout ${timeoutSec}s ${runCmd} < input_${i}.txt`;
+      execRes = await execDirect("sh", ["-c", fullCmd], { cwd: jobDir }, timeLimitMs + 2000);
+    } else {
+      const args = dockerArgsForRun(
+        jobDir,
+        image,
+        [bind],
+        memoryMb,
+        cpus,
+        ["sh", "-c", `timeout ${timeoutSec}s ${runCmd} < /workspace/input_${i}.txt`]
+      );
+      execRes = await execDocker(args, timeLimitMs + 5000);
+    }
 
     results.tests.push({
       index: i,
