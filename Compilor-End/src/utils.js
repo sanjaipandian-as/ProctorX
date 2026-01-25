@@ -13,4 +13,4 @@ function getTmpDirPath(jobId) {
   return `${tmpRoot}/${jobId}`;
 }
 
-module.exports = { ensureTmpRoot, getTmpDirPath };
+module.exports = { ensureTmpRoot, getTmpDirPath, tmpRoot };

@@ -40,11 +40,11 @@ app.get('/', (req, res) => {
   res.send('ProctorX Backend is Running!');
 });
 
-if (process.env.TMP_ROOT) {
-  ensureTmpRoot();
-} else {
-  console.warn("WARNING: TMP_ROOT not defined in environment.");
-}
+ensureTmpRoot().then(() => {
+  console.log("Temporary directory ensured at:", RESOLVED_TMP_ROOT);
+}).catch(err => {
+  console.error("Failed to ensure temporary directory:", err);
+});
 
 app.post("/run", async (req, res) => {
   try {
