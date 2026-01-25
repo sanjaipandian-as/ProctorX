@@ -59,4 +59,6 @@ app.post("/run", async (req, res) => {
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
   console.log("compiler service listening on", port);
+  console.log("Execution Mode:", process.env.EXECUTION_MODE || "docker (default)");
+  console.log("TMP_ROOT:", process.env.TMP_ROOT || "not set");
 });
