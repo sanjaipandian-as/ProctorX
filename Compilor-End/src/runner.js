@@ -4,7 +4,7 @@ const path = require("path");
 path.normalize = p => p.replace(/\\/g, "/");
 const { spawn } = require("child_process");
 const { v4: uuidv4 } = require("uuid");
-const { getTmpDirPath } = require("./utils");
+const { getTmpDirPath, tmpRoot: RESOLVED_TMP_ROOT } = require("./utils");
 
 const DEFAULT_CPU = process.env.DEFAULT_CPU || "0.5";
 const DEFAULT_MEMORY_MB = parseInt(process.env.DEFAULT_MEMORY_MB || "256", 10);
@@ -14,7 +14,9 @@ const IMAGE_PY = process.env.DOCKER_IMAGE_PYTHON || "proctorx-python";
 const IMAGE_CPP = process.env.DOCKER_IMAGE_CPP || "proctorx-cpp";
 const IMAGE_JAVA = process.env.DOCKER_IMAGE_JAVA || "proctorx-java";
 const IMAGE_NODE = process.env.DOCKER_IMAGE_NODE || "proctorx-node";
-const EXECUTION_MODE = process.env.EXECUTION_MODE || "docker"; // "docker" or "direct"
+// Self-healing: Default to "direct" if running on Render, otherwise "docker"
+const EXECUTION_MODE = process.env.EXECUTION_MODE || (process.env.RENDER ? "direct" : "docker");
+
 
 
 async function writeFileSafe(dir, filename, content) {
@@ -248,4 +250,4 @@ async function runJob(payload) {
   return results;
 }
 
-module.exports = { runJob };
+module.exports = { runJob, EXECUTION_MODE, RESOLVED_TMP_ROOT };

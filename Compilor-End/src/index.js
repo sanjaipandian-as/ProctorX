@@ -3,7 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const { runJob } = require("./runner");
+const { runJob, EXECUTION_MODE, RESOLVED_TMP_ROOT } = require("./runner");
 const { ensureTmpRoot } = require("./utils");
 
 const app = express();
@@ -59,6 +59,6 @@ app.post("/run", async (req, res) => {
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
   console.log("compiler service listening on", port);
-  console.log("Execution Mode:", process.env.EXECUTION_MODE || "docker (default)");
-  console.log("TMP_ROOT:", process.env.TMP_ROOT || "not set");
+  console.log("ACTUAL Execution Mode:", EXECUTION_MODE);
+  console.log("ACTUAL TMP_ROOT:", RESOLVED_TMP_ROOT);
 });
