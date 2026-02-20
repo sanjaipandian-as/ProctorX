@@ -1,17 +1,18 @@
-import express from "express"
-import axios from "axios"
-import cors from "cors"
+import express from "express";
+import axios from "axios";
+import { isAuthenticatedUser, authorizeRoles } from "../controllers/authController.js";
 
-const router = express.Router()
-router.use(cors())
-router.use(express.json())
+const router = express.Router();
 
-const API_KEY = process.env.Gemini_API_Key
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`
+const API_KEY = process.env.Gemini_API_Key;
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
 
-// Open for testing - no authentication required
-router.post("/generate-quiz", async (req, res) => {
-    const userPrompt = req.body.prompt
+// Restricted to Teachers only to prevent API abuse
+router.post("/generate-quiz", isAuthenticatedUser, authorizeRoles('teacher'), async (req, res) => {
+    const userPrompt = req.body.prompt;
+    if (!userPrompt || userPrompt.length > 500) {
+        return res.status(400).json({ error: "Prompt is required and must remain under 500 characters." });
+    }
 
     const finalPrompt = `
 You are ProctorX Teacher Quiz Generation AI — a secure and professional assessment generator that creates quizzes only when the user requests a quiz. For any other type of request unrelated to quiz creation, you must display: Access Denied.
@@ -102,7 +103,9 @@ ${userPrompt}
     }
 
     try {
-        const resp = await axios.post(GEMINI_URL, body)
+        const resp = await axios.post(GEMINI_URL, body, {
+            headers: { 'x-goog-api-key': API_KEY }
+        });
         const text = resp.data.candidates[0].content.parts[0].text
         res.json({ text })
     } catch (err) {

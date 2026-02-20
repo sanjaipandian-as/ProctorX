@@ -38,7 +38,7 @@ const DescriptiveEditor = ({ value, onChange = () => { }, placeholder = "Write y
     const handleFormat = (type) => {
         switch (type) {
             case 'bold': insertText('**', '**'); break;
-            case 'italic': insertText('~~', '~~'); break;
+            case 'italic': insertText('*', '*'); break;
             case 'link': insertText('[', '](url)'); break;
             case 'ul': {
                 const textBefore = (value || "").substring(0, textareaRef.current?.selectionStart || 0);
@@ -73,7 +73,7 @@ const DescriptiveEditor = ({ value, onChange = () => { }, placeholder = "Write y
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleFormat('italic')}
                         className="w-8 h-8 flex items-center justify-center text-gray-800 hover:bg-gray-200 rounded italic transition-colors font-serif"
-                        title="Sliding/Slanted"
+                        title="Italic"
                     >
                         I
                     </button>

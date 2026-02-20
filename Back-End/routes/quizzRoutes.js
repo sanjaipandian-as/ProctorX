@@ -1,7 +1,7 @@
 import express from 'express';
 import crypto from 'crypto';
 import Quiz from '../models/Quiz.js';
-import { isAuthenticatedUser } from '../controllers/authController.js';
+import { isAuthenticatedUser, authorizeRoles } from '../controllers/authController.js';
 import { sendEmail } from '../utils/emailService.js';
 
 const router = express.Router();
@@ -14,7 +14,7 @@ function generateQuizId() {
   return 'QZ' + Date.now().toString().slice(-6);
 }
 
-router.post('/create', isAuthenticatedUser, async (req, res) => {
+router.post('/create', isAuthenticatedUser, authorizeRoles('teacher'), async (req, res) => {
   try {
     const { title, questions, allowedStudents, durationInMinutes } = req.body;
     const teacherId = req.user.id;
@@ -91,7 +91,7 @@ router.post('/create', isAuthenticatedUser, async (req, res) => {
   }
 });
 
-router.put('/:quizId', isAuthenticatedUser, async (req, res) => {
+router.put('/:quizId', isAuthenticatedUser, authorizeRoles('teacher'), async (req, res) => {
   try {
     const { title, questions, status, durationInMinutes } = req.body;
     const quiz = await Quiz.findOne({ quizId: req.params.quizId });
@@ -152,7 +152,7 @@ router.put('/:quizId', isAuthenticatedUser, async (req, res) => {
   }
 });
 
-router.post('/:quizId/duplicate', isAuthenticatedUser, async (req, res) => {
+router.post('/:quizId/duplicate', isAuthenticatedUser, authorizeRoles('teacher'), async (req, res) => {
   try {
     const originalQuiz = await Quiz.findOne({ quizId: req.params.quizId }).lean();
 
@@ -234,7 +234,16 @@ router.get('/public', async (req, res) => {
     const quizzes = await Quiz.find({ status: "active" })
       .select("quizId title createdBy questions")
       .populate("createdBy", "name email");
-    res.status(200).json(quizzes);
+
+    // Sanitize to prevent answer leakage
+    const sanitizedQuizzes = quizzes.map(quiz => ({
+      quizId: quiz.quizId,
+      title: quiz.title,
+      createdBy: quiz.createdBy,
+      questionsCount: quiz.questions?.length || 0
+    }));
+
+    res.status(200).json(sanitizedQuizzes);
   } catch (error) {
     res.status(500).json({ message: "Error fetching public quizzes", error: error.message });
   }
@@ -257,10 +266,18 @@ router.get('/public/:quizId', async (req, res) => {
           marks: q.marks
         };
         if (q.questionType === "mcq") {
-          return { ...base, options: q.options };
+          return { ...base, options: q.options }; // EXCLUDE correctAnswer
         }
         if (q.questionType === "coding") {
-          return { ...base, language: q.language, testcases: q.testcases };
+          // Hide outputs for all testcases except the first two (sample cases)
+          const sanitizedTestcases = (q.testcases || []).map((tc, idx) => ({
+            input: tc.input,
+            output: idx < 2 ? tc.output : "HIDDEN"
+          }));
+          return { ...base, language: q.language, testcases: sanitizedTestcases };
+        }
+        if (q.questionType === "descriptive") {
+          return { ...base }; // EXCLUDE descriptiveAnswer
         }
         return base;
       }),

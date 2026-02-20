@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     Sparkles,
@@ -11,31 +11,25 @@ import {
     BookOpen,
     Code,
     FileText,
-    Download
+    Download,
+    Terminal,
+    Cpu,
+    Zap,
+    Save,
+    Info,
+    List
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Toaster, toast } from "react-hot-toast";
 import API from "../../Api";
 import { AuthContext } from "../context/AuthContext";
 import Logo from "../assets/LOGO.png";
 
-function Toast({ message, type, onClose }) {
-    React.useEffect(() => {
-        const t = setTimeout(onClose, 3000);
-        return () => clearTimeout(t);
-    }, [onClose]);
-    return (
-        <div
-            className={`fixed top-20 right-5 z-[100] px-4 py-2 rounded-xl shadow text-sm font-medium ${type === "success" ? "bg-emerald-600/90 text-white" : "bg-red-600/90 text-white"
-                }`}
-        >
-            {message}
-            <button onClick={onClose} className="ml-3 text-lg font-bold">
-                ×
-            </button>
-        </div>
-    );
-}
+// --- Components ---
 
-// Parser function to extract structured sections from AI output
+
+
+// Logic: Parser function to extract structured sections from AI output
 function parseAIQuiz(rawText) {
     const sections = {
         metadata: null,
@@ -45,127 +39,98 @@ function parseAIQuiz(rawText) {
     };
 
     try {
-        // Extract QUIZ_METADATA
-        const metadataMatch = rawText.match(/\[QUIZ_METADATA\]([\s\S]*?)(?=\[|$)/);
+        const metadataMatch = rawText.match(/\[QUIZ_METADATA\]([\s\S]*?)(?=\[|$)/i);
         if (metadataMatch) {
             const metaText = metadataMatch[1].trim();
-            const subject = metaText.match(/Subject:\s*(.+)/)?.[1]?.trim();
-            const totalQuestions = metaText.match(/Total Questions:\s*(.+)/)?.[1]?.trim();
-            const difficulty = metaText.match(/Difficulty:\s*(.+)/)?.[1]?.trim();
-            const type = metaText.match(/Type:\s*(.+)/)?.[1]?.trim();
-            sections.metadata = { subject, totalQuestions, difficulty, type };
+            sections.metadata = {
+                subject: metaText.match(/Subject:\s*(.+)/i)?.[1]?.trim(),
+                totalQuestions: metaText.match(/Total Questions:\s*(.+)/i)?.[1]?.trim(),
+                difficulty: metaText.match(/Difficulty:\s*(.+)/i)?.[1]?.trim(),
+                type: metaText.match(/Type:\s*(.+)/i)?.[1]?.trim()
+            };
         }
 
-        // Extract MCQ_SECTION
-        const mcqMatch = rawText.match(/\[MCQ_SECTION\]([\s\S]*?)(?=\[DESCRIPTIVE_SECTION\]|\[PROGRAMMING_SECTION\]|$)/);
+        const mcqMatch = rawText.match(/\[MCQ_SECTION\]([\s\S]*?)(?=\[DESCRIPTIVE_SECTION\]|\[PROGRAMMING_SECTION\]|$)/i);
         if (mcqMatch) {
             const mcqText = mcqMatch[1];
-            const questionBlocks = mcqText.split(/Q\d+\./g).filter(q => q.trim());
+            const blocks = mcqText.split(/Q\d+\.?/g).filter(q => q.trim().length > 10);
 
-            questionBlocks.forEach(block => {
-                const lines = block.trim().split('\n').filter(l => l.trim());
-                if (lines.length === 0) return;
+            blocks.forEach(block => {
+                const lines = block.trim().split('\n').map(l => l.trim()).filter(l => l);
+                if (lines.length < 5) return;
 
-                const questionText = lines[0].trim();
+                const questionText = lines[0];
                 const options = [];
                 let correctOption = '';
                 let explanation = '';
 
                 lines.forEach(line => {
-                    const trimmed = line.trim();
-                    if (trimmed.match(/^[A-D]\./)) {
-                        options.push(trimmed.substring(2).trim());
-                    } else if (trimmed.startsWith('Correct Option:')) {
-                        correctOption = trimmed.replace('Correct Option:', '').trim();
-                    } else if (trimmed.startsWith('Explanation:')) {
-                        explanation = trimmed.replace('Explanation:', '').trim();
+                    if (line.match(/^[A-D][\.\:\)]\s*/i)) {
+                        options.push(line.replace(/^[A-D][\.\:\)]\s*/i, '').trim());
+                    } else if (line.toLowerCase().includes('correct option:')) {
+                        correctOption = line.split(':').pop().trim().toUpperCase().charAt(0);
+                    } else if (line.toLowerCase().includes('explanation:')) {
+                        explanation = line.split(':').pop().trim();
                     }
                 });
 
-                if (questionText && options.length === 4) {
-                    sections.mcqs.push({ questionText, options, correctOption, explanation });
+                if (questionText && options.length >= 2) {
+                    while (options.length < 4) options.push("N/A");
+                    sections.mcqs.push({
+                        questionText,
+                        options: options.slice(0, 4),
+                        correctOption: correctOption || 'A',
+                        explanation
+                    });
                 }
             });
         }
 
-        // Extract DESCRIPTIVE_SECTION
-        const descMatch = rawText.match(/\[DESCRIPTIVE_SECTION\]([\s\S]*?)(?=\[PROGRAMMING_SECTION\]|$)/);
+        const descMatch = rawText.match(/\[DESCRIPTIVE_SECTION\]([\s\S]*?)(?=\[PROGRAMMING_SECTION\]|$)/i);
         if (descMatch) {
             const descText = descMatch[1];
-            const questionBlocks = descText.split(/Q\d+\./g).filter(q => q.trim());
+            const blocks = descText.split(/Q\d+\.?/g).filter(q => q.trim().length > 10);
 
-            questionBlocks.forEach(block => {
+            blocks.forEach(block => {
                 const lines = block.trim().split('\n').filter(l => l.trim());
-                if (lines.length === 0) return;
+                if (lines.length < 1) return;
 
-                const questionText = lines[0].trim();
+                const questionText = lines[0];
                 let expectedAnswer = '';
-
                 lines.forEach(line => {
-                    const trimmed = line.trim();
-                    if (trimmed.startsWith('Expected Answer:')) {
-                        expectedAnswer = trimmed.replace('Expected Answer:', '').trim();
+                    if (line.toLowerCase().includes('expected answer:')) {
+                        expectedAnswer = line.split(':').pop().trim();
                     }
                 });
-
-                if (questionText) {
-                    sections.descriptive.push({ questionText, expectedAnswer });
-                }
+                sections.descriptive.push({ questionText, expectedAnswer });
             });
         }
 
-        // Extract PROGRAMMING_SECTION
-        const progMatch = rawText.match(/\[PROGRAMMING_SECTION\]([\s\S]*?)$/);
+        const progMatch = rawText.match(/\[PROGRAMMING_SECTION\]([\s\S]*?)$/i);
         if (progMatch) {
             const progText = progMatch[1];
-            const questionBlocks = progText.split(/Q\d+\./g).filter(q => q.trim());
+            const blocks = progText.split(/Q\d+\.?/g).filter(q => q.trim().length > 10);
 
-            questionBlocks.forEach(block => {
+            blocks.forEach(block => {
                 const lines = block.trim().split('\n');
-                if (lines.length === 0) return;
-
-                const questionText = lines[0].trim();
-                let language = '';
-                let constraints = '';
-                let sampleInput = '';
-                let sampleOutput = '';
-                const testCases = [];
-
-                let currentSection = '';
+                const questionText = lines[0]?.trim();
+                let language = 'python';
+                let testCases = [];
                 let tempInput = '';
 
                 lines.forEach(line => {
-                    const trimmed = line.trim();
+                    const l = line.trim().toLowerCase();
+                    if (l.startsWith('language:')) language = line.split(':').pop().trim();
 
-                    if (trimmed.startsWith('Language:')) {
-                        language = trimmed.replace('Language:', '').trim();
-                    } else if (trimmed.startsWith('Constraints:')) {
-                        constraints = trimmed.replace('Constraints:', '').trim();
-                    } else if (trimmed === 'Sample Input:') {
-                        currentSection = 'sampleInput';
-                    } else if (trimmed === 'Sample Output:') {
-                        currentSection = 'sampleOutput';
-                    } else if (trimmed === 'Test Cases:') {
-                        currentSection = 'testCases';
-                    } else if (trimmed.includes('Input:') && trimmed.includes('Output:')) {
-                        // Handle same-line format: Input: {val} Output: {val}
-                        const inputMatch = trimmed.match(/Input:\s*(.+?)\s*Output:/);
-                        const outputMatch = trimmed.match(/Output:\s*(.+)$/);
-                        if (inputMatch && outputMatch) {
-                            testCases.push({ input: inputMatch[1].trim(), output: outputMatch[1].trim() });
-                        }
-                    } else if (trimmed.startsWith('Input:')) {
-                        tempInput = trimmed.replace('Input:', '').trim();
-                    } else if (trimmed.startsWith('Output:')) {
-                        const output = trimmed.replace('Output:', '').trim();
-                        if (tempInput) {
-                            testCases.push({ input: tempInput, output });
-                            tempInput = '';
-                        }
-                    } else if (currentSection === 'sampleInput' && trimmed) {
-                        sampleInput += (sampleInput ? '\n' : '') + trimmed;
-                    } else if (currentSection === 'sampleOutput' && trimmed) {
-                        sampleOutput += (sampleOutput ? '\n' : '') + trimmed;
+                    if (line.includes('Input:') && line.includes('Output:')) {
+                        const i = line.match(/Input:\s*(.+?)\s*(?=Output:)/i);
+                        const o = line.match(/Output:\s*(.+)/i);
+                        if (i && o) testCases.push({ input: i[1].trim(), output: o[1].trim() });
+                    } else if (line.startsWith('Input:')) {
+                        tempInput = line.replace('Input:', '').trim();
+                    } else if (line.startsWith('Output:') && tempInput) {
+                        testCases.push({ input: tempInput, output: line.replace('Output:', '').trim() });
+                        tempInput = '';
                     }
                 });
 
@@ -173,18 +138,14 @@ function parseAIQuiz(rawText) {
                     sections.programming.push({
                         questionText,
                         language,
-                        constraints,
-                        sampleInput,
-                        sampleOutput,
-                        testCases
+                        testCases: testCases.length > 0 ? testCases : [{ input: '1', output: '1' }]
                     });
                 }
             });
         }
     } catch (error) {
-        console.error("Error parsing AI quiz:", error);
+        console.error("AI Parser Error:", error);
     }
-
     return sections;
 }
 
@@ -195,47 +156,22 @@ export default function AiQuiz() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedQuiz, setGeneratedQuiz] = useState(null);
     const [rawOutput, setRawOutput] = useState("");
-    const [toast, setToast] = useState(null);
-    const [copiedSection, setCopiedSection] = useState(null);
-    const [history, setHistory] = useState([]);
     const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
 
-    const showToast = (msg, type = "success") => setToast({ message: msg, type });
-    const closeToast = () => setToast(null);
 
-    // Load history on mount
-    React.useEffect(() => {
-        const savedHistory = localStorage.getItem("proctorx_ai_chats");
-        if (savedHistory) {
-            try {
-                setHistory(JSON.parse(savedHistory));
-            } catch (err) {
-                console.error("Failed to parse history:", err);
-            }
-        }
-    }, []);
 
-    const saveToHistory = (text) => {
-        const newHistory = [...history, {
-            id: Date.now(),
-            name: `New Chat ${history.length + 1}`,
-            text: text,
-            date: new Date().toISOString()
-        }];
-        setHistory(newHistory);
-        localStorage.setItem("proctorx_ai_chats", JSON.stringify(newHistory));
-    };
+
 
     const handleLogout = () => {
         localStorage.removeItem("token");
-        showToast("Logged out.");
+        toast.success("Logged out.");
         setTimeout(() => navigate("/login"), 1000);
     };
 
     const generateQuiz = async (e) => {
         e.preventDefault();
         if (!prompt.trim()) {
-            showToast("Please enter a prompt", "error");
+            toast.error("Please enter a prompt");
             return;
         }
 
@@ -244,7 +180,6 @@ export default function AiQuiz() {
         setRawOutput("");
 
         try {
-            // No authentication required for testing
             const response = await API.post(
                 "/api/ai/generate-quiz",
                 { prompt }
@@ -253,14 +188,12 @@ export default function AiQuiz() {
             const aiText = response.data.text;
             setRawOutput(aiText);
 
-            // Parse the structured output
             const parsedQuiz = parseAIQuiz(aiText);
             setGeneratedQuiz(parsedQuiz);
-            saveToHistory(aiText);
-            showToast("Quiz generated successfully!", "success");
+            toast.success("Quiz generated successfully!");
         } catch (error) {
             console.error("Error generating quiz:", error);
-            showToast("Failed to generate quiz. Please try again.", "error");
+            toast.error("Failed to generate quiz. Please try again.");
         } finally {
             setIsGenerating(false);
         }
@@ -313,10 +246,10 @@ export default function AiQuiz() {
                 allowedStudents: 0
             });
 
-            showToast(`Quiz created! ID: ${response.data.quizId}`, "success");
+            toast.success(`Quiz created! ID: ${response.data.quizId}`);
         } catch (error) {
             console.error("Error creating quiz:", error);
-            showToast(error.response?.data?.message || "Failed to create quiz", "error");
+            toast.error(error.response?.data?.message || "Failed to create quiz");
         } finally {
             setIsCreatingQuiz(false);
         }
@@ -325,7 +258,7 @@ export default function AiQuiz() {
     const copyToClipboard = (text, section) => {
         navigator.clipboard.writeText(text);
         setCopiedSection(section);
-        showToast("Copied to clipboard!", "success");
+        toast.success("Copied content to clipboard!");
         setTimeout(() => setCopiedSection(null), 2000);
     };
 
@@ -339,451 +272,287 @@ export default function AiQuiz() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        showToast("Quiz downloaded!", "success");
+        toast.success("Quiz downloaded!");
     };
 
-    const loadFromHistory = (chat) => {
-        setRawOutput(chat.text);
-        setGeneratedQuiz(parseAIQuiz(chat.text));
-        showToast(`Loaded ${chat.name}`, "success");
-    };
+
 
     const examplePrompts = [
-        "Generate 5 MCQs on JavaScript arrays with medium difficulty",
-        "Create a full test with 10 MCQs, 3 descriptive questions, and 2 programming problems on Python basics",
-        "Generate 8 hard difficulty MCQs on React Hooks and state management",
-        "Create a mixed quiz on Data Structures with 5 MCQs and 1 coding problem on Binary Trees"
+        { label: "JavaScript Basics", prompt: "Generate 5 MCQs on JavaScript arrays with medium difficulty" },
+        { label: "Python Test", prompt: "Create a full test with 10 MCQs, 3 descriptive questions, and 2 programming problems on Python basics" },
+        { label: "React Hooks", prompt: "Generate 8 hard difficulty MCQs on React Hooks and state management" },
+        { label: "Data Structures", prompt: "Create a mixed quiz on Data Structures with 5 MCQs and 1 coding problem on Binary Trees" }
     ];
 
     return (
-        <div className="min-h-screen bg-black text-white flex flex-col">
-            {toast && <Toast message={toast.message} type={toast.type} onClose={closeToast} />}
-
-            {/* Header */}
-            <header className="fixed top-0 w-full z-50 bg-black/50 backdrop-blur-lg border-b border-white/10 h-16 flex items-center px-6 justify-between">
-                <div className="flex items-center gap-3">
-                    <img src={Logo} alt="logo" className="h-10 w-10" />
-                    <span className="text-xl font-bold">ProctorX AI</span>
-                </div>
-                <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-400 hidden sm:block">
-                        {user ? `${user.name} (${user.role})` : "Guest"}
-                    </span>
-                    <button
-                        onClick={() => navigate(user?.role === "teacher" ? "/staff-dashboard" : "/student-profile")}
-                        className="p-2 rounded bg-gray-800 hover:bg-gray-700 transition"
-                    >
-                        <Home className="h-5 w-5" />
-                    </button>
-                    <button
-                        onClick={handleLogout}
-                        className="p-2 rounded bg-red-900/40 hover:bg-red-900/60 transition"
-                    >
-                        <LogOut className="h-5 w-5 text-red-400" />
-                    </button>
-                </div>
-            </header>
-
-            <div className="flex flex-1 pt-16">
-                {/* Sidebar - History */}
-                <aside className="w-64 bg-white/5 border-r border-white/10 overflow-y-auto hidden lg:flex flex-col p-4 gap-4">
-                    <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                        <FileText className="h-4 w-4" /> History
-                    </h2>
-                    <div className="space-y-2">
-                        {history.length === 0 ? (
-                            <p className="text-xs text-gray-500 italic">No previous chats</p>
-                        ) : (
-                            history.map((chat) => (
-                                <button
-                                    key={chat.id}
-                                    onClick={() => loadFromHistory(chat)}
-                                    className="w-full text-left p-3 rounded-lg hover:bg-white/10 transition group relative"
+        <div className="flex flex-col text-slate-900 font-sans selection:bg-[#FFB343]/30 relative min-h-full">
+            <main className="flex-1 relative">
+                <AnimatePresence mode="wait">
+                    {!generatedQuiz && !isGenerating ? (
+                        /* --- Initial Centered View --- */
+                        <motion.div
+                            key="initial"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            className="h-[calc(100vh-200px)] flex flex-col items-center justify-center p-6 max-w-4xl mx-auto"
+                        >
+                            <div className="text-center mb-12 space-y-4">
+                                <motion.div
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    transition={{ duration: 0.5, delay: 0.2 }}
+                                    className="inline-flex items-center gap-2 px-3 py-1 bg-orange-50 text-[#FFB343] rounded-full text-[10px] font-bold uppercase tracking-widest mb-4 border border-orange-100"
                                 >
-                                    <p className="text-sm font-medium truncate">{chat.name}</p>
-                                    <p className="text-[10px] text-gray-500">{new Date(chat.date).toLocaleDateString()}</p>
-                                </button>
-                            ))
-                        )}
-                    </div>
-                </aside>
-
-                {/* Main Scrollable Area */}
-                <main className="flex-1 overflow-y-auto p-6">
-                    <div className="max-w-4xl mx-auto w-full">
-                        {/* Title Section */}
-                        <div className="text-center mb-8">
-                            <div className="flex items-center justify-center gap-3 mb-3">
-                                <Sparkles className="h-10 w-10 text-cyan-400" />
-                                <h1 className="text-5xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-                                    AI Quiz Generator
+                                    <Sparkles className="w-3 h-3" />
+                                    AI-POWERED ASSESSMENTS
+                                </motion.div>
+                                <h1 className="text-5xl md:text-6xl font-medium text-slate-900 leading-tight tracking-tight serif-font">
+                                    What would you like to <br />
+                                    <span className="text-[#FFB343]">assess</span> today?
                                 </h1>
                             </div>
-                            <p className="text-gray-400 text-lg">
-                                Generate professional quizzes instantly using AI - MCQs, Descriptive & Programming Questions
-                            </p>
-                        </div>
 
-                        {/* Input Section */}
-                        <div className="bg-gradient-to-br from-white/10 to-white/5 p-8 rounded-2xl border border-white/20 mb-8 shadow-2xl">
-                            <form onSubmit={generateQuiz} className="space-y-6">
-                                <div>
-                                    <label className="text-sm text-gray-300 block mb-2 font-semibold">
-                                        Describe the quiz you want to generate
-                                    </label>
-                                    <textarea
-                                        value={prompt}
-                                        onChange={(e) => setPrompt(e.target.value)}
-                                        rows={4}
-                                        className="w-full p-4 bg-black/40 border border-white/20 rounded-xl focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 outline-none transition resize-none"
-                                        placeholder="Example: Generate 5 MCQs on JavaScript arrays with medium difficulty..."
-                                        disabled={isGenerating}
-                                    />
-                                </div>
-
-                                {/* Example Prompts */}
-                                <div>
-                                    <p className="text-xs text-gray-400 mb-2">Quick examples:</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                        {examplePrompts.map((example, idx) => (
+                            <div className="w-full max-w-2xl relative">
+                                <form onSubmit={generateQuiz} className="relative">
+                                    <div className="bg-white rounded-[32px] border-2 border-slate-100 shadow-2xl shadow-slate-100 p-2 focus-within:border-[#FFB343]/50 transition-all duration-300">
+                                        <textarea
+                                            value={prompt}
+                                            onChange={(e) => setPrompt(e.target.value)}
+                                            placeholder="E.g., Create a 10 MCQ quiz on React Hooks for advanced level..."
+                                            className="w-full px-6 py-8 text-xl font-medium bg-transparent text-slate-900 placeholder:text-slate-300 resize-none outline-none leading-relaxed"
+                                            rows={2}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    generateQuiz(e);
+                                                }
+                                            }}
+                                        />
+                                        <div className="flex items-center justify-between px-4 pb-4">
+                                            <div className="flex items-center gap-2">
+                                                <button type="button" className="p-2 text-slate-400 hover:text-[#FFB343] transition-colors rounded-full hover:bg-orange-50">
+                                                    <BookOpen className="w-5 h-5" />
+                                                </button>
+                                                <button type="button" className="p-2 text-slate-400 hover:text-[#FFB343] transition-colors rounded-full hover:bg-orange-50">
+                                                    <Code className="w-5 h-5" />
+                                                </button>
+                                            </div>
                                             <button
-                                                key={idx}
-                                                type="button"
-                                                onClick={() => setPrompt(example)}
-                                                className="text-left text-xs p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition"
-                                                disabled={isGenerating}
+                                                type="submit"
+                                                disabled={!prompt.trim() || isGenerating}
+                                                className="bg-slate-900 text-white p-4 rounded-2xl hover:bg-[#FFB343] hover:text-slate-900 transition-all shadow-lg hover:shadow-[#FFB343]/20 disabled:opacity-20 flex items-center gap-2 group"
                                             >
-                                                {example}
+                                                <Zap className="w-5 h-5 fill-current group-hover:rotate-12 transition-transform" />
+                                                <span className="text-xs font-bold uppercase tracking-widest px-1">Generate</span>
                                             </button>
-                                        ))}
+                                        </div>
                                     </div>
-                                </div>
+                                </form>
 
-                                <button
-                                    type="submit"
-                                    disabled={isGenerating || !prompt.trim()}
-                                    className="w-full p-4 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 disabled:from-gray-600 disabled:to-gray-700 text-black font-bold rounded-xl flex items-center justify-center gap-3 transition shadow-lg disabled:cursor-not-allowed"
-                                >
+                                <div className="mt-8 flex flex-wrap justify-center gap-2">
+                                    {examplePrompts.map((ex, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => setPrompt(ex.prompt)}
+                                            className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-full text-[11px] font-semibold text-slate-500 hover:border-[#FFB343] hover:text-[#FFB343] hover:bg-white transition-all shadow-sm"
+                                        >
+                                            {ex.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </motion.div>
+                    ) : (
+                        /* --- Result View --- */
+                        <motion.div
+                            key="results"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="flex flex-col"
+                        >
+                            <div className="flex-1 pb-40">
+                                <div className="max-w-4xl mx-auto space-y-12">
                                     {isGenerating ? (
-                                        <>
-                                            <Loader2 className="h-6 w-6 animate-spin" />
-                                            Generating Quiz...
-                                        </>
+                                        <div className="flex flex-col items-center justify-center py-24 space-y-6">
+                                            <div className="relative">
+                                                <Loader2 className="w-12 h-12 text-[#FFB343] animate-spin" />
+                                                <div className="absolute inset-0 blur-xl bg-[#FFB343]/20 animate-pulse" />
+                                            </div>
+                                            <p className="text-slate-400 font-medium animate-pulse text-sm tracking-widest uppercase">Analyzing Subject Matter...</p>
+                                        </div>
                                     ) : (
                                         <>
-                                            <Sparkles className="h-6 w-6" />
-                                            Generate Quiz
-                                        </>
-                                    )}
-                                </button>
-                            </form>
-                        </div>
-
-                        {/* Generated Quiz Display */}
-                        {generatedQuiz && (
-                            <div className="space-y-6">
-                                {/* Action Buttons */}
-                                <div className="flex justify-between items-center">
-                                    <h2 className="text-2xl font-bold">Generated Quiz</h2>
-                                    <div className="flex gap-3">
-                                        {user?.role === "teacher" && (
-                                            <button
-                                                onClick={handleCreateQuiz}
-                                                disabled={isCreatingQuiz}
-                                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-600 rounded-lg flex items-center gap-2 transition"
-                                            >
-                                                {isCreatingQuiz ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <CheckCircle className="h-4 w-4" />
-                                                )}
-                                                Create Quiz
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={downloadQuiz}
-                                            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded-lg flex items-center gap-2 transition"
-                                        >
-                                            <Download className="h-4 w-4" />
-                                            Download
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Metadata Section */}
-                                {generatedQuiz.metadata && (
-                                    <div className="bg-gradient-to-r from-cyan-900/30 to-blue-900/30 p-6 rounded-xl border border-cyan-500/30">
-                                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                                            <BookOpen className="h-5 w-5 text-cyan-400" />
-                                            Quiz Information
-                                        </h3>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                            <div>
-                                                <p className="text-xs text-gray-400">Subject</p>
-                                                <p className="text-lg font-semibold text-cyan-300">
-                                                    {generatedQuiz.metadata.subject || "N/A"}
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-gray-400">Total Questions</p>
-                                                <p className="text-lg font-semibold text-cyan-300">
-                                                    {generatedQuiz.metadata.totalQuestions || "N/A"}
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-gray-400">Difficulty</p>
-                                                <p className="text-lg font-semibold text-cyan-300">
-                                                    {generatedQuiz.metadata.difficulty || "N/A"}
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-gray-400">Type</p>
-                                                <p className="text-lg font-semibold text-cyan-300">
-                                                    {generatedQuiz.metadata.type || "N/A"}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* MCQ Section */}
-                                {generatedQuiz.mcqs.length > 0 && (
-                                    <div className="bg-white/5 p-6 rounded-xl border border-white/10">
-                                        <div className="flex justify-between items-center mb-4">
-                                            <h3 className="text-xl font-bold flex items-center gap-2">
-                                                <CheckCircle className="h-5 w-5 text-emerald-400" />
-                                                Multiple Choice Questions ({generatedQuiz.mcqs.length})
-                                            </h3>
-                                            <button
-                                                onClick={() =>
-                                                    copyToClipboard(
-                                                        generatedQuiz.mcqs
-                                                            .map(
-                                                                (q, i) =>
-                                                                    `Q${i + 1}. ${q.questionText}\nA. ${q.options[0]}\nB. ${q.options[1]}\nC. ${q.options[2]}\nD. ${q.options[3]}\nCorrect: ${q.correctOption}\nExplanation: ${q.explanation}\n`
-                                                            )
-                                                            .join("\n"),
-                                                        "mcq"
-                                                    )
-                                                }
-                                                className="p-2 hover:bg-white/10 rounded-lg transition"
-                                            >
-                                                {copiedSection === "mcq" ? (
-                                                    <CheckCircle className="h-5 w-5 text-emerald-400" />
-                                                ) : (
-                                                    <Copy className="h-5 w-5" />
-                                                )}
-                                            </button>
-                                        </div>
-                                        <div className="space-y-6">
-                                            {generatedQuiz.mcqs.map((mcq, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className="bg-black/40 p-5 rounded-lg border border-white/10"
-                                                >
-                                                    <p className="font-semibold text-lg mb-3">
-                                                        <span className="text-cyan-400">Q{idx + 1}.</span> {mcq.questionText}
-                                                    </p>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                                                        {mcq.options.map((option, optIdx) => (
-                                                            <div
-                                                                key={optIdx}
-                                                                className={`p-3 rounded-lg border ${mcq.correctOption === String.fromCharCode(65 + optIdx)
-                                                                    ? "bg-emerald-900/30 border-emerald-500/50"
-                                                                    : "bg-white/5 border-white/10"
-                                                                    }`}
+                                            {/* Quiz Header Info */}
+                                            {generatedQuiz.metadata && (
+                                                <div className="bg-white rounded-[32px] p-8 flex flex-wrap gap-8 items-center justify-between border border-slate-100 shadow-sm">
+                                                    <div className="space-y-1">
+                                                        <h2 className="text-3xl font-medium serif-font text-slate-900">{generatedQuiz.metadata.subject}</h2>
+                                                        <p className="text-sm text-slate-500 font-medium">Difficulty: <span className="text-[#FFB343] font-bold">{generatedQuiz.metadata.difficulty}</span></p>
+                                                    </div>
+                                                    <div className="flex gap-4">
+                                                        {user?.role === "teacher" && (
+                                                            <button
+                                                                onClick={handleCreateQuiz}
+                                                                disabled={isCreatingQuiz}
+                                                                className="px-6 py-3 bg-[#FFB343] text-slate-900 rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-[#FFB343]/20 flex items-center gap-2"
                                                             >
-                                                                <span className="font-bold text-cyan-300">
-                                                                    {String.fromCharCode(65 + optIdx)}.
-                                                                </span>{" "}
-                                                                {option}
+                                                                {isCreatingQuiz ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                                                Save Quiz
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={downloadQuiz}
+                                                            className="px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl text-xs font-bold uppercase tracking-widest hover:border-[#FFB343] hover:text-[#FFB343] transition-all flex items-center gap-2"
+                                                        >
+                                                            <Download size={16} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Interactive Quiz Content */}
+                                            <div className="space-y-16">
+                                                {/* MCQs */}
+                                                {generatedQuiz.mcqs.length > 0 && (
+                                                    <div className="space-y-8">
+                                                        <div className="flex items-center gap-4">
+                                                            <h3 className="text-xs font-black text-slate-300 uppercase tracking-[0.3em]">MCQ Section</h3>
+                                                            <div className="h-px flex-1 bg-slate-100" />
+                                                        </div>
+                                                        {generatedQuiz.mcqs.map((mcq, i) => (
+                                                            <div key={i} className="group bg-white p-8 rounded-[32px] border border-slate-100 hover:border-[#FFB343]/30 transition-all duration-500 shadow-sm hover:shadow-md">
+                                                                <div className="flex gap-6">
+                                                                    <span className="text-4xl font-medium text-slate-100 serif-font select-none">{(i + 1).toString().padStart(2, '0')}</span>
+                                                                    <div className="space-y-6 flex-1">
+                                                                        <h4 className="text-xl font-medium text-slate-800 leading-snug">{mcq.questionText}</h4>
+                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                                            {mcq.options.map((opt, idx) => {
+                                                                                const isCorrect = mcq.correctOption === String.fromCharCode(65 + idx);
+                                                                                return (
+                                                                                    <div
+                                                                                        key={idx}
+                                                                                        className={`p-4 rounded-2xl border transition-all ${isCorrect ? 'bg-orange-50 border-[#FFB343]/30' : 'bg-slate-50/50 border-slate-100 hover:bg-white hover:border-slate-200'}`}
+                                                                                    >
+                                                                                        <div className="flex items-center gap-3">
+                                                                                            <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold ${isCorrect ? 'bg-[#FFB343] text-white' : 'bg-white text-slate-400 border border-slate-100'}`}>
+                                                                                                {String.fromCharCode(65 + idx)}
+                                                                                            </span>
+                                                                                            <span className={`text-sm ${isCorrect ? 'text-slate-900 font-semibold' : 'text-slate-600'}`}>{opt}</span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                        {mcq.explanation && (
+                                                                            <div className="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-100/50 flex gap-3 italic">
+                                                                                <Info className="w-4 h-4 text-[#FFB343] shrink-0 mt-0.5" />
+                                                                                <p className="text-xs text-slate-500 leading-relaxed font-medium">{mcq.explanation}</p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         ))}
                                                     </div>
-                                                    <div className="flex items-start gap-2 text-sm">
-                                                        <AlertCircle className="h-4 w-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                                                        <div>
-                                                            <span className="font-semibold text-emerald-400">
-                                                                Correct Answer: {mcq.correctOption}
-                                                            </span>
-                                                            {mcq.explanation && (
-                                                                <p className="text-gray-400 mt-1">{mcq.explanation}</p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Descriptive Section */}
-                                {generatedQuiz.descriptive.length > 0 && (
-                                    <div className="bg-white/5 p-6 rounded-xl border border-white/10">
-                                        <div className="flex justify-between items-center mb-4">
-                                            <h3 className="text-xl font-bold flex items-center gap-2">
-                                                <FileText className="h-5 w-5 text-purple-400" />
-                                                Descriptive Questions ({generatedQuiz.descriptive.length})
-                                            </h3>
-                                            <button
-                                                onClick={() =>
-                                                    copyToClipboard(
-                                                        generatedQuiz.descriptive
-                                                            .map(
-                                                                (q, i) =>
-                                                                    `Q${i + 1}. ${q.questionText}\nExpected Answer: ${q.expectedAnswer}\n`
-                                                            )
-                                                            .join("\n"),
-                                                        "descriptive"
-                                                    )
-                                                }
-                                                className="p-2 hover:bg-white/10 rounded-lg transition"
-                                            >
-                                                {copiedSection === "descriptive" ? (
-                                                    <CheckCircle className="h-5 w-5 text-emerald-400" />
-                                                ) : (
-                                                    <Copy className="h-5 w-5" />
                                                 )}
-                                            </button>
-                                        </div>
-                                        <div className="space-y-4">
-                                            {generatedQuiz.descriptive.map((desc, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className="bg-black/40 p-5 rounded-lg border border-white/10"
-                                                >
-                                                    <p className="font-semibold text-lg mb-3">
-                                                        <span className="text-purple-400">Q{idx + 1}.</span> {desc.questionText}
-                                                    </p>
-                                                    {desc.expectedAnswer && (
-                                                        <div className="bg-purple-900/20 p-4 rounded-lg border border-purple-500/30">
-                                                            <p className="text-xs text-purple-300 font-semibold mb-1">
-                                                                Expected Answer:
-                                                            </p>
-                                                            <p className="text-gray-300">{desc.expectedAnswer}</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
 
-                                {/* Programming Section */}
-                                {generatedQuiz.programming.length > 0 && (
-                                    <div className="bg-white/5 p-6 rounded-xl border border-white/10">
-                                        <div className="flex justify-between items-center mb-4">
-                                            <h3 className="text-xl font-bold flex items-center gap-2">
-                                                <Code className="h-5 w-5 text-orange-400" />
-                                                Programming Questions ({generatedQuiz.programming.length})
-                                            </h3>
-                                            <button
-                                                onClick={() =>
-                                                    copyToClipboard(
-                                                        generatedQuiz.programming
-                                                            .map(
-                                                                (q, i) =>
-                                                                    `Q${i + 1}. ${q.questionText}\nLanguage: ${q.language}\nConstraints: ${q.constraints}\nSample Input:\n${q.sampleInput}\nSample Output:\n${q.sampleOutput}\nTest Cases:\n${q.testCases.map((tc, j) => `${j + 1}. Input: ${tc.input} | Output: ${tc.output}`).join("\n")}\n`
-                                                            )
-                                                            .join("\n"),
-                                                        "programming"
-                                                    )
-                                                }
-                                                className="p-2 hover:bg-white/10 rounded-lg transition"
-                                            >
-                                                {copiedSection === "programming" ? (
-                                                    <CheckCircle className="h-5 w-5 text-emerald-400" />
-                                                ) : (
-                                                    <Copy className="h-5 w-5" />
+                                                {/* Descriptive */}
+                                                {generatedQuiz.descriptive.length > 0 && (
+                                                    <div className="space-y-8">
+                                                        <div className="flex items-center gap-4">
+                                                            <h3 className="text-xs font-black text-slate-300 uppercase tracking-[0.3em]">Theoretical Section</h3>
+                                                            <div className="h-px flex-1 bg-slate-100" />
+                                                        </div>
+                                                        {generatedQuiz.descriptive.map((desc, i) => (
+                                                            <div key={i} className="bg-white p-8 rounded-[32px] border border-slate-100 space-y-4 shadow-sm">
+                                                                <h4 className="text-xl font-medium text-slate-800 flex items-start gap-4">
+                                                                    <span className="text-[#FFB343]">Q.</span>
+                                                                    {desc.questionText}
+                                                                </h4>
+                                                                <div className="p-6 bg-slate-50 rounded-2xl border-l-4 border-[#FFB343]">
+                                                                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-2">Key Assessment points</p>
+                                                                    <p className="text-sm text-slate-600 italic font-medium leading-relaxed">"{desc.expectedAnswer}"</p>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 )}
-                                            </button>
-                                        </div>
-                                        <div className="space-y-6">
-                                            {generatedQuiz.programming.map((prog, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className="bg-black/40 p-5 rounded-lg border border-white/10"
-                                                >
-                                                    <p className="font-semibold text-lg mb-3">
-                                                        <span className="text-orange-400">Q{idx + 1}.</span> {prog.questionText}
-                                                    </p>
 
-                                                    <div className="grid grid-cols-2 gap-4 mb-4">
-                                                        <div className="bg-orange-900/20 p-3 rounded-lg border border-orange-500/30">
-                                                            <p className="text-xs text-orange-300 font-semibold">Language</p>
-                                                            <p className="text-white">{prog.language}</p>
+                                                {/* Programming */}
+                                                {generatedQuiz.programming.length > 0 && (
+                                                    <div className="space-y-8">
+                                                        <div className="flex items-center gap-4">
+                                                            <h3 className="text-xs font-black text-slate-300 uppercase tracking-[0.3em]">Algorithmic Section</h3>
+                                                            <div className="h-px flex-1 bg-slate-100" />
                                                         </div>
-                                                        <div className="bg-orange-900/20 p-3 rounded-lg border border-orange-500/30">
-                                                            <p className="text-xs text-orange-300 font-semibold">Constraints</p>
-                                                            <p className="text-white text-sm">{prog.constraints}</p>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                                        <div className="bg-white/5 p-4 rounded-lg border border-white/10">
-                                                            <p className="text-xs text-gray-400 font-semibold mb-2">Sample Input</p>
-                                                            <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">
-                                                                {prog.sampleInput}
-                                                            </pre>
-                                                        </div>
-                                                        <div className="bg-white/5 p-4 rounded-lg border border-white/10">
-                                                            <p className="text-xs text-gray-400 font-semibold mb-2">Sample Output</p>
-                                                            <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">
-                                                                {prog.sampleOutput}
-                                                            </pre>
-                                                        </div>
-                                                    </div>
-
-                                                    {prog.testCases.length > 0 && (
-                                                        <div className="bg-white/5 p-4 rounded-lg border border-white/10">
-                                                            <p className="text-xs text-gray-400 font-semibold mb-3">
-                                                                Test Cases ({prog.testCases.length})
-                                                            </p>
-                                                            <div className="space-y-2 max-h-60 overflow-y-auto">
-                                                                {prog.testCases.map((tc, tcIdx) => (
-                                                                    <div
-                                                                        key={tcIdx}
-                                                                        className="grid grid-cols-2 gap-3 p-3 bg-black/40 rounded border border-white/5"
-                                                                    >
-                                                                        <div>
-                                                                            <p className="text-xs text-cyan-400 mb-1">Input {tcIdx + 1}</p>
-                                                                            <pre className="text-xs text-gray-300 font-mono">
-                                                                                {tc.input}
-                                                                            </pre>
+                                                        {generatedQuiz.programming.map((prog, i) => (
+                                                            <div key={i} className="bg-white rounded-[32px] border border-slate-100 overflow-hidden shadow-sm">
+                                                                <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                                                                    <div className="flex items-center gap-4">
+                                                                        <div className="bg-slate-900 p-3 rounded-xl">
+                                                                            <Code className="w-5 h-5 text-[#FFB343]" />
                                                                         </div>
                                                                         <div>
-                                                                            <p className="text-xs text-emerald-400 mb-1">Output {tcIdx + 1}</p>
-                                                                            <pre className="text-xs text-gray-300 font-mono">
-                                                                                {tc.output}
+                                                                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none mb-1">{prog.language}</p>
+                                                                            <h4 className="text-xl font-medium text-slate-900">{prog.questionText}</h4>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="p-8 space-y-6">
+                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                                        <div className="space-y-3">
+                                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Sample Input</p>
+                                                                            <pre className="bg-slate-900 p-6 rounded-2xl text-slate-300 font-mono text-xs overflow-x-auto min-h-[100px] border border-slate-800">
+                                                                                {prog.sampleInput || "N/A"}
+                                                                            </pre>
+                                                                        </div>
+                                                                        <div className="space-y-3">
+                                                                            <p className="text-[10px] font-black text-[#FFB343] uppercase tracking-widest px-2">Expected Output</p>
+                                                                            <pre className="bg-slate-900 p-6 rounded-2xl text-[#FFB343]/80 font-mono text-xs overflow-x-auto min-h-[100px] border border-slate-800 shadow-inner">
+                                                                                {prog.sampleOutput || "N/A"}
                                                                             </pre>
                                                                         </div>
                                                                     </div>
-                                                                ))}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* No content warning */}
-                                {generatedQuiz.mcqs.length === 0 &&
-                                    generatedQuiz.descriptive.length === 0 &&
-                                    generatedQuiz.programming.length === 0 && (
-                                        <div className="bg-yellow-900/20 p-6 rounded-xl border border-yellow-500/30 text-center">
-                                            <AlertCircle className="h-12 w-12 text-yellow-400 mx-auto mb-3" />
-                                            <p className="text-yellow-300 font-semibold">
-                                                No structured quiz content was generated. Please try a different prompt.
-                                            </p>
-                                        </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </>
                                     )}
+                                </div>
                             </div>
-                        )}
-                    </div>
-                </main>
-            </div>
+
+                            {/* Sticky Bottom Input for Follow-up --- Refined for Dashboard */}
+                            <div className="sticky bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-gray-50/90 via-gray-50/50 to-transparent backdrop-blur-sm -mx-4 md:-mx-8">
+                                <div className="max-w-3xl mx-auto w-full">
+                                    <form onSubmit={generateQuiz} className="relative group">
+                                        <div className="bg-white rounded-[28px] border-2 border-slate-200 shadow-2xl p-2 flex items-center gap-4 focus-within:border-[#FFB343]/50 transition-all">
+                                            <input
+                                                type="text"
+                                                value={prompt}
+                                                onChange={(e) => setPrompt(e.target.value)}
+                                                placeholder="Refine or create new quiz..."
+                                                className="flex-1 px-4 py-4 text-sm font-medium bg-transparent text-slate-900 outline-none"
+                                            />
+                                            <button
+                                                type="submit"
+                                                disabled={!prompt.trim() || isGenerating}
+                                                className="bg-slate-900 text-white p-4 rounded-2xl hover:bg-[#FFB343] hover:text-slate-900 transition-all disabled:opacity-20"
+                                            >
+                                                {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 fill-current" />}
+                                            </button>
+                                        </div>
+                                    </form>
+                                    <p className="text-center mt-3 text-[10px] font-medium text-slate-400 uppercase tracking-widest">Powered by ProctorX Intelligent Core</p>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </main>
         </div>
     );
-}
+};

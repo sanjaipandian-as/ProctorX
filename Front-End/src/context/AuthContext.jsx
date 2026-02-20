@@ -1,7 +1,5 @@
 import { createContext, useState, useEffect, useContext } from "react";
-import * as jwtModule from "jwt-decode";
-
-const jwt_decode = jwtModule.default || jwtModule.jwtDecode;
+import { jwtDecode } from "jwt-decode";
 
 export const AuthContext = createContext(null);
 
@@ -12,7 +10,7 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem("token");
     if (token) {
       try {
-        const decodedToken = jwt_decode(token);
+        const decodedToken = jwtDecode(token);
         setUser({
           id: decodedToken.id,
           name: decodedToken.name,
@@ -38,24 +36,28 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (token) => {
-  try {
-    localStorage.setItem("token", token);
-    const decodedToken = jwt_decode(token);
+    try {
+      localStorage.setItem("token", token);
+      const decodedToken = jwtDecode(token);
 
-    const userData = {
-      id: decodedToken.id,
-      name: decodedToken.name || "",
-      email: decodedToken.email || "",
-      role: decodedToken.role || "teacher",
-    };
+      const userData = {
+        id: decodedToken.id,
+        name: decodedToken.name || "",
+        email: decodedToken.email || "",
+        role: decodedToken.role, // Removed default "teacher"
+      };
 
-    localStorage.setItem("userRole", userData.role);
-    setUser(userData);
-  } catch (err) {
-    console.error("Invalid token during login:", err);
-    logout();
-  }
-};
+      if (!userData.role) {
+        throw new Error("Invalid role in token");
+      }
+
+      localStorage.setItem("userRole", userData.role);
+      setUser(userData);
+    } catch (err) {
+      console.error("Invalid token during login:", err);
+      logout();
+    }
+  };
 
 
   const logout = () => {
