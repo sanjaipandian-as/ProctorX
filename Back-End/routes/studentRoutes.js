@@ -3,7 +3,7 @@ import Student from '../models/Student.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { getUpload } from '../middleware/uploadMiddleware.js';
-import { isAuthenticatedUser } from '../controllers/authController.js';
+import { isAuthenticatedUser, authorizeRoles } from '../controllers/authController.js';
 import Result from '../models/Result.js';
 import Quiz from '../models/Quiz.js';
 
@@ -134,7 +134,7 @@ Students.get("/me", isAuthenticatedUser, async (req, res) => {
   }
 });
 
-Students.get('/', async (req, res) => {
+Students.get('/', isAuthenticatedUser, authorizeRoles('teacher'), async (req, res) => {
   try {
     const students = await Student.find();
     res.status(200).json(students);
@@ -143,8 +143,12 @@ Students.get('/', async (req, res) => {
   }
 });
 
-Students.get('/:id', async (req, res) => {
+Students.get('/:id', isAuthenticatedUser, async (req, res) => {
   try {
+    // Only teachers can view any student, or students can view their own profile
+    if (req.user.role !== 'teacher' && req.user.id !== req.params.id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ message: "Student not found" });
 

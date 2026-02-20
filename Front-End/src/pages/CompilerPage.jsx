@@ -11,6 +11,9 @@ import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 
 import API from "../../Api";
+
+const COMPILER_URL = import.meta.env.VITE_COMPILER_URL || "http://localhost:4000";
+
 export default function CompilerPage() {
   const [language, setLanguage] = useState("python");
   const [timer, setTimer] = useState(0);
@@ -189,7 +192,7 @@ print(count_subarrays(nums, left, right))`);
     try {
       const selectedTestData = tests[selectedTest - 1];
 
-      const res = await axios.post("http://localhost:4000/run", {
+      const res = await axios.post(`${COMPILER_URL}/run`, {
         language,
         code,
         tests: [{ input: selectedTestData.input }]
@@ -227,7 +230,7 @@ print(count_subarrays(nums, left, right))`);
       if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
         setOutput("⏱️ Request Timeout\n\nThe server took too long to respond. Please try again.");
       } else if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
-        setOutput("🔌 Network Error\n\nCannot connect to the compiler service.\n\nPlease ensure:\n1. Compiler-End server is running on port 4000\n2. Run: cd c:\\ProctorX\\Compilor-End && npm start");
+        setOutput(`🔌 Network Error\n\nCannot connect to the compiler service at ${COMPILER_URL}.\n\nPlease ensure the compiler service is running.`);
       } else if (err.response) {
         const errorMsg = err.response.data?.error || err.response.statusText || "Unknown server error";
         setOutput(`❌ Server Error (${err.response.status}):\n\n${errorMsg}`);
@@ -249,7 +252,7 @@ print(count_subarrays(nums, left, right))`);
       // Prepare all tests for the backend
       const testsPayload = tests.map(t => ({ input: t.input }));
 
-      const res = await axios.post("http://localhost:4000/run", {
+      const res = await axios.post(`${COMPILER_URL}/run`, {
         language,
         code,
         tests: testsPayload
@@ -315,7 +318,7 @@ print(count_subarrays(nums, left, right))`);
       if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
         setOutput("⏱️ Request Timeout\n\nThe server took too long to respond. Please try again.");
       } else if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
-        setOutput("🔌 Network Error\n\nCannot connect to the compiler service.\n\nPlease ensure:\n1. Compiler-End server is running on port 4000\n2. Run: cd c:\\ProctorX\\Compilor-End && npm start");
+        setOutput(`🔌 Network Error\n\nCannot connect to the compiler service at ${COMPILER_URL}.\n\nPlease ensure the compiler service is running.`);
       } else if (err.response) {
         const errorMsg = err.response.data?.error || err.response.statusText || "Unknown server error";
         setOutput(`❌ Server Error (${err.response.status}):\n\n${errorMsg}`);

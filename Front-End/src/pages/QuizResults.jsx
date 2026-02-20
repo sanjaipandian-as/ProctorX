@@ -252,9 +252,14 @@ const QuestionCard = ({ response, index }) => {
               <span className="text-gray-400 italic">No answer submitted</span>
             )}
           </div>
-          <p className="mt-3 text-xs text-amber-600 flex items-center gap-1">
-            <ShieldCheck size={14} /> This answer will be evaluated manually by the instructor.
-          </p>
+          <div className={`mt-3 p-3 border rounded-lg flex items-center gap-2 text-xs font-medium ${response.isEvaluated ? 'bg-green-50 border-green-200 text-green-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+            <AlertCircle size={14} className="shrink-0" />
+            <span>
+              {response.isEvaluated
+                ? `Evaluation finalized: ${obtainedMarks}/${marks} marks.`
+                : `This answer is awaiting manual review. Initial marks: 0/${marks}`}
+            </span>
+          </div>
         </div>
       </motion.div>
     );
@@ -357,7 +362,7 @@ const QuizResultsPage = () => {
     hour12: true,
   });
 
-  const totalPossibleMarks = result.responses?.reduce((acc, r) => acc + (r.marks || 0), 0) || 0;
+  const totalPossibleMarks = result.totalPossibleMarks || result.responses?.reduce((acc, r) => acc + (r.marks || 0), 0) || 0;
   const scorePercentage = totalPossibleMarks > 0 ? (result.score / totalPossibleMarks) * 100 : 0;
   const incorrectValue = result.responses?.filter((r) =>
     r.questionType?.toLowerCase() !== 'descriptive' &&
@@ -401,7 +406,11 @@ const QuizResultsPage = () => {
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
             <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 text-center">Performance</h3>
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-1 gap-3">
-              <CircularStatCard label="Score" value={`${result.score}/${totalPossibleMarks}`} percentage={scorePercentage} />
+              <CircularStatCard
+                label={result.responses?.some(r => r.questionType?.toLowerCase() === 'descriptive') ? "Partial Score" : "Score"}
+                value={`${result.score}/${totalPossibleMarks}`}
+                percentage={scorePercentage}
+              />
               <CircularStatCard label="Accuracy" value={`${Math.round(result.accuracy)}%`} percentage={result.accuracy} />
               <CircularStatCard label="Attempted" value={`${attemptedCount}/${result.totalQuestions}`} percentage={attemptedPercentage} />
               <CircularStatCard label="Incorrect" value={incorrectValue} percentage={incorrectPercentage} color="#ef4444" />

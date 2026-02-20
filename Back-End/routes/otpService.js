@@ -2,8 +2,7 @@ import express from 'express';
 import { generateOTP } from '../utils/otp.js';
 import { sendEmail } from '../utils/emailService.js';
 import OTP from '../models/OTP.js';
-import { isAuthenticatedUser } from '../controllers/authController.js';
-import { authorizeRoles } from '../middleware/roleMiddleware.js';
+import { isAuthenticatedUser, authorizeRoles } from '../controllers/authController.js';
 
 const router = express.Router();
 
@@ -13,7 +12,7 @@ router.post('/send', isAuthenticatedUser, authorizeRoles('teacher'), async (req,
     if (!email) return res.status(400).json({ message: 'Email is required' });
 
     const otpCode = generateOTP();
-    const otpExpire = Date.now() + 5 * 60 * 1000; 
+    const otpExpire = Date.now() + 5 * 60 * 1000;
 
     try {
         await OTP.create({ email, code: otpCode, expiresAt: otpExpire });

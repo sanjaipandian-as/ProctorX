@@ -4,6 +4,7 @@ import Result from '../models/Result.js';
 import Quiz from '../models/Quiz.js';
 import Student from '../models/Student.js';
 import { isAuthenticatedUser } from '../controllers/authController.js';
+import axios from 'axios';
 
 const router = express.Router();
 
@@ -30,10 +31,10 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
       return res.status(400).json({ message: "You have already submitted this quiz." });
     }
 
-    let totalScore = 0;
+    const COMPILER_URL = process.env.COMPILER_URL || process.env.VITE_COMPILER_URL || "http://localhost:4000";
 
-    const detailedResponses = quiz.questions.map((question, index) => {
-      const ans = answers[index];
+    const detailedResponses = await Promise.all(quiz.questions.map(async (question, index) => {
+      const ans = answers[index] || {};
       const marks = Number(question.marks) || 0;
       let obtained = 0;
 
@@ -44,7 +45,6 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
           studentAnswerIndex === question.correctAnswer;
 
         obtained = isCorrect ? marks : 0;
-        totalScore += obtained;
 
         return {
           questionType: "mcq",
@@ -77,59 +77,67 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
 
       if (question.questionType === "coding") {
         const submittedCode = ans?.code || "";
+        const language = ans?.language || "python";
         const testcaseResults = [];
         let passedCount = 0;
 
         // Filter valid testcases just like the frontend
         const validTestcases = (question.testcases || []).filter(tc => tc.input || tc.output);
 
-        validTestcases.forEach((tc, idx) => {
-          let output = "";
-          // Safe guard against null/undefined 'ans' or missing 'outputs'/'results'
-          if (ans && ans.outputs && typeof ans.outputs[tc.input] !== 'undefined') {
-            output = String(ans.outputs[tc.input]);
-          } else if (ans && ans.results && Array.isArray(ans.results) && ans.results[idx]) {
-            output = String(ans.results[idx].output || "");
+        if (submittedCode.trim() && validTestcases.length > 0) {
+          try {
+            // SERVER-SIDE EVALUATION: Call the compiler service directly from backend
+            const compResponse = await axios.post(`${COMPILER_URL}/run`, {
+              language,
+              code: submittedCode,
+              tests: validTestcases.map(tc => ({ input: tc.input }))
+            }, { timeout: 15000 });
+
+            const results = compResponse.data.tests || [];
+
+            validTestcases.forEach((tc, idx) => {
+              const res = results[idx] || {};
+              const actualOutput = (res.stdout || "").trim();
+              const expectedOutput = (tc.output || "").trim();
+              const passed = !res.killed && res.code === 0 && actualOutput === expectedOutput;
+
+              if (passed) passedCount++;
+
+              testcaseResults.push({
+                input: tc.input,
+                expectedOutput: tc.output,
+                output: actualOutput,
+                passed,
+                error: res.stderr || (res.killed ? "Time Limit Exceeded" : "")
+              });
+            });
+          } catch (err) {
+            console.error("Evaluation Error for question", index, err.message);
+            // Fallback: If compiler is down, we cannot grade coding questions safely.
+            // Mark as 0 to be safe, or handle as pending.
+            validTestcases.forEach(tc => {
+              testcaseResults.push({
+                input: tc.input,
+                expectedOutput: tc.output,
+                output: "EVALUATION_ERROR",
+                passed: false
+              });
+            });
           }
-
-          const passed = output.trim() === (tc.output || "").trim();
-          if (passed) passedCount++;
-
-          testcaseResults.push({
-            input: tc.input,
-            expectedOutput: tc.output,
-            output,
-            passed
-          });
-        });
-
-        const totalTC = testcaseResults.length;
-
-        // Custom marking scheme based on passed test cases
-        const markingScheme = {
-          0: 0,
-          1: 1,
-          2: 3,
-          3: 4,
-          4: 5,
-          5: 6,
-          6: 8,
-          7: 9,
-          8: 10
-        };
-
-        if (totalTC <= 8) {
-          obtained = markingScheme[passedCount] ?? 0;
-        } else {
-          obtained = totalTC > 0 ? Math.round((passedCount / totalTC) * marks) : 0;
         }
 
-        totalScore += obtained;
+        const totalTC = testcaseResults.length;
+        if (totalTC > 0) {
+          const fraction = passedCount / totalTC;
+          obtained = Math.round(fraction * marks);
+        } else {
+          obtained = 0;
+        }
 
         return {
           questionType: "coding",
           questionText: question.questionText,
-          language: ans?.language || "python",
+          language,
           codeSubmitted: submittedCode,
           codeScore: obtained,
           testcases: testcaseResults,
@@ -148,11 +156,13 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
         marks,
         obtainedMarks: 0
       };
-    });
+    }));
+
+    const totalScore = detailedResponses.reduce((sum, res) => sum + (res.obtainedMarks || 0), 0);
 
     const totalQuestions = quiz.questions.length;
-    const maxMarks = quiz.questions.reduce((a, b) => a + Number(b.marks || 0), 0);
-    const accuracy = maxMarks > 0 ? (totalScore / maxMarks) * 100 : 0;
+    const totalPossibleMarks = quiz.questions.reduce((a, b) => a + Number(b.marks || 0), 0);
+    const accuracy = totalPossibleMarks > 0 ? (totalScore / totalPossibleMarks) * 100 : 0;
 
     const newResult = new Result({
       quiz: quiz._id,
@@ -160,6 +170,7 @@ router.post("/submit", isAuthenticatedUser, async (req, res) => {
       userModel: userRole,
       score: totalScore,
       totalQuestions,
+      totalPossibleMarks,
       accuracy,
       warnings: warnings || 0,
       penalties: penalties || 0,
@@ -229,61 +240,118 @@ router.get("/teacher-stats", isAuthenticatedUser, async (req, res) => {
 
     const totalAttempts = results.length;
 
-    // Calculate total possible marks across all attempts to get real average %
+    // Initialize Activity Data (Last 7 Days)
+    const activityData = [];
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      activityData.push({
+        day: days[d.getDay()],
+        date: d.toISOString().split('T')[0],
+        attempts: 0
+      });
+    }
+
+    // Initialize Global Score Distribution
+    const globalScoreDist = [
+      { name: '0-20%', count: 0 },
+      { name: '21-40%', count: 0 },
+      { name: '41-60%', count: 0 },
+      { name: '61-80%', count: 0 },
+      { name: '81-100%', count: 0 }
+    ];
+
+    // Calculate total possible marks across all attempts
     let totalMarksObtained = 0;
     let totalPossibleMarksAcrossAttempts = 0;
     let passingAttempts = 0;
 
+    // Get stats per quiz (Init)
+    const quizStats = {};
+    quizzes.forEach(q => {
+      quizStats[q._id.toString()] = {
+        attempts: 0,
+        totalMarks: 0,
+        totalPossible: 0,
+        passing: 0,
+        scoreDist: [0, 0, 0, 0, 0]
+      };
+    });
+
     results.forEach(r => {
       totalMarksObtained += (r.score || 0);
-      // We need to sum up marks from responses of each result
       const possible = r.responses?.reduce((acc, resp) => acc + (resp.marks || 0), 0) || 100;
       totalPossibleMarksAcrossAttempts += possible;
+
+      const percentage = possible > 0 ? (r.score / possible) * 100 : 0;
 
       if (possible > 0 && (r.score / possible) >= 0.5) {
         passingAttempts++;
       }
+
+      // Update Activity
+      const rDate = new Date(r.createdAt).toISOString().split('T')[0];
+      const activityEntry = activityData.find(ad => ad.date === rDate);
+      if (activityEntry) activityEntry.attempts++;
+
+      // Update Global Score Dist
+      if (percentage <= 20) globalScoreDist[0].count++;
+      else if (percentage <= 40) globalScoreDist[1].count++;
+      else if (percentage <= 60) globalScoreDist[2].count++;
+      else if (percentage <= 80) globalScoreDist[3].count++;
+      else globalScoreDist[4].count++;
+
+      // Update Per Quiz Stats
+      const qId = r.quiz.toString();
+      if (quizStats[qId]) {
+        quizStats[qId].attempts++;
+        quizStats[qId].totalMarks += (r.score || 0);
+        quizStats[qId].totalPossible += possible;
+        if (possible > 0 && (r.score / possible) >= 0.5) {
+          quizStats[qId].passing++;
+        }
+        // Per quiz buckets
+        if (percentage <= 20) quizStats[qId].scoreDist[0]++;
+        else if (percentage <= 40) quizStats[qId].scoreDist[1]++;
+        else if (percentage <= 60) quizStats[qId].scoreDist[2]++;
+        else if (percentage <= 80) quizStats[qId].scoreDist[3]++;
+        else quizStats[qId].scoreDist[4]++;
+      }
     });
 
-    const averageScore = totalPossibleMarksAcrossAttempts > 0
-      ? ((totalMarksObtained / totalPossibleMarksAcrossAttempts) * 100).toFixed(1)
+    const averageScoreVal = totalPossibleMarksAcrossAttempts > 0
+      ? ((totalMarksObtained / totalPossibleMarksAcrossAttempts) * 100)
       : 0;
+    const averageScore = (averageScoreVal > 100 ? 100 : averageScoreVal).toFixed(1);
 
     const successRate = totalAttempts > 0
       ? ((passingAttempts / totalAttempts) * 100).toFixed(1)
       : 0;
 
-    // Get stats per quiz
-    const quizStats = {};
-    quizzes.forEach(q => {
-      quizStats[q._id.toString()] = { attempts: 0, totalMarks: 0, totalPossible: 0, passing: 0 };
-    });
-
-    results.forEach(r => {
-      const qId = r.quiz.toString();
-      if (quizStats[qId]) {
-        quizStats[qId].attempts++;
-        quizStats[qId].totalMarks += (r.score || 0);
-        const possible = r.responses?.reduce((acc, resp) => acc + (resp.marks || 0), 0) || 100;
-        quizStats[qId].totalPossible += possible;
-        if (possible > 0 && (r.score / possible) >= 0.5) {
-          quizStats[qId].passing++;
-        }
-      }
-    });
-
-    // Format per-quiz stats
+    // Format per-quiz stats final output
     Object.keys(quizStats).forEach(id => {
       const s = quizStats[id];
-      s.avgScore = s.totalPossible > 0 ? ((s.totalMarks / s.totalPossible) * 100).toFixed(0) + "%" : "0%";
+      const avg = s.totalPossible > 0 ? ((s.totalMarks / s.totalPossible) * 100) : 0;
+      s.avgScore = (avg > 100 ? 100 : avg).toFixed(0) + "%";
+
       s.successRate = s.attempts > 0 ? ((s.passing / s.attempts) * 100).toFixed(0) + "%" : "0%";
+      s.formattedScoreDist = [
+        { name: '0-20%', count: s.scoreDist[0] },
+        { name: '21-40%', count: s.scoreDist[1] },
+        { name: '41-60%', count: s.scoreDist[2] },
+        { name: '61-80%', count: s.scoreDist[3] },
+        { name: '81-100%', count: s.scoreDist[4] }
+      ];
     });
 
     res.status(200).json({
       totalAttempts,
       averageScore: `${averageScore}%`,
       successRate: `${successRate}%`,
-      quizStats
+      quizStats,
+      activityData: activityData.map(({ day, attempts }) => ({ day, attempts })),
+      globalScoreDist
     });
   } catch (error) {
     res.status(500).json({ message: "Error fetching stats", error: error.message });
@@ -388,8 +456,9 @@ router.post("/:id/update-marks", isAuthenticatedUser, async (req, res) => {
     // Recalculate total score
     result.score = result.responses.reduce((acc, r) => acc + (r.obtainedMarks || 0), 0);
 
-    // Recalculate accuracy
+    // Recalculate accuracy & total marks
     const maxMarks = result.responses.reduce((acc, r) => acc + (r.marks || 0), 0);
+    result.totalPossibleMarks = maxMarks;
     result.accuracy = maxMarks > 0 ? (result.score / maxMarks) * 100 : 0;
 
     await result.save();

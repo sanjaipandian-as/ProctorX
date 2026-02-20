@@ -6,7 +6,7 @@ import Quiz from '../models/Quiz.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { getUpload } from '../middleware/uploadMiddleware.js';
-import { isAuthenticatedUser } from '../controllers/authController.js';
+import { isAuthenticatedUser, authorizeRoles } from '../controllers/authController.js';
 
 const Teachers = express.Router();
 const teacherUpload = getUpload('teachers');
@@ -81,7 +81,7 @@ Teachers.post('/login', async (req, res) => {
   }
 });
 
-Teachers.get('/details', async (req, res) => {
+Teachers.get('/details', isAuthenticatedUser, authorizeRoles('teacher'), async (req, res) => {
   try {
     const teachers = await Teacher.find();
     res.status(200).json(teachers);
@@ -90,8 +90,15 @@ Teachers.get('/details', async (req, res) => {
   }
 });
 
-Teachers.get('/get/:id', async (req, res) => {
+Teachers.get('/get/:id', isAuthenticatedUser, async (req, res) => {
   try {
+    // Only the teacher themselves or an admin (if existed) should see full teacher details
+    // Students might need name/email but that's handled in quiz populate
+    if (req.user.role !== 'teacher' || req.user.id !== req.params.id) {
+      // Return limited public info if it's a student asking?
+      // Actually, let's just restrict it to the teacher themselves for this specific route.
+      if (req.user.role === 'student') return res.status(403).json({ message: "Access denied" });
+    }
     const teacher = await Teacher.findById(req.params.id);
     if (!teacher) return res.status(404).json({ message: "Teacher not found" });
     res.status(200).json(teacher);

@@ -38,11 +38,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import API from "../../Api";
 import LOGO from "../assets/LOGO.png";
 import Proctor from "../assets/PROCTOR.png";
-import ProctoredX from "../assets/PrctoredX.png";
+import ProctoredX from "../assets/ProctoredX.png";
 import DescriptiveEditor from "../components/DescriptiveEditor";
 
+// Obfuscation helper (simple)
+const secureObject = (obj) => {
+  return JSON.parse(JSON.stringify(obj));
+};
+
 // Compiler Service Configuration
-const COMPILER_URL = "https://proctorx-1-9qkn.onrender.com";
+const COMPILER_URL = import.meta.env.VITE_COMPILER_URL || "https://proctorx-1-9qkn.onrender.com";
 
 
 const ProctoringFeed = ({ stream, type }) => {
@@ -318,7 +323,7 @@ const QuizFlow = () => {
 
   const [warnings, setWarnings] = useState(5);
   const warningsRef = useRef(warnings);
-  const [hasAcknowledgedBug, setHasAcknowledgedBug] = useState(false);
+
   const cameraFeedRef = useRef(null);
   const screenFeedRef = useRef(null);
   const inputRefs = useRef([]);
@@ -722,12 +727,56 @@ const QuizFlow = () => {
     };
     document.addEventListener("fullscreenchange", handleFullScreenChange);
 
+    // --- Anti-Cheat Event Listeners ---
+    const preventDefault = (e) => e.preventDefault();
+    const handleKeyDown = (e) => {
+      // Block F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+P, Ctrl+S
+      if (
+        e.keyCode === 123 ||
+        (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) ||
+        (e.ctrlKey && (e.keyCode === 85 || e.keyCode === 83 || e.keyCode === 80))
+      ) {
+        e.preventDefault();
+        toast.error("Inspector and shortcuts are disabled for security.", { icon: "🛡️" });
+        return false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && step === 4) {
+        reduceLife("Window focus lost or tab switched. This incident has been logged.", "Tab Switch Violation");
+      }
+    };
+
+    window.addEventListener("contextmenu", preventDefault);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("selectstart", preventDefault);
+    window.addEventListener("dragstart", preventDefault);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Basic DevTools Detection (brittle but deterrent)
+    const devToolsCheck = setInterval(() => {
+      const threshold = 160;
+      if (window.outerWidth - window.innerWidth > threshold || window.outerHeight - window.innerHeight > threshold) {
+        // DevTools likely open
+        if (step === 4 && !isAwaitingPermission) {
+          reduceLife("Detection: Inspection tools appear to be active. Please close all extra tools.", "Inspection Violation");
+        }
+      }
+    }, 2000);
+
     return () => {
       document.removeEventListener("fullscreenchange", handleFullScreenChange);
+      window.removeEventListener("contextmenu", preventDefault);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("selectstart", preventDefault);
+      window.removeEventListener("dragstart", preventDefault);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      clearInterval(devToolsCheck);
       stopCamera();
       stopScreenShare();
     };
-  }, [quizId, navigate, user, stopCamera, stopScreenShare]);
+  }, [quizId, navigate, user, stopCamera, stopScreenShare, step, reduceLife, isAwaitingPermission]);
 
   const handleSubmit = useCallback(async () => {
     if (isSubmittingRef.current) return;
@@ -1265,8 +1314,8 @@ const QuizFlow = () => {
               </div>
             ))}
           </div>
-          <div className="flex-1 flex flex-col p-6 sm:p-8 lg:p-12 bg-white">
-            <div className="flex-1">
+          <div className="flex-1 flex flex-col h-full bg-slate-50 relative select-none" onContextMenu={(e) => e.preventDefault()}>
+            {/* Top Banner */}   <div className="flex-1">
               {step === 1 && (
                 <div className="space-y-8 sm:space-y-10 text-gray-700">
                   <div>
@@ -1552,28 +1601,7 @@ const QuizFlow = () => {
                         </span>
                       </button>
                     </SetupCheckItem>
-                    <div className="flex items-start space-x-3 p-4 bg-yellow-100 border border-yellow-300 rounded-lg font-bold text-black">
-                      <input
-                        type="checkbox"
-                        id="bugAcknowledge"
-                        checked={hasAcknowledgedBug}
-                        onChange={(e) =>
-                          setHasAcknowledgedBug(e.target.checked)
-                        }
-                        className="mt-1 h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500 flex-shrink-0"
-                      />
-                      <label
-                        htmlFor="bugAcknowledge"
-                        className="text-sm text-black"
-                      >
-                        <strong>Important Notice:</strong> Hey folks, we are
-                        facing a bug. Before you begin, please{" "}
-                        <strong>hide the full-screen notification</strong> from
-                        your browser, or you might lose a life. Please tick this
-                        box to confirm you have done this. We will sort out the
-                        bug soon!
-                      </label>
-                    </div>
+
 
                     <SetupCheckItem
                       title="Security Code"
@@ -1600,7 +1628,8 @@ const QuizFlow = () => {
                                   !cameraEnabled ||
                                   (!isMobileDevice && !screenEnabled) ||
                                   !isFullScreen ||
-                                  !hasAcknowledgedBug
+                                  !isFullScreen
+
                                 }
                                 className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-gray-300 bg-white rounded text-center text-xl sm:text-2xl text-gray-900 disabled:bg-gray-100 focus:border-red-600 focus:ring-0"
                               />
@@ -1652,7 +1681,7 @@ const QuizFlow = () => {
                     !cameraEnabled ||
                     (!isMobileDevice && !screenEnabled) ||
                     !isFullScreen ||
-                    !hasAcknowledgedBug ||
+
                     (securityCode.join("").length !== 6 && !isOtpVerified)
                   }
                   className="px-4 py-2 sm:px-8 bg-red-600 text-white rounded font-medium hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 flex items-center space-x-2 text-sm sm:text-base"
@@ -1692,7 +1721,7 @@ const QuizFlow = () => {
 
       return (
         <>
-          <div className="flex flex-col min-h-screen bg-white text-gray-900 font-sans">
+          <div className="flex flex-col min-h-screen bg-white text-gray-900 font-sans select-none" onContextMenu={(e) => e.preventDefault()}>
             <Toaster position="top-center" reverseOrder={false} />
             <InstructionsModal
               isOpen={isInstructionsOpen}
@@ -2015,7 +2044,7 @@ const QuizFlow = () => {
                         <hr className="w-full lg:w-6/7" />
 
                         <div className="space-y-4 sm:space-y-6 pt-4 sm:pt-5">
-                          {(currentQuestion.questionType?.toLowerCase() === "descriptive" || (!currentQuestion.options || currentQuestion.options.length === 0 || currentQuestion.options.every(opt => !opt))) && (currentQuestion.questionType?.toLowerCase() !== "coding" && (!currentQuestion.testcases || currentQuestion.testcases.length === 0)) ? (
+                          {(currentQuestion.questionType?.toLowerCase() === "descriptive" || (!currentQuestion.options || currentQuestion.options.length === 0 || currentQuestion.options.every(opt => !opt))) ? (
                             <div className="lg:max-w-5xl">
                               <DescriptiveEditor
                                 value={answers[currentQuestionIndex]?.answer || ""}

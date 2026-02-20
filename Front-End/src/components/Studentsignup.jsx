@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { FaUser, FaEnvelope, FaLock, FaImage, FaArrowLeft } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import toast, { Toaster } from "react-hot-toast";
+import { motion } from "framer-motion";
+import { Toaster, toast } from "react-hot-toast";
 import API from "../../Api";
+import Proctor from "../assets/LOGO.png";
+import { Users, Upload, ArrowLeft } from "lucide-react";
 
 export default function StudentSignup() {
   const [name, setName] = useState("");
@@ -14,29 +16,18 @@ export default function StudentSignup() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const handleProfileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfilePicture(file);
+      setPreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleSignup = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      toast.custom(
-        (t) => (
-          <div
-            className={`fixed bottom-0 left-0 w-full bg-gray-900/95 backdrop-blur-lg border-t border-cyan-400/30 p-6 rounded-t-2xl shadow-lg text-center transform transition-all duration-500 ease-in-out ${
-              t.visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
-            }`}
-          >
-            <p className="text-red-400 text-lg mb-5 font-medium">
-              Passwords do not match
-            </p>
-            <button
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-lg font-semibold"
-              onClick={() => toast.dismiss(t.id)}
-            >
-              Try Again
-            </button>
-          </div>
-        ),
-        { position: "bottom-center", duration: 4000 }
-      );
+      toast.error("Passwords do not match");
       return;
     }
 
@@ -53,190 +44,167 @@ export default function StudentSignup() {
       });
 
       localStorage.setItem("token", res.data.token);
-
-      toast.custom(
-        (t) => (
-          <div
-            className={`fixed bottom-0 left-0 w-full bg-gray-900/95 backdrop-blur-lg border-t border-cyan-400/20 p-6 rounded-t-2xl shadow-lg text-center transform transition-all duration-500 ease-in-out ${
-              t.visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
-            }`}
-          >
-            <p className="text-white text-lg mb-5 font-medium">
-              Account created successfully! 🎉
-            </p>
-            <button
-              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white px-6 py-2 rounded-lg font-semibold"
-              onClick={() => {
-                toast.dismiss(t.id);
-                navigate("/Student-login");
-              }}
-            >
-              Continue
-            </button>
-          </div>
-        ),
-        { position: "bottom-center", duration: 5000 }
-      );
-
-      setTimeout(() => navigate("/Student-login"), 1500);
+      toast.success("Account created successfully! 🎉");
+      setTimeout(() => navigate("/student-login"), 1500);
     } catch (err) {
-      toast.custom(
-        (t) => (
-          <div
-            className={`fixed bottom-0 left-0 w-full bg-gray-900/95 backdrop-blur-lg border-t border-red-500/20 p-6 rounded-t-2xl shadow-lg text-center transform transition-all duration-500 ease-in-out ${
-              t.visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
-            }`}
-          >
-            <p className="text-red-400 text-lg mb-5 font-medium">
-              {err.response?.data?.message || "Error during signup"}
-            </p>
-            <button
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-lg font-semibold"
-              onClick={() => toast.dismiss(t.id)}
-            >
-              Try Again
-            </button>
-          </div>
-        ),
-        { position: "bottom-center", duration: 4000 }
-      );
+      toast.error(err.response?.data?.message || "Error during signup");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleProfileChange = (e) => {
-    const file = e.target.files[0];
-    setProfilePicture(file);
-    setPreview(file ? URL.createObjectURL(file) : null);
-  };
-
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#0e0e0e] px-4 sm:px-6 py-10 relative">
-      <Toaster position="bottom-center" />
-      <div className="w-full max-w-md sm:max-w-lg bg-gradient-to-br from-[#1a1a1a] to-[#262626] rounded-2xl shadow-2xl p-6 sm:p-8 md:p-10 border border-cyan-400/20">
-        <div className="text-center mb-6">
-          <h2 className="text-2xl sm:text-3xl font-bold text-cyan-400">
-            Student Signup
-          </h2>
-          <p className="text-gray-400 mt-1 text-sm sm:text-base">
-            Create your account to start learning
-          </p>
+    <div className="min-h-screen w-full flex bg-[#FDFCF4] overflow-hidden relative font-sans lg:justify-end">
+      <Toaster position="top-center" />
+
+      {/* Left Side Background Shape (Full Screen Curve) - Anchored Left */}
+      <div className="absolute top-0 left-0 w-[60%] h-full hidden lg:block pointer-events-none z-0">
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="w-full h-full text-[#FFB343] fill-current drop-shadow-[20px_0_30px_rgba(0,0,0,0.05)]"
+          style={{ transform: 'scaleX(-1)' }}
+        >
+          <path d="M 30 0 L 100 0 L 100 100 L 30 100 C -20 60 70 40 30 0 Z" />
+        </svg>
+      </div>
+
+      {/* Left Side Content - Now on Left */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1 }}
+        className="hidden lg:flex absolute top-0 left-0 w-[50%] h-full flex-col justify-center items-center text-white z-20"
+      >
+        <div className="absolute top-12 left-12 flex items-center gap-3">
+          <div className="bg-white/20 p-2 rounded-full backdrop-blur-sm">
+            <img src={Proctor} alt="Logo" className="w-8 h-8 rounded-full bg-white p-1" />
+          </div>
+          <span className="font-semibold tracking-wider text-lg opacity-90">ProctorX</span>
         </div>
 
-        <form onSubmit={handleSignup} className="space-y-5 sm:space-y-6">
-          <div>
-            <label className="block text-sm text-gray-300">Full Name</label>
-            <div className="relative mt-2">
-              <FaUser className="absolute left-3 top-3 text-cyan-400/70" />
+        <div className="text-center mb-16">
+          <h1 className="text-5xl font-bold mb-4 tracking-tight">Join Us!</h1>
+          <p className="text-white/90 text-xl font-light">Start your learning journey today</p>
+        </div>
+
+        {/* Illustration Container */}
+        <div className="w-[450px] h-[350px] flex items-center justify-center relative">
+          <div className="relative w-full h-full">
+            <div className="absolute inset-0 bg-white/5 rounded-full blur-3xl transform scale-75"></div>
+            <img
+              src="https://img.freepik.com/free-vector/creative-team-concept-illustration_114360-3944.jpg?w=740&t=st=1707202000~exp=1707202600~hmac=abc"
+              className="relative w-full h-full object-contain mix-blend-screen opacity-90 grayscale-[0.1]"
+              alt="Community Illustration"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
+              }}
+            />
+            <div className="hidden w-full h-full items-center justify-center text-white/80">
+              <Users size={180} strokeWidth={0.5} />
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Right Side: Form - Anchored Right */}
+      <motion.div
+        initial={{ x: 50, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.6 }}
+        className="w-full lg:w-1/2 h-full flex flex-col justify-center items-center p-8 sm:p-12 z-10 overflow-y-auto lg:ml-auto"
+      >
+        <div className="w-full max-w-md flex flex-col items-center">
+          <h2 className="text-4xl font-bold text-gray-800 mb-8 tracking-wide">Create Account</h2>
+
+          <form onSubmit={handleSignup} className="w-full space-y-8">
+
+            <div className="space-y-1 group">
               <input
                 type="text"
-                placeholder="Enter your name"
-                className="w-full pl-10 pr-3 py-3 rounded-lg bg-[#121212] border border-cyan-400/30 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 text-sm sm:text-base"
+                placeholder="Full Name"
+                className="w-full py-3 bg-transparent border-b border-gray-300 focus:border-[#FFB343] outline-none transition-colors text-gray-700 placeholder-gray-400 text-base font-medium"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm text-gray-300">Email</label>
-            <div className="relative mt-2">
-              <FaEnvelope className="absolute left-3 top-3 text-cyan-400/70" />
+            <div className="space-y-1 group">
               <input
                 type="email"
-                placeholder="Enter your email"
-                className="w-full pl-10 pr-3 py-3 rounded-lg bg-[#121212] border border-cyan-400/30 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 text-sm sm:text-base"
+                placeholder="Email Address"
+                className="w-full py-3 bg-transparent border-b border-gray-300 focus:border-[#FFB343] outline-none transition-colors text-gray-700 placeholder-gray-400 text-base font-medium"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm text-gray-300">Password</label>
-            <div className="relative mt-2">
-              <FaLock className="absolute left-3 top-3 text-cyan-400/70" />
+            <div className="space-y-1 group">
               <input
                 type="password"
-                placeholder="Enter your password"
-                className="w-full pl-10 pr-3 py-3 rounded-lg bg-[#121212] border border-cyan-400/30 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 text-sm sm:text-base"
+                placeholder="Password"
+                className="w-full py-3 bg-transparent border-b border-gray-300 focus:border-[#FFB343] outline-none transition-colors text-gray-700 placeholder-gray-400 text-base font-medium"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm text-gray-300">
-              Confirm Password
-            </label>
-            <div className="relative mt-2">
-              <FaLock className="absolute left-3 top-3 text-cyan-400/70" />
+            <div className="space-y-1 group">
               <input
                 type="password"
-                placeholder="Confirm your password"
-                className="w-full pl-10 pr-3 py-3 rounded-lg bg-[#121212] border border-cyan-400/30 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 text-sm sm:text-base"
+                placeholder="Confirm Password"
+                className="w-full py-3 bg-transparent border-b border-gray-300 focus:border-[#FFB343] outline-none transition-colors text-gray-700 placeholder-gray-400 text-base font-medium"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm text-gray-300">Profile Picture</label>
-            <div className="relative mt-2">
-              <FaImage className="absolute left-3 top-3 text-cyan-400/70" />
-              <input
-                type="file"
-                className="w-full pl-10 pr-3 py-3 rounded-lg bg-[#121212] border border-cyan-400/30 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 text-sm sm:text-base"
-                onChange={handleProfileChange}
-              />
+            {/* Profile Picture Upload */}
+            <div className="flex items-center gap-4 pt-2">
+              <div className="relative overflow-hidden w-16 h-16 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 group-hover:border-[#FFB343] transition-colors">
+                {preview ? (
+                  <img src={preview} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <Upload className="text-gray-400 w-6 h-6" />
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfileChange}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-gray-700">Profile Picture</span>
+                <span className="text-xs text-gray-400">Tap to upload (Optional)</span>
+              </div>
             </div>
-            {preview && (
-              <img
-                src={preview}
-                alt="Profile Preview"
-                className="mt-3 w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover mx-auto border border-cyan-400/30 shadow-md"
-              />
-            )}
-          </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-3 rounded-xl ${
-              loading
-                ? "bg-cyan-600 cursor-not-allowed"
-                : "bg-cyan-500 hover:bg-cyan-600"
-            } text-white font-semibold text-sm sm:text-lg shadow-lg transition-all transform hover:scale-[1.02]`}
-          >
-            {loading ? "Creating Account..." : "Sign Up"}
-          </button>
+            <div className="pt-6 text-center w-full">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full sm:w-auto px-16 py-4 bg-[#FFB343] text-white rounded-xl font-semibold hover:bg-[#E5A03C] transition-all transform active:scale-95 shadow-xl text-lg disabled:opacity-70"
+              >
+                {loading ? "Creating..." : "Sign Up"}
+              </button>
+            </div>
+          </form>
 
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="w-full py-3 rounded-xl bg-gray-800/30 text-gray-400 hover:text-white font-semibold text-sm sm:text-lg shadow-lg flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02]"
-          >
-            <FaArrowLeft /> Back
-          </button>
-        </form>
-
-        <div className="mt-6 text-center text-sm sm:text-base text-gray-400">
-          Already have an account?{" "}
           <a
             href="/student-login"
-            className="hover:underline hover:text-cyan-300"
+            className="mt-10 text-sm text-gray-400 hover:text-[#FFB343] transition-colors font-medium border-b border-transparent hover:border-gray-400 pb-0.5"
           >
-            Login
+            Already have an account? Login
           </a>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

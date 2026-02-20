@@ -12,9 +12,9 @@ const isAuthenticatedUser = async (req, res, next) => {
 
     let user;
     if (decoded.role === 'student') {
-      user = await Student.findById(decoded.id);
+      user = await Student.findById(decoded.id).select("-password");
     } else if (decoded.role === 'teacher') {
-      user = await Teacher.findById(decoded.id);
+      user = await Teacher.findById(decoded.id).select("-password");
     }
 
     if (!user) {
@@ -32,4 +32,15 @@ const isAuthenticatedUser = async (req, res, next) => {
   }
 };
 
-export { isAuthenticatedUser };
+const authorizeRoles = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        message: `Role: ${req.user.role} is not authorized to access this resource`
+      });
+    }
+    next();
+  };
+};
+
+export { isAuthenticatedUser, authorizeRoles };

@@ -35,7 +35,7 @@ function App() {
                 <Route path="/results/:resultId" element={<QuizResults />} />
                 <Route path="/student-profile" element={<StudentDashboard />} />
                 <Route path="/about-us" element={<About />} />
-                <Route path="/Compilor/:quizId" element={<CompilerPage />} />
+                <Route path="/compiler/:quizId" element={<CompilerPage />} />
                 <Route path="/descriptive-editor" element={<DescriptiveEditor />} />
                 <Route path="/ai-quiz" element={<AiQuiz />} />
 

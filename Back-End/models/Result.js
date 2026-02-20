@@ -20,6 +20,7 @@ const resultSchema = new mongoose.Schema(
     },
     score: { type: Number, required: true },
     totalQuestions: { type: Number, required: true },
+    totalPossibleMarks: { type: Number, required: true },
     accuracy: { type: Number, required: true },
     warnings: { type: Number, default: 0 },
     penalties: { type: Number, default: 0 },
