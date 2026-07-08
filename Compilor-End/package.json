@@ -1,21 +1,26 @@
 {
   "name": "compilor-end",
-  "version": "1.0.0",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "ProctorX Code Compiler Service — Production Grade",
+  "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "docker:build-images": "docker build -t proctorx-python ./dockerfiles/python && docker build -t proctorx-cpp ./dockerfiles/cpp && docker build -t proctorx-java ./dockerfiles/java && docker build -t proctorx-node ./dockerfiles/node",
+    "docker:build": "docker build -t proctorx-compiler ."
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["compiler", "proctorx", "code-execution"],
+  "author": "ProctorX Team",
   "license": "ISC",
-  "description": "",
   "dependencies": {
-    "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
     "fs-extra": "^11.3.2",
-    "uuid": "^13.0.0"
+    "helmet": "^8.1.0",
+    "socket.io": "^4.8.0",
+    "uuid": "^13.0.0",
+    "zod": "^3.25.0"
   }
 }

@@ -1,20 +1,16 @@
-import express from 'express';
-import Student from '../models/Student.js';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import { getUpload } from '../middleware/uploadMiddleware.js';
-import { isAuthenticatedUser, authorizeRoles } from '../controllers/authController.js';
-import Result from '../models/Result.js';
-import Quiz from '../models/Quiz.js';
-
+const express = require('express');
 const Students = express.Router();
+const Student = require('../models/Student');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const { getUpload } = require('../middleware/uploadMiddleware');
+const { isAuthenticatedUser } = require('../controllers/authController');
 const studentUpload = getUpload('students');
-// REMOVED: import responseSchema... (It was breaking the code and wasn't used)
+
 
 Students.post('/signup', studentUpload.single('profilePicture'), async (req, res) => {
   try {
     const { name, email, password } = req.body;
-
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Please provide all required fields" });
     }
@@ -42,19 +38,19 @@ Students.post('/signup', studentUpload.single('profilePicture'), async (req, res
       email: student.email,
       role: 'student'
     };
-
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.status(201).json({ student, token });
   } catch (error) {
+    console.error("Signup error:", error);
     res.status(500).json({ message: "Error creating student", error: error.message });
   }
 });
 
+
 Students.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-
     if (!email || !password) {
       return res.status(400).json({ message: "Please provide email and password" });
     }
@@ -75,53 +71,52 @@ Students.post('/login', async (req, res) => {
       email: student.email,
       role: 'student'
     };
-
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.status(200).json({ student, token });
   } catch (error) {
+    console.error("Login error:", error);
     res.status(500).json({ message: "Error logging in", error: error.message });
   }
 });
 
+
 Students.get('/dashboard', isAuthenticatedUser, async (req, res) => {
   try {
     const student = req.user;
-
     if (!student || student.role !== 'student') {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const results = await Result.find({
-      user: student._id,
-      userModel: "Student"
-    })
-      .populate("quiz", "title quizId questions")
-      .sort({ createdAt: -1 });
+    const Result = require('../models/Result'); // Ensure this model exists
+    const quizzes = await Result.find({ studentId: student._id })
+      .populate('quizId', 'title totalQuestions')
+      .sort({ completedAt: -1 });
 
-    const formattedQuizzes = results.map(r => ({
-      resultId: r._id,
-      quizTitle: r.quiz?.title || "Unknown Quiz",
-      quizId: r.quiz?.quizId || "",
-      score: r.score,
-      totalQuestions: r.totalQuestions,
-      accuracy: r.accuracy,
-      completedAt: r.completedAt
+    const formattedQuizzes = quizzes.map(q => ({
+      resultId: q._id,
+      quizTitle: q.quizId?.title || 'Unknown Quiz',
+      score: q.score,
+      totalQuestions: q.quizId?.totalQuestions || 0,
+      accuracy: q.accuracy || 0,
+      completedAt: q.completedAt,
     }));
 
     res.status(200).json({
       profile: {
         name: student.name,
         email: student.email,
-        profilePicture: student.profilePicture
+        profilePicture: student.profilePicture,
       },
-      quizzes: formattedQuizzes
+      quizzes: formattedQuizzes,
     });
   } catch (error) {
-    res.status(500).json({ message: "Error loading dashboard", error: error.message });
+    console.error('Dashboard error:', error);
+    res.status(500).json({ message: 'Error loading dashboard', error: error.message });
   }
 });
 
+// ------------------------- GET CURRENT STUDENT -------------------------
 Students.get("/me", isAuthenticatedUser, async (req, res) => {
   try {
     const student = await Student.findById(req.user._id);
@@ -130,41 +125,38 @@ Students.get("/me", isAuthenticatedUser, async (req, res) => {
     const { password, ...studentData } = student.toObject();
     res.status(200).json(studentData);
   } catch (error) {
+    console.error("Error fetching student profile:", error);
     res.status(500).json({ message: "Error fetching profile", error: error.message });
   }
 });
 
-Students.get('/', isAuthenticatedUser, authorizeRoles('teacher'), async (req, res) => {
+// ------------------------- GET ALL STUDENTS -------------------------
+Students.get('/', async (req, res) => {
   try {
     const students = await Student.find();
     res.status(200).json(students);
   } catch (error) {
+    console.error("Error fetching students:", error);
     res.status(500).json({ message: "Error fetching students", error: error.message });
   }
 });
 
-Students.get('/:id', isAuthenticatedUser, async (req, res) => {
+// ------------------------- GET STUDENT BY ID -------------------------
+Students.get('/:id', async (req, res) => {
   try {
-    // Only teachers can view any student, or students can view their own profile
-    if (req.user.role !== 'teacher' && req.user.id !== req.params.id) {
-      return res.status(403).json({ message: "Access denied" });
-    }
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ message: "Student not found" });
-
     res.status(200).json(student);
   } catch (error) {
+    console.error("Error fetching student:", error);
     res.status(500).json({ message: "Error fetching student", error: error.message });
   }
 });
 
+// ------------------------- UPDATE STUDENT -------------------------
 Students.put('/:id', isAuthenticatedUser, studentUpload.single('profilePicture'), async (req, res) => {
   try {
     const { name, email, password } = req.body;
-
-    if (req.params.id !== req.user.id) {
-      return res.status(403).json({ message: "You can only update your own profile." });
-    }
 
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ message: "Student not found" });
@@ -177,25 +169,23 @@ Students.put('/:id', isAuthenticatedUser, studentUpload.single('profilePicture')
     await student.save();
     res.status(200).json(student);
   } catch (error) {
+    console.error("Error updating student:", error);
     res.status(500).json({ message: "Error updating student", error: error.message });
   }
 });
 
+// ------------------------- DELETE STUDENT -------------------------
 Students.delete('/:id', isAuthenticatedUser, async (req, res) => {
   try {
-    if (req.params.id !== req.user.id) {
-      return res.status(403).json({ message: "You can only delete your own profile." });
-    }
-
     const student = await Student.findById(req.params.id);
     if (!student) return res.status(404).json({ message: "Student not found" });
 
     await Student.findByIdAndDelete(req.params.id);
-
     res.status(200).json({ message: "Student deleted successfully" });
   } catch (error) {
+    console.error("Error deleting student:", error);
     res.status(500).json({ message: "Error deleting student", error: error.message });
   }
 });
 
-export default Students;
+module.exports = Students;

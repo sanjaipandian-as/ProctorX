@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Student {
+  id           String      @id @default(uuid())
+  name         String
+  email        String      @unique
+  passwordHash String
+  profilePic   String?
+  isActive     Boolean     @default(true)
+  lastLogin    DateTime?
+  createdAt    DateTime    @default(now())
+  results      Result[]
+  warnings     Warning[]
+  classrooms   Classroom[]
+
+  @@index([isActive])
+}
+
+model Teacher {
+  id           String      @id @default(uuid())
+  name         String
+  email        String      @unique
+  passwordHash String
+  staffId      String      @unique
+  isApproved   Boolean     @default(false)
+  aiAccess     Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  quizzes      Quiz[]
+  classrooms   Classroom[]
+
+  @@index([isApproved])
+}
+
+model Admin {
+  id           String @id @default(uuid())
+  username     String @unique
+  passwordHash String
+}
+
+enum QuizStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+}
+
+model Quiz {
+  id                String      @id @default(uuid())
+  quizId            String      @unique
+  title             String
+  status            QuizStatus  @default(PENDING)
+  allowedStudents   String[]
+  durationInMinutes Int         @default(60)
+  otp               String?
+  otpExpiresAt      DateTime?
+  scheduledAt       DateTime?
+  autoStart         Boolean     @default(true)
+  startedAt         DateTime?
+  createdAt         DateTime    @default(now())
+  createdById       String
+  createdBy         Teacher     @relation(fields: [createdById], references: [id])
+  questions         Question[]
+  results           Result[]
+  classroomId       String?
+  classroom         Classroom?  @relation(fields: [classroomId], references: [id])
+
+  @@index([createdById])
+  @@index([status])
+  @@index([createdById, status])
+  @@index([otpExpiresAt])
+}
+
+model Classroom {
+  id          String    @id @default(uuid())
+  name        String
+  code        String    @unique
+  createdById String
+  teacher     Teacher   @relation(fields: [createdById], references: [id])
+  students    Student[]
+  quizzes     Quiz[]
+  createdAt   DateTime  @default(now())
+
+  @@index([createdById])
+}
+
+model Question {
+  id                String   @id @default(uuid())
+  questionText      String
+  options           String[]
+  correctAns        Int      @default(0)
+  order             Int
+  questionType      String   @default("mcq") // "mcq" | "descriptive" | "coding"
+  descriptiveAnswer String?
+  testcases         Json?    // Array of { input: string, output: string }
+  starterCode       Json?    // Object of { python: string, javascript: string, java: string, cpp: string }
+  marks             Int      @default(1)
+  quizId            String
+  quiz              Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([quizId, order])
+}
+
+model Result {
+  id             String     @id @default(uuid())
+  score          Int
+  totalQuestions Int
+  accuracy       Float
+  timeTaken      Int
+  warnings       Int        @default(0)
+  penalties      Int        @default(0)
+  completedAt    DateTime   @default(now())
+  quizId         String
+  quiz           Quiz       @relation(fields: [quizId], references: [id])
+  studentId      String
+  student        Student    @relation(fields: [studentId], references: [id])
+  responses      Response[]
+
+  @@unique([quizId, studentId])
+  @@index([quizId])
+  @@index([studentId])
+  @@index([completedAt])
+}
+
+model Response {
+  id            String  @id @default(uuid())
+  questionText  String
+  studentAnswer String
+  correctAnswer String
+  isCorrect     Boolean
+  resultId      String
+  result        Result  @relation(fields: [resultId], references: [id], onDelete: Cascade)
+}
+
+enum WarningType {
+  FULLSCREEN
+  TAB_SWITCH
+  FACE_MISSING
+  OTHER
+}
+
+model Warning {
+  id        String      @id @default(uuid())
+  type      WarningType
+  quizId    String
+  studentId String
+  student   Student     @relation(fields: [studentId], references: [id])
+  createdAt DateTime    @default(now())
+
+  @@index([quizId, studentId])
+  @@index([studentId])
+}

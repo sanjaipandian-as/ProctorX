@@ -5,10 +5,15 @@ import {
   ChevronUp,
   XCircle,
   CheckCircle,
-  Clock
+  Clock,
+  Loader2,
+  Zap,
+  Play,
+  RotateCcw,
 } from "lucide-react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
+import { io } from "socket.io-client";
 
 import API from "../../Api";
 
@@ -21,6 +26,7 @@ export default function CompilerPage() {
   const [warnings, setWarnings] = useState(5);
   const warningsRef = useRef(warnings);
   const toastIdRef = useRef(null);
+  const socketRef = useRef(null);
 
   const reduceLife = useCallback((message) => {
     if (toastIdRef.current) {
@@ -36,7 +42,6 @@ export default function CompilerPage() {
           { duration: 4000 }
         );
         warningsRef.current = 0;
-        // In a real scenario, we might redirect or block the UI here
       } else {
         toastIdRef.current = toast.error(
           `${message} You have ${newWarnings} lives left.`,
@@ -68,6 +73,28 @@ export default function CompilerPage() {
     };
   }, [reduceLife]);
 
+  // ─── Socket.IO Connection ───
+  useEffect(() => {
+    const socket = io(COMPILER_URL, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 3,
+    });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      console.log("[Compiler WS] Connected");
+    });
+
+    socket.on("disconnect", () => {
+      console.log("[Compiler WS] Disconnected");
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
   // Problem data from backend
   const [problem, setProblem] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -77,20 +104,17 @@ export default function CompilerPage() {
     python: "python",
     cpp: "cpp",
     java: "java",
-    javascript: "javascript"
+    javascript: "javascript",
   };
 
   const [code, setCode] = useState(`def count_subarrays(nums, left, right):
     count = 0
     n = len(nums)
     
-    # Check all possible subarrays
     for i in range(n):
         max_val = nums[i]
         for j in range(i, n):
             max_val = max(max_val, nums[j])
-            
-            # If max is in range [left, right], count this subarray
             if left <= max_val <= right:
                 count += 1
     
@@ -108,7 +132,9 @@ print(count_subarrays(nums, left, right))`);
   const [isRunningTests, setIsRunningTests] = useState(false);
   const [showResultsBanner, setShowResultsBanner] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
-  const [activeTab, setActiveTab] = useState("runTests"); // "run", "runTests", "hints"
+  const [activeTab, setActiveTab] = useState("runTests");
+  const [progress, setProgress] = useState({ completed: 0, total: 0 });
+  const [queuePosition, setQueuePosition] = useState(null);
 
   const tests = [
     { id: 1, input: "4\n2 3\n2 1 4 3", expected: "3" },
@@ -118,11 +144,10 @@ print(count_subarrays(nums, left, right))`);
     { id: 5, input: "5\n2 5\n1 2 5 3 4", expected: "14" },
     { id: 6, input: "6\n1 3\n1 3 2 3 1 2", expected: "21" },
     { id: 7, input: "7\n2 4\n2 4 3 2 4 3 2", expected: "28" },
-    { id: 8, input: "8\n1 5\n1 2 3 4 5 4 3 2", expected: "36" }
+    { id: 8, input: "8\n1 5\n1 2 3 4 5 4 3 2", expected: "36" },
   ];
 
-  // Calculate passed tests count
-  const passedTestsCount = testResults.filter(r => r.passed).length;
+  const passedTestsCount = testResults.filter((r) => r.passed).length;
   const totalTestsCount = tests.length;
 
   // Fetch problem from backend
@@ -130,29 +155,24 @@ print(count_subarrays(nums, left, right))`);
     const fetchProblem = async () => {
       try {
         setLoading(true);
-        // Fetch all public quizzes
-        const response = await API.get('/api/quizzes/public');
-
-        // Find first quiz with coding questions
-        const quizWithCoding = response.data.find(quiz =>
-          quiz.questions && quiz.questions.some(q => q.questionType === 'coding')
+        const response = await API.get("/api/quizzes/public");
+        const quizWithCoding = response.data.find(
+          (quiz) => quiz.questions && quiz.questions.some((q) => q.questionType === "coding")
         );
 
         if (quizWithCoding) {
-          // Get the first coding question
-          const codingQuestion = quizWithCoding.questions.find(q => q.questionType === 'coding');
+          const codingQuestion = quizWithCoding.questions.find((q) => q.questionType === "coding");
           setProblem(codingQuestion);
-
 
           if (codingQuestion.starterCode && codingQuestion.starterCode[language]) {
             setCode(codingQuestion.starterCode[language]);
           }
         } else {
-          setError('No coding problems found in the backend');
+          setError("No coding problems found in the backend");
         }
       } catch (err) {
-        console.error('Error fetching problem:', err);
-        setError('Failed to load problem from backend');
+        console.error("Error fetching problem:", err);
+        setError("Failed to load problem from backend");
       } finally {
         setLoading(false);
       }
@@ -173,7 +193,7 @@ print(count_subarrays(nums, left, right))`);
     let interval;
     if (timerRunning) {
       interval = setInterval(() => {
-        setTimer(prev => prev + 1);
+        setTimer((prev) => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
@@ -185,6 +205,7 @@ print(count_subarrays(nums, left, right))`);
     return `${mins}m ${secs}s`;
   };
 
+  // ─── Run Single Test (Sync) ───
   const runCode = async () => {
     setIsRunning(true);
     setOutput("⏳ Running your code...");
@@ -192,141 +213,224 @@ print(count_subarrays(nums, left, right))`);
     try {
       const selectedTestData = tests[selectedTest - 1];
 
-      const res = await axios.post(`${COMPILER_URL}/run`, {
-        language,
-        code,
-        tests: [{ input: selectedTestData.input }]
-      }, {
-        timeout: 15000
-      });
+      const res = await axios.post(
+        `${COMPILER_URL}/run`,
+        { language, code, tests: [{ input: selectedTestData.input }] },
+        { timeout: 30000 }
+      );
 
-      console.log("Compiler response:", res.data);
-
-      // Check for compilation errors
       if (res.data.compile && res.data.compile.code !== 0) {
         setOutput(`❌ Compilation Error:\n\n${res.data.compile.stderr || res.data.compile.stdout}`);
-        setIsRunning(false);
         return;
       }
 
-      // Get the output from the first test
       if (res.data.tests && res.data.tests.length > 0) {
         const testResult = res.data.tests[0];
 
         if (testResult.killed) {
-          setOutput("⏱️ Time Limit Exceeded\n\nYour code took too long to execute (>5 seconds).");
+          setOutput("⏱️ Time Limit Exceeded\n\nYour code took too long to execute (>10 seconds).");
         } else if (testResult.code !== 0) {
-          setOutput(`❌ Runtime Error:\n\n${testResult.stderr || testResult.stdout || "Unknown error occurred"}`);
+          setOutput(`❌ Runtime Error:\n\n${testResult.stderr || testResult.stdout || "Unknown error"}`);
         } else {
-          const outputText = testResult.stdout.trim();
-          setOutput(outputText || "(empty output)");
+          setOutput(testResult.stdout.trim() || "(empty output)");
         }
       } else {
-        setOutput("⚠️ No output received from the server.\n\nPlease check if the compiler service is running.");
+        setOutput("⚠️ No output received from the server.");
       }
     } catch (err) {
-      console.error("Error running code:", err);
-
-      if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
-        setOutput("⏱️ Request Timeout\n\nThe server took too long to respond. Please try again.");
-      } else if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
-        setOutput(`🔌 Network Error\n\nCannot connect to the compiler service at ${COMPILER_URL}.\n\nPlease ensure the compiler service is running.`);
-      } else if (err.response) {
-        const errorMsg = err.response.data?.error || err.response.statusText || "Unknown server error";
-        setOutput(`❌ Server Error (${err.response.status}):\n\n${errorMsg}`);
-      } else {
-        setOutput(`❌ Error:\n\n${err.message || "Failed to run code. Please try again."}`);
-      }
+      handleRunError(err);
     } finally {
       setIsRunning(false);
     }
   };
 
+  // ─── Run All Tests (Async with WebSocket) ───
   const runAllTests = async () => {
+    if (isRunningTests) return; // Debounce
+
     setIsRunningTests(true);
     setTestResults([]);
     setShowResultsBanner(false);
-    setOutput("⏳ Running all tests...");
+    setProgress({ completed: 0, total: tests.length });
+    setQueuePosition(null);
+    setOutput("⏳ Submitting job...");
 
     try {
-      // Prepare all tests for the backend
-      const testsPayload = tests.map(t => ({ input: t.input }));
+      // Submit async job
+      const res = await axios.post(
+        `${COMPILER_URL}/run/async`,
+        { language, code, tests: tests.map((t) => ({ input: t.input })) },
+        { timeout: 10000 }
+      );
 
-      const res = await axios.post(`${COMPILER_URL}/run`, {
-        language,
-        code,
-        tests: testsPayload
-      }, {
-        timeout: 30000 // 30 second timeout for all tests
-      });
+      const { jobId, position } = res.data;
+      setQueuePosition(position);
+      setOutput(`📋 Job queued (position #${position}). Waiting for results...`);
 
-      console.log("All tests response:", res.data);
-
-      // Check for compilation errors
-      if (res.data.compile && res.data.compile.code !== 0) {
-        setOutput(`❌ Compilation Error:\n\n${res.data.compile.stderr || res.data.compile.stdout}`);
-        setIsRunningTests(false);
+      // Subscribe to real-time updates
+      const socket = socketRef.current;
+      if (!socket?.connected) {
+        // Fallback to sync if WebSocket is not connected
+        await runAllTestsSync();
         return;
       }
 
-      // Process results
-      const results = [];
-      if (res.data.tests && res.data.tests.length > 0) {
-        console.log("Processing test results:", res.data.tests);
-        res.data.tests.forEach((testResult, index) => {
-          const expectedOutput = tests[index].expected.trim();
-          const actualOutput = testResult.stdout.trim();
+      socket.emit("job:subscribe", jobId);
 
-          console.log(`Test ${index + 1}:`, {
-            input: tests[index].input,
-            expected: expectedOutput,
-            actual: actualOutput,
-            rawStdout: testResult.stdout
-          });
+      // Collect results as they stream in
+      const streamedResults = [];
 
-          const passed = !testResult.killed &&
-            testResult.code === 0 &&
-            actualOutput === expectedOutput;
+      const cleanup = () => {
+        socket.off("job:started", onStarted);
+        socket.off("test:result", onTestResult);
+        socket.off("job:complete", onComplete);
+        socket.off("job:error", onError);
+      };
 
-          results.push({
-            id: tests[index].id,
-            passed,
-            output: actualOutput,
-            error: testResult.stderr,
-            killed: testResult.killed
-          });
-        });
-      }
+      const onStarted = (data) => {
+        if (data.jobId !== jobId) return;
+        setQueuePosition(null);
+        setOutput("⚡ Executing your code...");
+      };
 
-      setTestResults(results);
-      setShowResultsBanner(true);
+      const onTestResult = (data) => {
+        if (data.jobId !== jobId) return;
 
-      // Update output for the selected test
-      if (results[selectedTest - 1]) {
-        const result = results[selectedTest - 1];
-        if (result.killed) {
-          setOutput("⏱️ Time Limit Exceeded\n\nYour code took too long to execute (>5 seconds).");
-        } else if (result.error) {
-          setOutput(`❌ Runtime Error:\n\n${result.error}`);
-        } else {
-          setOutput(result.output || "(empty output)");
+        const expectedOutput = tests[data.index]?.expected?.trim();
+        const actualOutput = data.stdout?.trim() || "";
+        const passed = !data.killed && data.code === 0 && actualOutput === expectedOutput;
+
+        streamedResults[data.index] = {
+          id: data.index + 1,
+          passed,
+          output: actualOutput,
+          error: data.stderr,
+          killed: data.killed,
+          durationMs: data.durationMs,
+        };
+
+        const completedCount = streamedResults.filter(Boolean).length;
+        setProgress({ completed: completedCount, total: tests.length });
+        setTestResults([...streamedResults.filter(Boolean)]);
+        setOutput(`⚡ Running tests... (${completedCount}/${tests.length})`);
+      };
+
+      const onComplete = (data) => {
+        if (data.jobId !== jobId) return;
+        cleanup();
+        finalizeResults(data.result, streamedResults);
+      };
+
+      const onError = (data) => {
+        if (data.jobId !== jobId) return;
+        cleanup();
+        setOutput(`❌ Error: ${data.error}`);
+        setIsRunningTests(false);
+      };
+
+      socket.on("job:started", onStarted);
+      socket.on("test:result", onTestResult);
+      socket.on("job:complete", onComplete);
+      socket.on("job:error", onError);
+
+      // Safety timeout — fallback if WebSocket events don't fire
+      setTimeout(() => {
+        cleanup();
+        if (isRunningTests) {
+          // Try fetching result via HTTP
+          axios
+            .get(`${COMPILER_URL}/result/${jobId}`)
+            .then((r) => finalizeResults(r.data, streamedResults))
+            .catch(() => {
+              setOutput("⏱️ Request timed out. Please try again.");
+              setIsRunningTests(false);
+            });
         }
-      }
+      }, 65000);
     } catch (err) {
-      console.error("Error running tests:", err);
-
-      if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
-        setOutput("⏱️ Request Timeout\n\nThe server took too long to respond. Please try again.");
-      } else if (err.code === 'ERR_NETWORK' || err.message.includes('Network Error')) {
-        setOutput(`🔌 Network Error\n\nCannot connect to the compiler service at ${COMPILER_URL}.\n\nPlease ensure the compiler service is running.`);
-      } else if (err.response) {
-        const errorMsg = err.response.data?.error || err.response.statusText || "Unknown server error";
-        setOutput(`❌ Server Error (${err.response.status}):\n\n${errorMsg}`);
-      } else {
-        setOutput(`❌ Error:\n\n${err.message || "Failed to run tests. Please try again."}`);
-      }
-    } finally {
+      handleRunError(err);
       setIsRunningTests(false);
+    }
+  };
+
+  // ─── Sync Fallback (when WebSocket is unavailable) ───
+  const runAllTestsSync = async () => {
+    try {
+      setOutput("⏳ Running all tests...");
+      const res = await axios.post(
+        `${COMPILER_URL}/run`,
+        { language, code, tests: tests.map((t) => ({ input: t.input })) },
+        { timeout: 60000 }
+      );
+
+      finalizeResults(res.data, []);
+    } catch (err) {
+      handleRunError(err);
+      setIsRunningTests(false);
+    }
+  };
+
+  // ─── Finalize Results ───
+  const finalizeResults = (data, streamedResults) => {
+    if (data.compile && data.compile.code !== 0) {
+      setOutput(`❌ Compilation Error:\n\n${data.compile.stderr || data.compile.stdout}`);
+      setIsRunningTests(false);
+      return;
+    }
+
+    const results = [];
+    if (data.tests && data.tests.length > 0) {
+      data.tests.forEach((testResult, index) => {
+        const expectedOutput = tests[index]?.expected?.trim() || "";
+        const actualOutput = testResult.stdout?.trim() || "";
+        const passed = !testResult.killed && testResult.code === 0 && actualOutput === expectedOutput;
+
+        results.push({
+          id: tests[index].id,
+          passed,
+          output: actualOutput,
+          error: testResult.stderr,
+          killed: testResult.killed,
+          durationMs: testResult.durationMs,
+        });
+      });
+    }
+
+    setTestResults(results);
+    setShowResultsBanner(true);
+    setProgress({ completed: results.length, total: tests.length });
+
+    if (results[selectedTest - 1]) {
+      const result = results[selectedTest - 1];
+      if (result.killed) {
+        setOutput("⏱️ Time Limit Exceeded");
+      } else if (result.error) {
+        setOutput(`❌ Runtime Error:\n\n${result.error}`);
+      } else {
+        setOutput(result.output || "(empty output)");
+      }
+    }
+
+    setIsRunningTests(false);
+  };
+
+  // ─── Error Handler ───
+  const handleRunError = (err) => {
+    if (err.code === "ECONNABORTED" || err.message?.includes("timeout")) {
+      setOutput("⏱️ Request Timeout\n\nThe server took too long to respond.");
+    } else if (err.code === "ERR_NETWORK" || err.message?.includes("Network Error")) {
+      setOutput(`🔌 Network Error\n\nCannot connect to ${COMPILER_URL}.\nPlease ensure the compiler service is running.`);
+    } else if (err.response?.status === 503) {
+      setOutput("🔥 Server Busy\n\nThe server is handling too many requests. Please wait a few seconds and try again.");
+    } else if (err.response?.status === 429) {
+      setOutput("⏳ Rate Limited\n\nYou're sending too many requests. Please wait before trying again.");
+    } else if (err.response?.status === 400) {
+      const details = err.response.data?.details?.map((d) => d.message).join("\n") || err.response.data?.error;
+      setOutput(`⚠️ Validation Error:\n\n${details}`);
+    } else if (err.response) {
+      setOutput(`❌ Server Error (${err.response.status}):\n\n${err.response.data?.error || "Unknown error"}`);
+    } else {
+      setOutput(`❌ Error:\n\n${err.message || "Failed to run code."}`);
     }
   };
 
@@ -349,9 +453,6 @@ print(count_subarrays(nums, left, right))`);
         </div>
       </div>
 
-      {/* Header */}
-
-
       {/* Main Content */}
       <div className="flex-1 grid grid-cols-[35%_65%] overflow-hidden">
 
@@ -362,39 +463,45 @@ print(count_subarrays(nums, left, right))`);
             {/* Challenge Title */}
             <div className="pb-4 border-b border-gray-200">
               <h2 className="text-base font-semibold text-gray-500 mb-2">
-                {loading ? 'Loading...' : error ? 'Error' : 'Coding Challenge'}
+                {loading ? "Loading..." : error ? "Error" : "Coding Challenge"}
               </h2>
             </div>
 
-            {/* Problem Statement */}
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
                 <p className="mt-4 text-gray-600">Loading problem...</p>
               </div>
-            ) : error ? (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-red-700">{error}</p>
-                <p className="text-sm text-red-600 mt-2">Using fallback problem data.</p>
-              </div>
-            ) : problem ? (
-              <div className="space-y-4 text-[15px] leading-relaxed text-gray-700">
-                <div dangerouslySetInnerHTML={{ __html: problem.questionText }} />
-                <p className="text-sm text-gray-600">
-                  Marks: <span className="font-semibold">{problem.marks}</span>
-                </p>
-              </div>
             ) : (
-              <div className="space-y-4 text-[15px] leading-relaxed text-gray-700">
-                <p>
-                  You are given an integer array <VariableBox>nums</VariableBox> and two integers <VariableBox>left</VariableBox> and{" "}
-                  <VariableBox>right</VariableBox>. Your task is to return the number of contiguous non-empty subarrays such that the value of the maximum array element in that subarray is in the range{" "}
-                  <VariableBox>[left, right]</VariableBox>.
-                </p>
-                <p className="text-sm text-gray-600">
-                  The test cases are generated so that the answer will fit in a <span className="font-semibold">32-bit</span> integer.
-                </p>
-              </div>
+              <>
+                {error && (
+                  <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 mb-4 text-xs text-amber-800">
+                    <p className="font-bold">⚠️ Warning: {error}</p>
+                    <p className="mt-1">Using the default offline coding challenge (Count Subarrays).</p>
+                  </div>
+                )}
+                {problem ? (
+                  <div className="space-y-4 text-[15px] leading-relaxed text-gray-700">
+                    <div dangerouslySetInnerHTML={{ __html: problem.questionText }} />
+                    {problem.marks && (
+                      <p className="text-sm text-gray-600">
+                        Marks: <span className="font-semibold">{problem.marks}</span>
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4 text-[15px] leading-relaxed text-gray-700">
+                    <p>
+                      You are given an integer array <VariableBox>nums</VariableBox> and two integers <VariableBox>left</VariableBox> and{" "}
+                      <VariableBox>right</VariableBox>. Your task is to return the number of contiguous non-empty subarrays such that the value of the maximum array element in that subarray is in the range{" "}
+                      <VariableBox>[left, right]</VariableBox>.
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      The test cases are generated so that the answer will fit in a <span className="font-semibold text-gray-800">32-bit</span> integer.
+                    </p>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Input Format */}
@@ -425,16 +532,12 @@ print(count_subarrays(nums, left, right))`);
             {/* Example */}
             <div className="space-y-3 bg-white p-4 rounded-lg border border-gray-200">
               <h3 className="font-semibold text-base text-gray-800">Example 1</h3>
-
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Input:</p>
                 <pre className="bg-gray-50 p-3 rounded border border-gray-200 font-mono text-sm text-gray-800">
-                  4
-                  2 3
-                  2 1 4 3
+                  4{"\n"}2 3{"\n"}2 1 4 3
                 </pre>
               </div>
-
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Output:</p>
                 <pre className="bg-gray-50 p-3 rounded border border-gray-200 font-mono text-sm text-gray-800">3</pre>
@@ -450,27 +553,6 @@ print(count_subarrays(nums, left, right))`);
           {/* Editor Toolbar */}
           <div className="h-12 flex items-center justify-between border-b border-gray-200 bg-white px-0">
             <div className="flex h-full items-center">
-              {/* Run Button */}
-              {/* <button
-                onClick={runCode}
-                disabled={isRunning || isRunningTests}
-                className={`px-8 h-full text-[13px] font-bold transition-all flex items-center gap-2 border-r border-gray-300 ${isRunning || isRunningTests
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "bg-[#7d7d7d] text-white hover:bg-[#6d6d6d]"
-                  }`}
-              >
-                {isRunning ? (
-                  <span className="flex items-center gap-2">
-                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Running...
-                  </span>
-                ) : "Run"}
-              </button> */}
-
-              {/* <div className="h-full px-4 flex items-center border-r border-gray-300 hover:bg-gray-100 cursor-pointer">
-                <ChevronDown className="w-4 h-4 text-gray-600" />
-              </div> */}
-
               {/* Language Selector */}
               <div className="px-4">
                 <div className="relative">
@@ -490,6 +572,11 @@ print(count_subarrays(nums, left, right))`);
             </div>
 
             <div className="flex items-center gap-2 pr-4">
+              {/* Timer */}
+              <div className="flex items-center gap-1 text-xs text-gray-500 font-mono">
+                <Clock className="w-3.5 h-3.5" />
+                {formatTime(timer)}
+              </div>
               <button className="p-2 hover:bg-gray-200 rounded transition-colors">
                 <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
@@ -513,7 +600,7 @@ print(count_subarrays(nums, left, right))`);
                 automaticLayout: true,
                 scrollBeyondLastLine: false,
                 padding: { top: 16, bottom: 16 },
-                fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace"
+                fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace",
               }}
               onMount={(editor, monaco) => {
                 editor.onKeyDown((e) => {
@@ -524,13 +611,11 @@ print(count_subarrays(nums, left, right))`);
                   }
                 });
 
-                // Block the paste action specifically for context menu or other triggers
-                const clipboard = editor.getContribution('editor.contrib.clipboard');
+                const clipboard = editor.getContribution("editor.contrib.clipboard");
                 if (clipboard) {
-                  const originalPaste = clipboard._onPaste;
-                  clipboard._onPaste = function (e) {
+                  clipboard._onPaste = function () {
                     reduceLife("Pasting is not allowed in the editor.");
-                    return; // Block
+                    return;
                   };
                 }
               }}
@@ -545,24 +630,50 @@ print(count_subarrays(nums, left, right))`);
               <button
                 onClick={() => {
                   setActiveTab("run");
-                  runAllTests();
+                  runCode();
                 }}
-                className={`px-8 h-full text-[14px] font-bold transition-all border-r border-gray-300 ${activeTab === "run" ? "bg-white text-black" : "text-gray-900 hover:bg-gray-200"
-                  }`}
+                disabled={isRunning || isRunningTests}
+                className={`px-8 h-full text-[14px] font-bold transition-all border-r border-gray-300 flex items-center gap-2 ${
+                  isRunning || isRunningTests
+                    ? "text-gray-400 cursor-not-allowed"
+                    : activeTab === "run"
+                      ? "bg-white text-black"
+                      : "text-gray-900 hover:bg-gray-200"
+                }`}
               >
-                Run
+                {isRunning ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Running...</>
+                ) : (
+                  <><Play className="w-3.5 h-3.5" /> Run</>
+                )}
               </button>
               <button
                 onClick={() => {
                   setActiveTab("runTests");
                   runAllTests();
                 }}
-                className={`px-8 h-full text-[14px] font-bold transition-all border-r border-gray-300 ${activeTab === "runTests" ? "bg-[#e2e2ec] text-black" : "text-gray-900 hover:bg-gray-200"
-                  }`}
+                disabled={isRunning || isRunningTests}
+                className={`px-8 h-full text-[14px] font-bold transition-all border-r border-gray-300 flex items-center gap-2 ${
+                  isRunning || isRunningTests
+                    ? "text-gray-400 cursor-not-allowed"
+                    : activeTab === "runTests"
+                      ? "bg-[#e2e2ec] text-black"
+                      : "text-gray-900 hover:bg-gray-200"
+                }`}
               >
-                Run Tests
+                {isRunningTests ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {progress.completed}/{progress.total}</>
+                ) : (
+                  <><Zap className="w-3.5 h-3.5" /> Run Tests</>
+                )}
               </button>
 
+              {/* Queue Position Indicator */}
+              {queuePosition && (
+                <div className="px-4 text-xs text-indigo-600 font-semibold animate-pulse">
+                  Queue position: #{queuePosition}
+                </div>
+              )}
 
               <div
                 className="ml-auto px-4 h-full flex items-center cursor-pointer hover:bg-gray-200"
@@ -576,15 +687,14 @@ print(count_subarrays(nums, left, right))`);
               </div>
             </div>
 
-            {/* Test Results Area - Only visible when expanded */}
+            {/* Test Results Area */}
             <div className={`flex-1 flex flex-col min-h-0 overflow-hidden ${!isExpanded ? "hidden" : ""}`}>
 
-              {/* Test Results Summary Banner */}
+              {/* Results Summary Banner */}
               {showResultsBanner && testResults.length > 0 && (
-                <div className={`border-b border-gray-400 px-5 py-2 flex items-center justify-center relative flex-shrink-0 ${passedTestsCount === totalTestsCount
-                  ? 'bg-[#d4edda]' // Green background when all tests pass
-                  : 'bg-[#fce4ec]' // Pink background when some tests fail
-                  }`}>
+                <div className={`border-b border-gray-400 px-5 py-2 flex items-center justify-center relative flex-shrink-0 ${
+                  passedTestsCount === totalTestsCount ? "bg-[#d4edda]" : "bg-[#fce4ec]"
+                }`}>
                   <span className="text-[14px] font-bold text-gray-900">
                     You have passed {passedTestsCount}/{totalTestsCount} tests
                   </span>
@@ -600,19 +710,19 @@ print(count_subarrays(nums, left, right))`);
               <div className="flex-1 flex min-h-0 overflow-hidden">
                 {/* Test List Sidebar */}
                 <div className="w-52 border-r border-gray-300 bg-[#f5f5f5] flex flex-col flex-shrink-0">
-                  {/* Test Cases List - Scrollable */}
                   <div className="flex-1 overflow-y-auto px-0 pb-4 custom-scrollbar">
                     {tests.map((t) => {
-                      const result = testResults.find(r => r.id === t.id);
+                      const result = testResults.find((r) => r.id === t.id);
 
                       return (
                         <button
                           key={t.id}
                           onClick={() => setSelectedTest(t.id)}
-                          className={`w-full flex items-center justify-between px-4 py-8 text-left transition-all border-b border-gray-200 ${selectedTest === t.id
-                            ? "bg-white text-gray-950 font-bold border-l-4 border-l-[#7158a1] shadow-sm"
-                            : "text-gray-700 hover:bg-[#e9e9e9] font-medium"
-                            }`}
+                          className={`w-full flex items-center justify-between px-4 py-8 text-left transition-all border-b border-gray-200 ${
+                            selectedTest === t.id
+                              ? "bg-white text-gray-950 font-bold border-l-4 border-l-[#7158a1] shadow-sm"
+                              : "text-gray-700 hover:bg-[#e9e9e9] font-medium"
+                          }`}
                         >
                           <span className="text-[15px]">Test Case {t.id}</span>
 
@@ -636,7 +746,7 @@ print(count_subarrays(nums, left, right))`);
                 {/* Test Details */}
                 <div className="flex-1 p-6 overflow-y-auto bg-gray-50 custom-scrollbar">
                   <div className="max-w-5xl space-y-6 pb-8">
-                    {/* Input Section */}
+                    {/* Input */}
                     <div>
                       <h3 className="font-bold text-[17px] text-gray-900 mb-2 uppercase tracking-tight">Input</h3>
                       <div className="border-2 border-[#666666] rounded-none bg-white p-4 shadow-sm max-h-40 overflow-y-auto">
@@ -646,7 +756,7 @@ print(count_subarrays(nums, left, right))`);
                       </div>
                     </div>
 
-                    {/* Expected Output Section */}
+                    {/* Expected Output */}
                     <div>
                       <h3 className="font-bold text-[17px] text-gray-900 mb-2 uppercase tracking-tight">Expected Output</h3>
                       <div className="border-2 border-[#666666] rounded-none bg-white p-4 shadow-sm max-h-40 overflow-y-auto">
@@ -656,41 +766,48 @@ print(count_subarrays(nums, left, right))`);
                       </div>
                     </div>
 
-                    {/* Output Section */}
+                    {/* Actual Output */}
                     <div>
                       <h3 className="font-bold text-[17px] text-gray-900 mb-2 uppercase tracking-tight">Actual Output</h3>
                       {(() => {
-                        // Get the result for the currently selected test
-                        const currentResult = testResults.find(r => r.id === selectedTest);
+                        const currentResult = testResults.find((r) => r.id === selectedTest);
                         const actualOutput = currentResult?.output || output;
                         const expectedOutput = tests[selectedTest - 1].expected.trim();
                         const isMatched = actualOutput === expectedOutput;
                         const hasOutput = actualOutput && actualOutput.length > 0;
 
                         return (
-                          <div className={`border-2 p-5 min-h-[120px] shadow-md transition-colors ${hasOutput && isMatched
-                            ? "border-green-600 bg-green-50"
-                            : hasOutput
-                              ? "border-[#cc4444] bg-[#fff8f8]"
-                              : "border-[#666666] bg-white"
-                            }`}>
+                          <div className={`border-2 p-5 min-h-[120px] shadow-md transition-colors ${
+                            hasOutput && isMatched
+                              ? "border-green-600 bg-green-50"
+                              : hasOutput
+                                ? "border-[#cc4444] bg-[#fff8f8]"
+                                : "border-[#666666] bg-white"
+                          }`}>
                             <div className="flex justify-between items-center mb-2">
                               <span className={`text-[11px] font-bold uppercase ${hasOutput ? "text-gray-500" : "text-gray-400"}`}>
                                 Console Output
                               </span>
+                              {currentResult?.durationMs && (
+                                <span className="text-[10px] font-mono text-gray-400">
+                                  {currentResult.durationMs}ms
+                                </span>
+                              )}
                               {hasOutput && (
-                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${isMatched ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                                  }`}>
+                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
+                                  isMatched ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                }`}>
                                   {isMatched ? "MATCHED" : "MISMATCHED"}
                                 </span>
                               )}
                             </div>
-                            <pre className={`text-sm font-mono whitespace-pre-wrap leading-relaxed ${hasOutput && isMatched
-                              ? "text-green-800 font-bold"
-                              : hasOutput
-                                ? "text-red-800 font-bold"
-                                : "text-gray-500"
-                              }`}>
+                            <pre className={`text-sm font-mono whitespace-pre-wrap leading-relaxed ${
+                              hasOutput && isMatched
+                                ? "text-green-800 font-bold"
+                                : hasOutput
+                                  ? "text-red-800 font-bold"
+                                  : "text-gray-500"
+                            }`}>
                               {actualOutput || "No output yet. Click 'Run' or 'Run Tests' to see results."}
                             </pre>
                           </div>
@@ -699,9 +816,7 @@ print(count_subarrays(nums, left, right))`);
                     </div>
                   </div>
                 </div>
-
               </div>
-
             </div>
 
           </div>

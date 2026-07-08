@@ -1,253 +1,287 @@
 const fs = require("fs-extra");
-
 const path = require("path");
-path.normalize = p => p.replace(/\\/g, "/");
 const { spawn } = require("child_process");
 const { v4: uuidv4 } = require("uuid");
-const { getTmpDirPath, tmpRoot: RESOLVED_TMP_ROOT } = require("./utils");
+const config = require("./config");
+const { getJobDir, truncateOutput, cleanupJobDir, toDockerPath } = require("./utils");
 
-const DEFAULT_CPU = process.env.DEFAULT_CPU || "0.5";
-const DEFAULT_MEMORY_MB = parseInt(process.env.DEFAULT_MEMORY_MB || "256", 10);
-const DEFAULT_TIME_MS = parseInt(process.env.DEFAULT_TIME_MS || "10000", 10);
+// ─────────────────────────────────────────────
+//  LANGUAGE DEFINITIONS
+// ─────────────────────────────────────────────
 
-const IMAGE_PY = process.env.DOCKER_IMAGE_PYTHON || "proctorx-python";
-const IMAGE_CPP = process.env.DOCKER_IMAGE_CPP || "proctorx-cpp";
-const IMAGE_JAVA = process.env.DOCKER_IMAGE_JAVA || "proctorx-java";
-const IMAGE_NODE = process.env.DOCKER_IMAGE_NODE || "proctorx-node";
-// Self-healing: Default to "direct" if running on Render, otherwise "docker"
-const EXECUTION_MODE = process.env.EXECUTION_MODE || (process.env.RENDER ? "direct" : "docker");
+const LANGUAGES = {
+  python: {
+    image: config.images.python,
+    filename: "main.py",
+    compile: null,
+    run: ["python3", "main.py"],
+  },
+  javascript: {
+    image: config.images.node,
+    filename: "main.js",
+    compile: null,
+    run: ["node", "main.js"],
+  },
+  node: {
+    image: config.images.node,
+    filename: "main.js",
+    compile: null,
+    run: ["node", "main.js"],
+  },
+  cpp: {
+    image: config.images.cpp,
+    filename: "main.cpp",
+    compile: { cmd: "g++ -O2 -std=c++17 main.cpp -o main.out", out: "main.out" },
+    run: ["./main.out"],
+  },
+  "c++": {
+    image: config.images.cpp,
+    filename: "main.cpp",
+    compile: { cmd: "g++ -O2 -std=c++17 main.cpp -o main.out", out: "main.out" },
+    run: ["./main.out"],
+  },
+  java: {
+    image: config.images.java,
+    filename: "Main.java",
+    compile: { cmd: "javac Main.java", out: "Main.class" },
+    run: ["java", "-Xss64m", "Main"],
+  },
+};
 
+// ─────────────────────────────────────────────
+//  PROCESS EXECUTION
+// ─────────────────────────────────────────────
 
+/**
+ * Spawns a process and returns { code, signal, stdout, stderr, killed, durationMs }.
+ * Works for both Docker and direct mode.
+ */
+function execProcess(cmd, args, options, timeoutMs) {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const proc = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], ...options });
 
-async function writeFileSafe(dir, filename, content) {
-  await fs.outputFile(path.join(dir, filename), content, { mode: 0o644 });
+    let stdout = "";
+    let stderr = "";
+    let killed = false;
+
+    proc.stdout.on("data", (d) => {
+      stdout += d.toString();
+      // Live truncation — stop buffering if output exceeds limit
+      if (Buffer.byteLength(stdout, "utf8") > config.maxOutputBytes * 2) {
+        stdout = truncateOutput(stdout, config.maxOutputBytes);
+      }
+    });
+
+    proc.stderr.on("data", (d) => {
+      stderr += d.toString();
+      if (Buffer.byteLength(stderr, "utf8") > config.maxOutputBytes * 2) {
+        stderr = truncateOutput(stderr, config.maxOutputBytes);
+      }
+    });
+
+    const timer = setTimeout(() => {
+      killed = true;
+      proc.kill("SIGKILL");
+    }, timeoutMs);
+
+    proc.on("error", (err) => {
+      clearTimeout(timer);
+      resolve({
+        code: -1,
+        signal: null,
+        stdout: "",
+        stderr: `Execution Error: ${err.message}`,
+        killed: false,
+        durationMs: Date.now() - start,
+      });
+    });
+
+    proc.on("close", (code, signal) => {
+      clearTimeout(timer);
+      resolve({
+        code,
+        signal,
+        stdout: truncateOutput(stdout, config.maxOutputBytes),
+        stderr: truncateOutput(stderr, config.maxOutputBytes),
+        killed,
+        durationMs: Date.now() - start,
+      });
+    });
+  });
 }
 
-function dockerArgsForRun(jobDir, image, binds = [], memoryMb, cpus, extra = []) {
-  const args = [
-    "run",
-    "--rm",
+// ─────────────────────────────────────────────
+//  DOCKER COMMAND BUILDER
+// ─────────────────────────────────────────────
+
+function buildDockerArgs(image, hostDir, memoryMb, cpus, execCmd) {
+  const containerDir = "/workspace";
+  return [
+    "run", "--rm",
     "--network", "none",
     "--pids-limit", "64",
     "--security-opt", "no-new-privileges",
     "--cap-drop", "ALL",
     "--memory", `${memoryMb}m`,
     "--cpus", `${cpus}`,
-    "--workdir", "/workspace",
+    "--workdir", containerDir,
     "--user", "runner",
-    "--read-only=false"
+    "--read-only=false",
+    "-v", `${toDockerPath(hostDir)}:${containerDir}:rw`,
+    image,
+    "sh", "-c", execCmd,
   ];
-
-  binds.forEach(b => {
-    let hostPath = b.host.replace(/\\/g, "/");
-    if (hostPath[1] === ":") {
-      const drive = hostPath[0].toLowerCase();
-      hostPath = `/${drive}${hostPath.slice(2)}`;
-    }
-
-    args.push("-v", `${hostPath}:${b.container}:rw`);
-  });
-
-  args.push(image);
-  args.push(...extra);
-
-  return args;
 }
 
+// ─────────────────────────────────────────────
+//  SINGLE TEST RUNNER
+// ─────────────────────────────────────────────
 
-function execDocker(args, timeoutMs) {
-  return new Promise(resolve => {
-    const proc = spawn("docker", args, { stdio: ["ignore", "pipe", "pipe"] });
+async function runSingleTest(index, input, jobDir, langDef, timeLimitMs, memoryMb, cpus) {
+  const inputFile = `input_${index}.txt`;
+  await fs.outputFile(path.join(jobDir, inputFile), input || "", { mode: 0o644 });
 
-    let stdout = "";
-    let stderr = "";
+  const runCmd = langDef.run.map((c) => (c.includes(" ") ? `"${c}"` : c)).join(" ");
+  const timeoutSec = Math.max(1, Math.ceil(timeLimitMs / 1000));
 
-    proc.stdout.on("data", d => stdout += d.toString());
-    proc.stderr.on("data", d => stderr += d.toString());
+  let result;
 
-    let killed = false;
+  if (config.executionMode === "direct") {
+    const fullCmd = `timeout ${timeoutSec}s ${runCmd} < ${inputFile}`;
+    result = await execProcess("sh", ["-c", fullCmd], { cwd: jobDir }, timeLimitMs + 2000);
+  } else {
+    const execCmd = `timeout ${timeoutSec}s ${runCmd} < /workspace/${inputFile}`;
+    const args = buildDockerArgs(langDef.image, jobDir, memoryMb, cpus, execCmd);
+    result = await execProcess("docker", args, {}, timeLimitMs + 5000);
+  }
 
-    const timer = setTimeout(() => {
-      killed = true;
-      proc.kill("SIGKILL");
-    }, timeoutMs);
-
-    proc.on("error", err => {
-      clearTimeout(timer);
-      resolve({ code: -1, signal: null, stdout: "", stderr: `Docker Error: ${err.message}`, killed: false });
-    });
-
-    proc.on("close", (code, signal) => {
-      clearTimeout(timer);
-      resolve({ code, signal, stdout, stderr, killed });
-    });
-  });
+  return {
+    index,
+    input,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    code: result.code,
+    signal: result.signal,
+    killed: result.killed,
+    durationMs: result.durationMs,
+  };
 }
 
-function execDirect(cmd, args, options, timeoutMs) {
-  return new Promise(resolve => {
-    const proc = spawn(cmd, args, options);
+// ─────────────────────────────────────────────
+//  MAIN JOB RUNNER
+// ─────────────────────────────────────────────
 
-    let stdout = "";
-    let stderr = "";
-
-    proc.stdout.on("data", d => stdout += d.toString());
-    proc.stderr.on("data", d => stderr += d.toString());
-
-    let killed = false;
-
-    const timer = setTimeout(() => {
-      killed = true;
-      proc.kill("SIGKILL");
-    }, timeoutMs);
-
-    proc.on("error", err => {
-      clearTimeout(timer);
-      resolve({ code: -1, signal: null, stdout: "", stderr: `Execution Error: ${err.message}`, killed: false });
-    });
-
-    proc.on("close", (code, signal) => {
-      clearTimeout(timer);
-      resolve({ code, signal, stdout, stderr, killed });
-    });
-  });
-}
-
-async function runJob(payload) {
+/**
+ * Runs a complete code execution job.
+ * @param {Object} payload - { language, code, tests, timeLimitMs, memoryMb, cpus }
+ * @param {Function} onTestComplete - Optional callback: (testResult) => void
+ * @returns {Object} - { jobId, language, compile?, tests[] }
+ */
+async function runJob(payload, onTestComplete) {
   const jobId = uuidv4();
-  const jobDir = getTmpDirPath(jobId);
+  const jobDir = getJobDir(jobId);
   await fs.ensureDir(jobDir);
 
   const language = payload.language.toLowerCase();
+  const langDef = LANGUAGES[language];
+
+  if (!langDef) {
+    throw new Error(`Unsupported language: ${language}`);
+  }
+
   const tests = payload.tests?.length ? payload.tests : [{ input: "" }];
-  const timeLimitMs = payload.timeLimitMs || DEFAULT_TIME_MS;
-  const memoryMb = payload.memoryMb || DEFAULT_MEMORY_MB;
-  const cpus = payload.cpus || DEFAULT_CPU;
+  const timeLimitMs = payload.timeLimitMs || config.defaultTimeLimitMs;
+  const memoryMb = payload.memoryMb || config.defaultMemoryMb;
+  const cpus = payload.cpus || config.defaultCpus;
 
-  let sourceFilename, compileStep, runCmdTemplate, image;
+  // Write source code
+  await fs.outputFile(path.join(jobDir, langDef.filename), payload.code || "", { mode: 0o644 });
 
-  // PYTHON
-  if (language === "python") {
-    image = IMAGE_PY;
-    sourceFilename = "main.py";
-    await writeFileSafe(jobDir, sourceFilename, payload.code || "");
-    compileStep = null;
-    runCmdTemplate = ["python3", "main.py"];
-  }
-
-  // JAVASCRIPT
-  else if (language === "javascript" || language === "node") {
-    image = IMAGE_NODE;
-    sourceFilename = "main.js";
-    await writeFileSafe(jobDir, sourceFilename, payload.code || "");
-    compileStep = null;
-    runCmdTemplate = ["node", "main.js"];
-  }
-
-  // C++
-  else if (language === "cpp" || language === "c++") {
-    image = IMAGE_CPP;
-    sourceFilename = "main.cpp";
-
-    await writeFileSafe(jobDir, sourceFilename, payload.code || "");
-
-    compileStep = {
-      cmd: ["g++", "-O2", "main.cpp", "-std=c++17", "-o", "main.out"],
-      out: "main.out"
-    };
-
-    runCmdTemplate = ["./main.out"];
-  }
-
-  // JAVA
-  else if (language === "java") {
-    image = IMAGE_JAVA;
-    sourceFilename = "Main.java";
-
-    await writeFileSafe(jobDir, sourceFilename, payload.code || "");
-
-    compileStep = {
-      cmd: ["javac", "Main.java"],
-      out: "Main.class"
-    };
-
-    runCmdTemplate = ["java", "-Xss64m", "Main"];
-  }
-
-  else {
-    throw new Error("Unsupported language");
-  }
-
-  const bind = { host: jobDir, container: "/workspace" };
   const results = { jobId, language, tests: [] };
 
-  // COMPILATION
-  if (compileStep) {
-    const compileCmd = compileStep.cmd.join(" ");
-    let compileRes;
+  // ─── Compilation (if needed) ───
+  if (langDef.compile) {
+    let compileResult;
+    const compileTimeout = Math.max(timeLimitMs, 15000);
 
-    if (EXECUTION_MODE === "direct") {
-      compileRes = await execDirect("sh", ["-c", compileCmd], { cwd: jobDir }, Math.max(timeLimitMs, 10000));
+    if (config.executionMode === "direct") {
+      compileResult = await execProcess("sh", ["-c", langDef.compile.cmd], { cwd: jobDir }, compileTimeout);
     } else {
-      const args = dockerArgsForRun(
-        jobDir,
-        image,
-        [bind],
-        memoryMb,
-        cpus,
-        ["sh", "-c", compileCmd]
-      );
-      const compileTimeout = Math.max(timeLimitMs, 10000);
-      compileRes = await execDocker(args, compileTimeout);
+      const args = buildDockerArgs(langDef.image, jobDir, memoryMb, cpus, langDef.compile.cmd);
+      compileResult = await execProcess("docker", args, {}, compileTimeout);
     }
 
-    results.compile = compileRes;
+    results.compile = {
+      code: compileResult.code,
+      stdout: compileResult.stdout,
+      stderr: compileResult.stderr,
+      killed: compileResult.killed,
+      durationMs: compileResult.durationMs,
+    };
 
-    if (compileRes.code !== 0 || compileRes.stderr) {
-      await fs.remove(jobDir);
+    if (compileResult.code !== 0 || compileResult.killed) {
+      await cleanupJobDir(jobDir);
       return results;
     }
   }
 
-  // RUN TESTS
-  for (let i = 0; i < tests.length; i++) {
-    const t = tests[i];
-    await writeFileSafe(jobDir, `input_${i}.txt`, t.input || "");
+  // ─── Run Tests in Parallel ───
+  const parallelLimit = Math.min(config.maxParallelTests, tests.length);
 
-    const cmdParts = runCmdTemplate;
-    const runCmd = cmdParts.map(c => (c.includes(" ") ? `"${c}"` : c)).join(" ");
-    const timeoutSec = Math.max(1, Math.ceil(timeLimitMs / 1000));
+  // Semaphore-based parallel execution
+  let running = 0;
+  let nextIndex = 0;
+  const testResults = new Array(tests.length);
 
-    let execRes;
-    if (EXECUTION_MODE === "direct") {
-      // Use standard shell redirection in direct mode
-      const fullCmd = `timeout ${timeoutSec}s ${runCmd} < input_${i}.txt`;
-      execRes = await execDirect("sh", ["-c", fullCmd], { cwd: jobDir }, timeLimitMs + 2000);
-    } else {
-      const args = dockerArgsForRun(
-        jobDir,
-        image,
-        [bind],
-        memoryMb,
-        cpus,
-        ["sh", "-c", `timeout ${timeoutSec}s ${runCmd} < /workspace/input_${i}.txt`]
-      );
-      execRes = await execDocker(args, timeLimitMs + 5000);
+  await new Promise((resolve) => {
+    function launchNext() {
+      while (running < parallelLimit && nextIndex < tests.length) {
+        const i = nextIndex++;
+        running++;
+
+        runSingleTest(i, tests[i].input, jobDir, langDef, timeLimitMs, memoryMb, cpus)
+          .then((result) => {
+            testResults[i] = result;
+            if (onTestComplete) onTestComplete(result);
+            running--;
+            if (nextIndex >= tests.length && running === 0) {
+              resolve();
+            } else {
+              launchNext();
+            }
+          })
+          .catch((err) => {
+            testResults[i] = {
+              index: i,
+              input: tests[i].input,
+              stdout: "",
+              stderr: `Internal Error: ${err.message}`,
+              code: -1,
+              signal: null,
+              killed: false,
+              durationMs: 0,
+            };
+            if (onTestComplete) onTestComplete(testResults[i]);
+            running--;
+            if (nextIndex >= tests.length && running === 0) {
+              resolve();
+            } else {
+              launchNext();
+            }
+          });
+      }
     }
 
-    results.tests.push({
-      index: i,
-      input: t.input,
-      stdout: execRes.stdout,
-      stderr: execRes.stderr,
-      code: execRes.code,
-      signal: execRes.signal,
-      killed: execRes.killed
-    });
-  }
+    launchNext();
+  });
 
-  await fs.remove(jobDir);
+  results.tests = testResults;
+
+  // ─── Cleanup ───
+  await cleanupJobDir(jobDir);
+
   return results;
 }
 
-module.exports = { runJob, EXECUTION_MODE, RESOLVED_TMP_ROOT };
+module.exports = { runJob, LANGUAGES };
