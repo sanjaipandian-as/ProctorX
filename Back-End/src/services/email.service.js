@@ -13,6 +13,11 @@ const transporter = nodemailer.createTransport({
 });
 
 async function sendEmail({ to, subject, html }) {
+  // Skip actual email sending in test mode
+  if (process.env.NODE_ENV === 'test') {
+    return true;
+  }
+
   try {
     const info = await transporter.sendMail({
       from: `"${env.EMAIL_FROM.split('@')[0]}" <${env.EMAIL_FROM}>`,

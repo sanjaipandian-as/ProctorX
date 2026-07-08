@@ -9,7 +9,10 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "migrate:mongo": "node src/scripts/migrate-mongo-to-pg.js"
+    "migrate:mongo": "node src/scripts/migrate-mongo-to-pg.js",
+    "test": "cross-env NODE_ENV=test DATABASE_URL=postgresql://test:test@localhost:5432/proctorx_test JWT_SECRET=testsecret jest --runInBand --forceExit",
+    "test:coverage": "cross-env NODE_ENV=test DATABASE_URL=postgresql://test:test@localhost:5432/proctorx_test JWT_SECRET=testsecret jest --runInBand --forceExit --coverage",
+    "test:watch": "cross-env NODE_ENV=test DATABASE_URL=postgresql://test:test@localhost:5432/proctorx_test JWT_SECRET=testsecret jest --watch"
   },
   "keywords": [
     "proctorx",
@@ -42,8 +45,11 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
+    "jest": "^29.7.0",
     "mongoose": "^8.18.0",
     "nodemon": "^3.1.10",
-    "prisma": "^5.22.0"
+    "prisma": "^5.22.0",
+    "supertest": "^7.0.0"
   }
 }
