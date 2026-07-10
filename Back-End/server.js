@@ -1,83 +1,52 @@
-import express from 'express';
-import mongoose from 'mongoose';
-import path from 'path';
-import dotenv from 'dotenv';
-import cors from 'cors';
-import { fileURLToPath } from 'url';
-import connectDB from './config/db.js';
+const http = require('http');
+const socketIo = require('socket.io');
+const app = require('./src/app');
+const env = require('./src/config/env');
+const prisma = require('./src/config/database');
+const registerSocketHandlers = require('./src/sockets/index');
+const logger = require('./src/utils/logger');
+const bcrypt = require('bcryptjs');
+const { startScheduler } = require('./src/config/scheduler');
 
-import studentRoutes from './routes/studentRoutes.js';
-import teacherRoutes from './routes/teacherRoutes.js';
-import otpService from './routes/otpService.js';
-import quizRoutes from './routes/quizzRoutes.js';
-import resultRoutes from './routes/resultRoutes.js';
-import aiQuizRoutes from './routes/aiQuizRoutes.js';
-import monitorRoutes from './monitoring/monitorRoutes.js';
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: env.FRONTEND_URL,
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Attach io to request object so we can trigger socket actions inside services/controllers
+app.set('io', io);
 
-dotenv.config();
-// Production: Avoid logging environment status to prevent info leakage
-if (process.env.NODE_ENV === 'development') {
-  console.log("Cloudinary name:", process.env.CLOUDINARY_CLOUD_NAME ? "Loaded ✅" : "Missing ❌");
-  console.log("Gemini API Key:", process.env.Gemini_API_Key ? "Loaded ✅" : "Missing ❌");
+// Register WebSocket namespaces and room behaviors
+registerSocketHandlers(io);
+
+// Start scheduler loop
+startScheduler(io);
+
+// Seed default administrator if not present
+async function seedAdmin() {
+  try {
+    const adminCount = await prisma.admin.count();
+    if (adminCount === 0) {
+      const passwordHash = await bcrypt.hash(env.ADMIN_PASSWORD, 10);
+      await prisma.admin.create({
+        data: {
+          username: env.ADMIN_USERNAME,
+          passwordHash
+        }
+      });
+      logger.info('Seeding: Default admin credentials registered in PostgreSQL.');
+    }
+  } catch (error) {
+    logger.error('Failed to seed default administrator credentials:', error);
+  }
 }
 
-const app = express();
-
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "https://proctorxofficial.vercel.app",
-];
-
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
-
-
-app.use(express.json());
-
-
-
-app.use('/teachers', teacherRoutes);
-app.use('/students', studentRoutes);
-app.use('/otp', otpService);
-app.use('/api/quizzes', quizRoutes);
-app.use('/api/results', resultRoutes);
-app.use('/api/ai', aiQuizRoutes);
-app.use('/api/monitoring', monitorRoutes);
-
-const PORT = process.env.PORT || 8000;
-
-// Connect to MongoDB
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-  });
+// Start listener
+server.listen(env.PORT, async () => {
+  logger.info(`ProctorX Backend Server listening on port ${env.PORT} in ${env.NODE_ENV} environment.`);
+  await seedAdmin();
 });
-
-
-// Final Catch-all Error Handler
-app.use((err, req, res, next) => {
-  console.error(`Status: ${err.status || 500}, Error: ${err.message}`);
-  res.status(err.status || 500).json({
-    message: err.message || "Internal Server Error",
-    // Only send stack trace in development
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-  });
-});
-
-export default app;

@@ -1,21 +1,20 @@
 import { Topbar } from "./components/Topbar";
 import React, { useState, useEffect } from "react";
-import { ArrowRight, Sparkles, Shield, Zap, Award, BookOpen, Users, Star, Clock, Globe, ChevronRight, TrendingUp, CheckCircle2, Play, BarChart3, ShieldCheck, User, Key } from "lucide-react";
-import { Button } from "./ui/Button";
+import { ArrowRight, ShieldCheck, Zap, BarChart3, User, Key, Play } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { Toaster } from "react-hot-toast";
 import API from "../Api";
 import LOGO from "./assets/LOGO.png";
 
 const GlassCard = ({ children, className = "", delay = 0 }) => (
   <motion.div
-    initial={{ opacity: 0, y: 20 }}
+    initial={{ opacity: 0, y: 15 }}
     whileInView={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}
-    viewport={{ once: true, margin: "-100px" }}
-    className={`relative overflow-hidden backdrop-blur-md bg-white/70 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[32px] ${className}`}
+    transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
+    viewport={{ once: true, margin: "-50px" }}
+    className={`bg-white border border-gray-200 shadow-sm rounded-2xl overflow-hidden ${className}`}
   >
-    <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent pointer-events-none" />
     <div className="relative z-10">{children}</div>
   </motion.div>
 );
@@ -25,7 +24,6 @@ const Dashboard = () => {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -64,69 +62,70 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="bg-white min-h-screen text-gray-900 selection:bg-orange-100 selection:text-orange-900 font-sans antialiased">
+    <div
+      className="bg-gray-50 min-h-screen text-gray-900 font-sans antialiased overflow-x-hidden selection:bg-black selection:text-white"
+      style={{ fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" }}
+    >
       <Toaster position="bottom-center" />
       <Topbar />
 
       {/* Hero Section */}
-      <section className="relative pt-44 pb-32 px-6 overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(255,179,67,0.08),transparent_50%)]">
-        <div
-          className="absolute pointer-events-none transition-transform duration-300 ease-out opacity-40"
-          style={{
-            left: mousePosition.x - 250,
-            top: mousePosition.y - 250,
-            width: '500px',
-            height: '500px',
-            background: 'radial-gradient(circle, rgba(255,179,67,0.15) 0%, transparent 70%)',
-          }}
-        />
+      <section className="relative pt-40 pb-24 px-6 overflow-hidden bg-white min-h-[75vh] flex flex-col justify-center rounded-b-[48px] shadow-sm">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          className="absolute inset-0 w-full h-full object-cover z-0 opacity-100"
+        >
+          <source src="/hills.mp4" type="video/mp4" />
+        </video>
 
-        <div className="max-w-7xl mx-auto relative z-10">
+        <div className="max-w-6xl mx-auto relative z-10 border-b border-gray-100/50 pb-8">
           <div className="flex flex-col items-center text-center">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-orange-50 border border-orange-100 mb-8"
+              transition={{ duration: 0.5 }}
+              className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 mb-6"
             >
-              <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-600">The Future of Assessment</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
+              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-600">The Future of Assessment</span>
             </motion.div>
 
             <motion.h1
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="text-[clamp(3.5rem,10vw,8rem)] font-black tracking-tighter leading-[0.85] mb-8 text-gray-900"
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="text-4xl md:text-6xl font-extrabold tracking-tight leading-[1.1] mb-6 text-black"
             >
-              The Science of <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFB343] to-[#FF9F2E] italic serif-font px-2">
-                Excellence
-              </span>
+              The Science of <br className="hidden md:block" />
+              <span className="text-gray-400"> Excellence</span>
             </motion.h1>
 
             <motion.p
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.1 }}
-              className="max-w-2xl text-xl text-gray-500 font-medium leading-relaxed mb-12"
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="max-w-xl text-sm md:text-base text-gray-500 font-medium leading-relaxed mb-8"
             >
               ProctorX combines high-fidelity monitoring with intelligent analytics
               to deliver a seamless, high-performance examination experience.
             </motion.p>
 
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="flex flex-col sm:flex-row items-center gap-6"
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="flex flex-col sm:flex-row items-center gap-4"
             >
               <Link to="/student-login">
                 <button
-                  className="px-12 py-5 bg-[#FFB343] text-white rounded-[24px] font-black text-sm uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-orange-500/20 group"
+                  className="px-8 py-3.5 bg-black text-white rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-gray-800 transition-all shadow-sm group flex items-center justify-center"
                 >
                   Access Portal
-                  <ArrowRight className="inline-block ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight className="inline-block ml-2 w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </button>
               </Link>
               <button
@@ -134,12 +133,12 @@ const Dashboard = () => {
                   const section = document.getElementById("features-grid");
                   if (section) section.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="flex items-center space-x-3 px-8 py-5 text-gray-900 font-bold hover:text-[#FFB343] transition-colors"
+                className="flex items-center space-x-2.5 px-6 py-3.5 text-gray-600 font-bold hover:text-black transition-colors text-xs uppercase tracking-wider"
               >
-                <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center group">
-                  <Play className="w-4 h-4 fill-current text-orange-400 group-hover:scale-110 transition-transform" />
+                <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center group border border-gray-200">
+                  <Play className="w-3 h-3 fill-current text-black group-hover:scale-110 transition-transform" />
                 </div>
-                <span>Watch Product Tour</span>
+                <span>Watch Tour</span>
               </button>
             </motion.div>
           </div>
@@ -147,31 +146,31 @@ const Dashboard = () => {
       </section>
 
       {/* Stats Section */}
-      <section className="px-6 py-12 relative">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+      <section className="px-6 pt-6 pb-12 relative bg-white border-b border-gray-100">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             { label: "Active Institutions", value: "250+", sub: "Global Partners" },
             { label: "Assessments Hosted", value: "1.2M", sub: "Last 12 Months" },
             { label: "Platform Uptime", value: "99.9%", sub: "Enterprise Grade" }
           ].map((stat, i) => (
-            <GlassCard key={i} delay={i * 0.1} className="p-10 border-orange-50 shadow-none hover:shadow-xl hover:shadow-orange-500/5 transition-all group">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400 mb-4">{stat.label}</h4>
-              <p className="text-5xl font-black tracking-tighter text-gray-900 mb-2 group-hover:text-[#FFB343] transition-colors">{stat.value}</p>
-              <p className="text-gray-400 font-medium">{stat.sub}</p>
+            <GlassCard key={i} delay={i * 0.1} className="p-6 hover:shadow-md transition-all group">
+              <h4 className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-3">{stat.label}</h4>
+              <p className="text-3xl font-extrabold tracking-tight text-black mb-1">{stat.value}</p>
+              <p className="text-gray-500 font-medium text-[10px] uppercase tracking-wider">{stat.sub}</p>
             </GlassCard>
           ))}
         </div>
       </section>
 
       {/* Features Grid */}
-      <section id="features-grid" className="px-6 py-32 relative">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
-            <div className="max-w-2xl">
-              <h2 className="text-5xl font-black tracking-tight mb-6 text-gray-900">
-                Architected for <br />Precision.
+      <section id="features-grid" className="px-6 py-16 md:py-24 relative bg-gray-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+            <div className="max-w-xl">
+              <h2 className="text-3xl font-extrabold tracking-tight mb-3 text-black">
+                Architected for Precision
               </h2>
-              <p className="text-xl text-gray-500">
+              <p className="text-sm text-gray-500 font-medium leading-relaxed">
                 Every feature is engineered to provide absolute integrity and
                 a frictionless experience for both educators and students.
               </p>
@@ -181,39 +180,36 @@ const Dashboard = () => {
                 const section = document.getElementById("features-list");
                 if (section) section.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="px-8 py-4 bg-gray-50 border border-gray-100 text-gray-900 rounded-2xl font-bold hover:bg-gray-100 transition-colors"
+              className="px-6 py-2.5 bg-white border border-gray-200 text-black rounded-lg text-xs font-bold hover:bg-gray-100 transition-colors shadow-sm"
             >
               View All Features
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
                 title: "AI Supervision",
                 desc: "Real-time behavior analysis and identity verification using proprietary neural engines.",
-                icon: ShieldCheck,
-                color: "orange"
+                icon: ShieldCheck
               },
               {
                 title: "Rapid Deployment",
                 desc: "Generate complex assessments in seconds with our integrated AI question foundry.",
-                icon: Zap,
-                color: "blue"
+                icon: Zap
               },
               {
                 title: "Deep Analytics",
                 desc: "Gain surgical insights into student performance with cross-cohort data sets.",
-                icon: BarChart3,
-                color: "purple"
+                icon: BarChart3
               }
             ].map((f, i) => (
-              <GlassCard key={i} delay={i * 0.1} className="p-12 group hover:-translate-y-2 transition-all duration-500 shadow-none hover:shadow-2xl hover:shadow-orange-500/5">
-                <div className={`w-16 h-16 rounded-2xl mb-8 flex items-center justify-center bg-gray-50 border border-gray-100 group-hover:bg-orange-50 transition-colors`}>
-                  <f.icon className="w-8 h-8 text-gray-400 group-hover:text-[#FFB343] transition-colors" />
+              <GlassCard key={i} delay={i * 0.1} className="p-8 group hover:-translate-y-1 transition-all duration-300">
+                <div className="w-12 h-12 rounded-xl mb-6 flex items-center justify-center bg-gray-50 border border-gray-200 transition-colors group-hover:bg-black">
+                  <f.icon className="w-5 h-5 text-black group-hover:text-white transition-colors" />
                 </div>
-                <h3 className="text-2xl font-black text-gray-900 mb-4 tracking-tight group-hover:text-[#FFB343] transition-colors">{f.title}</h3>
-                <p className="text-gray-500 leading-relaxed font-medium">
+                <h3 className="text-base font-extrabold text-black mb-2">{f.title}</h3>
+                <p className="text-xs text-gray-500 leading-relaxed font-medium">
                   {f.desc}
                 </p>
               </GlassCard>
@@ -223,85 +219,85 @@ const Dashboard = () => {
       </section>
 
       {/* Live Quizzes */}
-      <section id="featured-bank" className="px-6 py-32 bg-gray-50/50">
-        <div className="max-w-7xl mx-auto">
+      <section id="featured-bank" className="px-6 py-16 md:py-24 bg-white border-y border-gray-100">
+        <div className="max-w-6xl mx-auto">
           {/* OTP Access Notice */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="mb-16 p-8 md:p-12 rounded-[40px] bg-[#0f172a] text-white relative overflow-hidden shadow-2xl shadow-orange-500/10"
+            className="mb-12 p-8 rounded-2xl bg-gray-50 border border-gray-200 text-black relative overflow-hidden"
           >
-            <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-              <ShieldCheck className="w-64 h-64 text-orange-400" />
+            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+              <ShieldCheck className="w-48 h-48 text-black" />
             </div>
 
-            <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-10 text-center lg:text-left">
-              <div className="flex flex-col lg:flex-row items-center gap-8 max-w-2xl">
-                <div className="w-20 h-20 rounded-3xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 shadow-inner">
-                  <Key className="w-10 h-10 text-[#FFB343]" />
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
+              <div className="flex flex-col md:flex-row items-center gap-6 max-w-lg">
+                <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center border border-gray-200 shrink-0">
+                  <Key className="w-6 h-6 text-black" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-black uppercase tracking-widest text-[#FFB343] mb-3">Instant Demo Access</h3>
-                  <p className="text-gray-400 text-lg font-medium leading-relaxed">
-                    To access and experience any premium assessment from the <span className="text-white">Elite Tiers</span> bank,
+                  <h3 className="text-sm font-extrabold uppercase tracking-wide text-black mb-2">Instant Demo Access</h3>
+                  <p className="text-gray-500 text-xs font-medium leading-relaxed">
+                    To access and experience any premium assessment from the <span className="text-black font-extrabold">Elite Tiers</span> bank,
                     please use the universal demo OTP provided.
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex gap-2 sm:gap-4">
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex gap-2">
                   {[0, 0, 0, 0, 0, 0].map((digit, i) => (
-                    <div key={i} className="w-12 h-16 sm:w-16 sm:h-20 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl font-mono font-black text-white shadow-2xl group hover:border-[#FFB343]/50 transition-colors">
+                    <div key={i} className="w-8 h-10 sm:w-10 sm:h-12 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-lg sm:text-xl font-mono font-extrabold text-black">
                       {digit}
                     </div>
                   ))}
                 </div>
-                <span className="text-[10px] font-black text-orange-400/60 uppercase tracking-[0.3em]">Universal Access Code</span>
+                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Universal Access Code</span>
               </div>
             </div>
           </motion.div>
 
-          <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
+          <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
             <div>
-              <h2 className="text-5xl md:text-7xl font-black tracking-tight mb-4 text-gray-900">Elite Tiers</h2>
-              <p className="text-gray-500 text-xl font-medium">Featured examinations from our top-tier academic partners.</p>
+              <h2 className="text-3xl font-extrabold tracking-tight mb-2 text-black">Elite Tiers</h2>
+              <p className="text-gray-500 text-sm font-medium">Featured examinations from our top-tier academic partners.</p>
             </div>
             <button
               onClick={() => navigate("/student-login")}
-              className="text-[#FFB343] font-black tracking-widest uppercase text-sm hover:translate-x-2 transition-transform h-auto p-0 flex items-center gap-2"
+              className="text-black font-bold tracking-wider uppercase text-xs hover:translate-x-1 transition-transform h-auto p-0 flex items-center gap-1.5"
             >
-              Explore Universal Bank <ArrowRight className="w-5 h-5" />
+              Explore Bank <ArrowRight className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {loading ? (
               [1, 2, 3].map((i) => (
-                <div key={i} className="h-64 rounded-[32px] bg-white animate-pulse" />
+                <div key={i} className="h-48 rounded-2xl bg-gray-50 border border-gray-100 animate-pulse" />
               ))
             ) : (
               quizzes.map((quiz, i) => (
-                <GlassCard key={quiz.quizId} delay={i * 0.05} className="group cursor-pointer hover:shadow-2xl hover:shadow-orange-500/10">
-                  <div className="p-8" onClick={() => handleStartQuiz(quiz.quizId)}>
-                    <div className="flex justify-between items-start mb-12">
-                      <span className="px-4 py-1.5 bg-orange-50 border border-orange-100 text-[#FF9F2E] text-[10px] font-black rounded-full uppercase tracking-widest">
+                <GlassCard key={quiz.quizId} delay={i * 0.05} className="group cursor-pointer hover:border-gray-300 transition-colors">
+                  <div className="p-6" onClick={() => handleStartQuiz(quiz.quizId)}>
+                    <div className="flex justify-between items-start mb-6">
+                      <span className="px-3 py-1 bg-gray-100 border border-gray-200 text-black text-[9px] font-bold rounded-md uppercase tracking-widest">
                         {quiz.quizId}
                       </span>
-                      <div className="p-2 rounded-xl bg-gray-50 group-hover:bg-[#FFB343] group-hover:text-white transition-all">
-                        <ArrowRight className="w-4 h-4" />
+                      <div className="p-1.5 rounded-lg bg-gray-50 border border-gray-200 group-hover:bg-black group-hover:text-white transition-all">
+                        <ArrowRight className="w-3 h-3" />
                       </div>
                     </div>
-                    <h3 className="text-2xl font-black text-gray-900 mb-2 truncate tracking-tight group-hover:text-[#FFB343] transition-colors">{quiz.title}</h3>
-                    <div className="flex items-center space-x-3 text-gray-400 text-sm font-semibold">
-                      <User className="w-4 h-4" />
+                    <h3 className="text-lg font-extrabold text-black mb-1.5 truncate tracking-tight">{quiz.title}</h3>
+                    <div className="flex items-center space-x-2 text-gray-500 text-xs font-semibold">
+                      <User className="w-3.5 h-3.5" />
                       <span>{quiz.createdBy?.name || "Official ProctorX"}</span>
                     </div>
                   </div>
-                  <div className="px-8 py-5 bg-gray-50/50 flex items-center justify-between border-t border-gray-100">
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{quiz.questionsCount || 20} Modules</span>
-                    <span className="text-xs font-bold text-gray-900">Public Access</span>
+                  <div className="px-6 py-4 bg-gray-50 flex items-center justify-between border-t border-gray-100">
+                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">{quiz.questionsCount || 20} Modules</span>
+                    <span className="text-[10px] font-bold text-black uppercase tracking-wider">Public Access</span>
                   </div>
                 </GlassCard>
               ))
@@ -311,15 +307,15 @@ const Dashboard = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="px-6 py-32 overflow-hidden relative">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+      <section className="px-6 py-16 md:py-24 overflow-hidden relative bg-gray-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <h2 className="text-5xl font-black tracking-tight mb-8 text-gray-900 leading-[1.1]">
+              <h2 className="text-3xl font-extrabold tracking-tight mb-8 text-black leading-[1.2]">
                 Trusted by the <br />
-                <span className="text-[#FFB343]">World's Best</span> Educators.
+                <span className="text-gray-400">World's Best</span> Educators.
               </h2>
-              <div className="flex flex-col gap-8">
+              <div className="flex flex-col gap-6">
                 {[
                   {
                     q: "The AI supervision engine is transformative. It's the most reliable system we've integrated.",
@@ -332,23 +328,19 @@ const Dashboard = () => {
                     t: "Apex Digital Academy"
                   }
                 ].map((t, i) => (
-                  <div key={i} className="pl-8 border-l-4 border-orange-100">
-                    <p className="text-xl italic font-serif text-gray-600 mb-4 tracking-tight">"{t.q}"</p>
-                    <p className="font-black text-gray-900 text-sm uppercase tracking-widest">{t.a}</p>
-                    <p className="text-gray-400 text-xs font-bold">{t.t}</p>
+                  <div key={i} className="pl-6 border-l-2 border-gray-300">
+                    <p className="text-sm italic font-medium text-gray-600 mb-3 leading-relaxed">"{t.q}"</p>
+                    <p className="font-extrabold text-black text-[10px] uppercase tracking-widest">{t.a}</p>
+                    <p className="text-gray-500 text-[10px] font-bold">{t.t}</p>
                   </div>
                 ))}
               </div>
             </div>
             <div className="relative">
-              <div className="aspect-square rounded-[48px] bg-orange-50 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-tr from-[#FFB343]/20 to-transparent" />
-                <div className="absolute top-1/4 left-1/4 w-1/2 h-1/2 border-2 border-orange-200/50 rounded-full animate-ping" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <span className="text-9xl font-black text-gray-900/5">PROX</span>
-                  </div>
-                </div>
+              <div className="aspect-square rounded-3xl bg-white border border-gray-200 relative overflow-hidden shadow-sm flex items-center justify-center">
+                <div className="absolute inset-0 bg-gradient-to-tr from-gray-50 to-transparent" />
+                <div className="absolute w-1/2 h-1/2 border border-gray-100 rounded-full animate-pulse" />
+                <span className="text-6xl md:text-8xl font-extrabold text-gray-50 tracking-tighter z-10 relative">PROX</span>
               </div>
             </div>
           </div>
@@ -356,20 +348,19 @@ const Dashboard = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="px-6 py-32">
-        <div className="max-w-5xl mx-auto">
-          <div className="bg-[#FFB343] rounded-[48px] p-12 md:p-24 text-center relative overflow-hidden shadow-2xl shadow-orange-500/20">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.2),transparent_50%)]" />
-            <h2 className="text-[clamp(1.5rem,5vw,3rem)] font-black text-white mb-12 tracking-tight leading-tight relative z-10">
+      <section className="px-6 py-16 md:py-24 bg-white border-t border-gray-100">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-black rounded-3xl p-10 md:p-16 text-center relative overflow-hidden shadow-lg">
+            <h2 className="text-2xl md:text-3xl font-extrabold text-white mb-8 tracking-tight leading-tight relative z-10">
               Ready to redefine the <br /> examination standard?
             </h2>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-6 relative z-10">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
               <Link to="/student-login">
-                <button className="px-12 py-5 bg-white text-[#FFB343] rounded-2xl font-black text-sm uppercase tracking-widest hover:scale-105 transition-all shadow-xl">
+                <button className="px-8 py-3.5 bg-white text-black rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-gray-100 transition-all">
                   Get Started Now
                 </button>
               </Link>
-              <button className="px-12 py-5 bg-orange-600/20 backdrop-blur-md text-white border border-white/20 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-orange-600/30 transition-all">
+              <button className="px-8 py-3.5 bg-transparent border border-gray-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-gray-900 transition-all">
                 Contact Sales
               </button>
             </div>
@@ -378,15 +369,17 @@ const Dashboard = () => {
       </section>
 
       {/* Footer */}
-      <footer className="px-6 py-20 border-t border-gray-100 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-20">
+      <footer className="px-6 py-12 border-t border-gray-200 bg-gray-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
             <div className="col-span-1 md:col-span-2">
-              <div className="flex items-center space-x-3 mb-8">
-                <img src={LOGO} alt="ProctorX" className="h-10 w-10" />
-                <span className="text-2xl font-black tracking-tighter text-gray-900">ProctorX</span>
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-extrabold text-sm">
+                  PX
+                </div>
+                <span className="text-xl font-extrabold tracking-tight text-black">ProctorX</span>
               </div>
-              <p className="text-gray-500 font-medium max-w-sm leading-relaxed">
+              <p className="text-gray-500 font-medium text-xs max-w-sm leading-relaxed">
                 Standardizing the future of academic and professional
                 certification through hardware-agnostic digital supervision.
               </p>
@@ -396,22 +389,22 @@ const Dashboard = () => {
               { title: "Company", links: ["Architecture", "Security Lab", "Partnerships"] }
             ].map((col, i) => (
               <div key={i}>
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-8">{col.title}</h4>
-                <ul className="space-y-4">
+                <h4 className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-gray-400 mb-4">{col.title}</h4>
+                <ul className="space-y-3">
                   {col.links.map((link, j) => (
                     <li key={j}>
-                      <a href="#" className="text-sm font-bold text-gray-900 hover:text-[#FFB343] transition-colors">{link}</a>
+                      <a href="#" className="text-xs font-bold text-gray-600 hover:text-black transition-colors">{link}</a>
                     </li>
                   ))}
                 </ul>
               </div>
             ))}
           </div>
-          <div className="pt-12 border-t border-gray-50 flex flex-col md:flex-row justify-between items-center gap-6">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">© 2024 ProctorX Intelligence Labs</span>
-            <div className="flex items-center space-x-8">
+          <div className="pt-8 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
+            <span className="text-[9px] font-extrabold text-gray-400 uppercase tracking-widest">© 2026 ProctorX Intelligence Labs</span>
+            <div className="flex items-center space-x-6">
               {['Twitter', 'GitHub', 'LinkedIn'].map((s) => (
-                <a key={s} href="#" className="text-xs font-bold text-gray-400 hover:text-gray-900 transition-colors uppercase tracking-widest">{s}</a>
+                <a key={s} href="#" className="text-[9px] font-extrabold text-gray-400 hover:text-black transition-colors uppercase tracking-widest">{s}</a>
               ))}
             </div>
           </div>

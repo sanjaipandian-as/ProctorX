@@ -1,47 +1,91 @@
-import React from "react";
-import { Routes, Route } from "react-router-dom";
+import React, { Suspense } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Dashboard from "./Dashboard";
-import Studentlogin from "./components/Studentlogin";
+import StudentLogin from "./components/Studentlogin";
 import StudentSignup from "./components/Studentsignup";
-import StaffSignup from "./components/StaffSignup";
-import Stafflogin from "./components/Stafflogin";
-import StaffDashboard from "./components/StaffDashboard";
-import CreateQuiz from "./components/CreateQuiz";
-import QuizEditPage from "./pages/QuizEditPage";
-import QuizAnsweringPage from "./pages/QuizAnsweringPage";
-import QuizFlow from "./pages/QuizAttempt";
-import QuizResults from "./pages/QuizResults";
-import StudentDashboard from "./components/StudentDashboard";
-import About from "./pages/AboutUs";
-import CompilerPage from "./pages/CompilerPage";
-import DescriptiveEditor from "./components/DescriptiveEditor";
-import AiQuiz from "./components/AiQuiz";
+import StaffLogin from "./components/Stafflogin";
+
+// Lazy Loaded Pages
+const StaffDashboard = React.lazy(() => import("./components/StaffDashboard"));
+const CreateQuiz = React.lazy(() => import("./components/CreateQuiz"));
+const QuizEditPage = React.lazy(() => import("./pages/QuizEditPage"));
+const QuizAnsweringPage = React.lazy(() => import("./pages/QuizAnsweringPage"));
+const QuizAttempt = React.lazy(() => import("./pages/QuizAttempt"));
+const QuizResults = React.lazy(() => import("./pages/QuizResults"));
+const StudentDashboard = React.lazy(() => import("./components/StudentDashboard"));
+const AdminLogin = React.lazy(() => import("./pages/AdminLogin"));
+const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
+const ExamMonitor = React.lazy(() => import("./pages/ExamMonitor"));
+
+const AdminRoute = ({ children }) => {
+  const isAuth = !!localStorage.getItem("adminAuth");
+  return isAuth ? children : <Navigate to="/admin/login" replace />;
+};
+
+const AdminLoginRoute = ({ children }) => {
+  const isAuth = !!localStorage.getItem("adminAuth");
+  return isAuth ? <Navigate to="/admin/dashboard" replace /> : children;
+};
 
 function App() {
-    return (
-        <AuthProvider>
-            <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/student-login" element={<Studentlogin />} />
-                <Route path="/student-signup" element={<StudentSignup />} />
-                <Route path="/staff-signup" element={<StaffSignup />} />
-                <Route path="/staff-login" element={<Stafflogin />} />
-                <Route path="/staff-dashboard" element={<StaffDashboard />} />
-                <Route path="/create-quiz" element={<CreateQuiz />} />
-                <Route path="/edit-quiz/:quizId" element={<QuizEditPage />} />
-                <Route path="/exam/:quizId" element={<QuizFlow />} />
-                <Route path="/answer" element={<QuizAnsweringPage />} />
-                <Route path="/results/:resultId" element={<QuizResults />} />
-                <Route path="/student-profile" element={<StudentDashboard />} />
-                <Route path="/about-us" element={<About />} />
-                <Route path="/compiler/:quizId" element={<CompilerPage />} />
-                <Route path="/descriptive-editor" element={<DescriptiveEditor />} />
-                <Route path="/ai-quiz" element={<AiQuiz />} />
+  return (
+    <ErrorBoundary>
+      <AuthProvider>
+        <Suspense
+          fallback={
+            <div className="h-screen w-screen flex items-center justify-center bg-white text-black font-sans">
+              <div className="w-10 h-10 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          }
+        >
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/student-login" element={<StudentLogin />} />
+            <Route path="/student-signup" element={<StudentSignup />} />
+            <Route path="/staff-login" element={<StaffLogin />} />
 
-            </Routes>
-        </AuthProvider>
-    );
+            {/* Dashboards */}
+            <Route path="/student-profile" element={<StudentDashboard />} />
+            <Route path="/staff-dashboard" element={<StaffDashboard />} />
+
+            {/* Quizzes */}
+            <Route path="/create-quiz" element={<CreateQuiz />} />
+            <Route path="/edit-quiz/:quizId" element={<QuizEditPage />} />
+            <Route path="/exam/:quizId" element={<QuizAttempt />} />
+            <Route path="/quiz/:quizId/answer" element={<QuizAnsweringPage />} />
+            <Route path="/results/:resultId" element={<QuizResults />} />
+            
+            {/* Live Monitoring Dashboard */}
+            <Route path="/monitor/:quizId" element={<ExamMonitor />} />
+
+            {/* Admin Portal */}
+            <Route
+              path="/admin/login"
+              element={
+                <AdminLoginRoute>
+                  <AdminLogin />
+                </AdminLoginRoute>
+              }
+            />
+            <Route
+              path="/admin/dashboard"
+              element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
+              }
+            />
+
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </Suspense>
+      </AuthProvider>
+    </ErrorBoundary>
+  );
 }
 
 export default App;

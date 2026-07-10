@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../lib/api";
+import useSocket from "../hooks/useSocket";
 import { useAuth } from "../context/AuthContext";
 import toast, { Toaster } from "react-hot-toast";
-import Firewall from "../assets/Firewall.svg";
-import Protected from "../assets/Protected.svg";
+
 import {
   CheckCircle2,
   Camera,
@@ -21,44 +21,22 @@ import {
   Loader2,
   Bookmark,
   Clock,
-  GraduationCap,
-  ScanEye,
-  Eraser,
-  X,
-  Omega,
-  LogIn,
-  ChevronDown,
-  ChevronUp,
-  XCircle,
-  CheckCircle,
+  Play
 } from "lucide-react";
-import Editor from "@monaco-editor/react";
-import { GrStatusInfo } from "react-icons/gr";
-import { motion, AnimatePresence } from "framer-motion";
-import API from "../../Api";
-import LOGO from "../assets/LOGO.png";
-import Proctor from "../assets/PROCTOR.png";
-import ProctoredX from "../assets/ProctoredX.png";
-import DescriptiveEditor from "../components/DescriptiveEditor";
 
-// Obfuscation helper (simple)
-const secureObject = (obj) => {
-  return JSON.parse(JSON.stringify(obj));
-};
-
-// Compiler Service Configuration
-const COMPILER_URL = import.meta.env.VITE_COMPILER_URL || "https://proctorx-1-9qkn.onrender.com";
-
-
-const ProctoringFeed = ({ stream, type }) => {
+const ProctoringFeed = ({ stream, type, simulatedGazeDeflected, simulatedMultipleFaces }) => {
   const videoRef = useRef(null);
   useEffect(() => {
     if (stream && videoRef.current) {
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
+
+  const isCamera = type === "camera";
+  const isViolating = simulatedGazeDeflected || simulatedMultipleFaces;
+
   return (
-    <div className="bg-stone-100 rounded-lg aspect-video w-full flex items-center justify-center text-gray-700 relative">
+    <div className="bg-black rounded-lg aspect-video w-full flex items-center justify-center text-gray-400 relative overflow-hidden">
       <video
         ref={videoRef}
         autoPlay
@@ -67,19 +45,47 @@ const ProctoringFeed = ({ stream, type }) => {
         className={`w-full h-full object-cover rounded-lg ${!stream && "hidden"
           }`}
       />
+      {isCamera && stream && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+          <div className={`w-1/2 h-1/2 border border-dashed rounded-lg transition-all duration-300 relative ${isViolating ? 'border-black ring-black bg-red-500/5 animate-pulse' : 'border-emerald-500/70 bg-emerald-500/5'
+            }`}>
+            <div className={`absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 ${isViolating ? 'border-black ring-black' : 'border-emerald-400'}`}></div>
+            <div className={`absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 ${isViolating ? 'border-black ring-black' : 'border-emerald-400'}`}></div>
+            <div className={`absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 ${isViolating ? 'border-black ring-black' : 'border-emerald-400'}`}></div>
+            <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 ${isViolating ? 'border-black ring-black' : 'border-emerald-400'}`}></div>
+            <div className={`absolute left-0 right-0 h-[1.5px] opacity-40 shadow-sm top-0 animate-[laser_2s_infinite_ease-in-out] ${isViolating ? 'bg-red-500 shadow-red-500' : 'bg-emerald-400 shadow-emerald-400'
+              }`}></div>
+          </div>
+
+          <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center pointer-events-none">
+            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${simulatedMultipleFaces
+              ? 'bg-red-500/20 text-red-400 border border-black ring-black/30 animate-pulse'
+              : simulatedGazeDeflected
+                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+              }`}>
+              {simulatedMultipleFaces
+                ? '👥 Multi Face'
+                : simulatedGazeDeflected
+                  ? '👀 Gaze Deflected'
+                  : '👤 Gaze: Focused'}
+            </span>
+          </div>
+        </div>
+      )}
       {!stream && (
         <div className="flex flex-col items-center">
           {type === "camera" ? (
-            <Camera className="h-4 w-4 sm:h-6 sm:w-6 mb-1" />
+            <Camera className="h-6 w-6 mb-1" />
           ) : (
-            <ScreenShare className="h-4 w-4 sm:h-6 sm:w-6 mb-1" />
+            <ScreenShare className="h-6 w-6 mb-1" />
           )}
           <span className="text-xs font-semibold">
             {type === "camera" ? "Camera Off" : "Screen Off"}
           </span>
         </div>
       )}
-      <div className="absolute top-2 left-2 bg-black bg-opacity-50 px-2 py-1 rounded text-white text-xs font-bold flex items-center">
+      <div className="absolute top-2 left-2 bg-black bg-opacity-50 px-2 py-1 rounded text-gray-900 text-xs font-bold flex items-center">
         {type === "camera" ? (
           <Camera className="h-3 w-3 mr-1.5" />
         ) : (
@@ -91,206 +97,36 @@ const ProctoringFeed = ({ stream, type }) => {
   );
 };
 
-const InstructionsModal = ({ isOpen, onClose, quiz }) => (
-  <AnimatePresence>
-    {isOpen && (
-      <div
-        onClick={onClose}
-        className="fixed inset-0 z-50 flex items-center justify-end"
-      >
-        <motion.div
-          className="fixed inset-0 bg-black/50"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-        />
-
-        <motion.div
-          onClick={(e) => e.stopPropagation()}
-          initial={{ x: "100%" }}
-          animate={{ x: 0 }}
-          exit={{ x: "100%" }}
-          transition={{
-            duration: 0.7,
-            ease: [0.25, 0.1, 0.25, 1],
-          }}
-          className="relative bg-white shadow-xl w-full sm:w-[70%] md:w-[60%] lg:w-[40%] h-full flex flex-col overflow-y-auto"
-        >
-          <div className="p-4 sm:p-6 space-y-8 sm:space-y-12 text-gray-700">
-            <div className="relative border-b pb-4 text-center">
-              <button
-                onClick={onClose}
-                className="absolute top-0 right-0 sm:top-2 sm:right-2 text-gray-500 hover:text-gray-700"
-              >
-                <X size={20} />
-              </button>
-              <div className="grid grid-cols-1 divide-y divide-gray-300 sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
-                <div className="py-2 sm:py-0">
-                  <p className="text-sm font-medium text-gray-500">
-                    Total questions
-                  </p>
-                  <p className="text-lg font-semibold text-gray-800">
-                    {quiz.questions?.length || 0}
-                  </p>
-                </div>
-                <div className="py-2 sm:py-0">
-                  <p className="text-sm font-medium text-gray-500">
-                    Max. Duration
-                  </p>
-                  <p className="text-lg font-semibold text-gray-800">1h</p>
-                </div>
-                <div className="pt-2 sm:pt-0">
-                  <p className="text-sm font-medium text-gray-500">
-                    Proctoring
-                  </p>
-                  <p className="text-lg font-semibold text-gray-800">
-                    {quiz.proctoringProvider}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <section>
-              <h3 className="text-2xl sm:text-3xl font-bold mb-4 text-gray-900">
-                Instructions
-              </h3>
-              <p className="text-base sm:text-lg mb-4 text-gray-600">
-                Please keep a note of the below instructions.
-              </p>
-              <ul className="list-disc list-inside space-y-2 text-sm sm:text-md">
-                <li>
-                  This assessment can be attempted only ONCE. Hence, please
-                  ensure you are seated in a distraction-free environment.
-                </li>
-                <li>
-                  Please ensure you are connected to a strong wifi/ethernet
-                  network.
-                </li>
-                <li>
-                  In case of internet discrepancies, your timer will still keep
-                  running. However, you can continue attempting the current
-                  question.
-                </li>
-                <li>
-                  The security code will be provided by the invigilator at your
-                  venue.
-                </li>
-                <li>
-                  In case of any technical difficulties, please reach out to the
-                  invigilator.
-                </li>
-                <li>Give your best. Good luck!</li>
-              </ul>
-            </section>
-            <section>
-              <h3 className="text-base sm:text-lg font-semibold mb-2 text-gray-900">
-                Marking Scheme
-              </h3>
-              <p className="text-sm sm:text-md mb-3 text-gray-600">
-                Refer to the top right of each question for the marks awarded for
-                a correct answer or deducted for an incorrect answer as shown
-                below.
-              </p>
-              <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-6">
-                <div className="flex items-center">
-                  <span className="bg-green-100 text-green-700 text-sm sm:text-md font-semibold px-2 py-0.5 rounded-md mr-2">
-                    +X
-                  </span>
-                  <span className="text-sm sm:text-md italic text-gray-800">
-                    Correct
-                  </span>
-                </div>
-                <div className="flex items-center">
-                  <span className="bg-red-100 text-red-700 text-sm sm:text-md font-semibold px-2 py-0.5 rounded-md mr-2">
-                    -Y
-                  </span>
-                  <span className="text-sm sm:text-md italic text-gray-800">
-                    Incorrect
-                  </span>
-                </div>
-              </div>
-            </section>
-            <section>
-              <h3 className="text-base sm:text-lg font-semibold mb-2 text-gray-900">
-                Question Palette
-              </h3>
-              <p className="text-sm sm:text-md mb-3 text-gray-600">
-                The question palette displayed on the left side of the assessment
-                screen will show the following statuses depicted by distinct
-                symbols.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex items-center space-x-2">
-                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-blue-600 text-white rounded-md flex-shrink-0">
-                    1
-                  </span>
-                  <span className="text-sm sm:text-md">Answered</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-gray-200 text-gray-700 border border-gray-400 rounded-md flex-shrink-0">
-                    2
-                  </span>
-                  <span className="text-sm sm:text-md">Unanswered</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-yellow-500 text-white rounded-md flex-shrink-0">
-                    5
-                  </span>
-                  <span className="text-sm sm:text-md">
-                    Marked for review but answered
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="flex items-center justify-center h-8 w-8 font-bold bg-yellow-500 text-white rounded-md flex-shrink-0">
-                    13
-                  </span>
-                  <span className="text-sm sm:text-md">
-                    Marked for review but unanswered
-                  </span>
-                </div>
-              </div>
-            </section>
-          </div>
-        </motion.div>
-      </div>
-    )}
-  </AnimatePresence>
-);
-
 const SetupCheckItem = ({ title, status, children, check }) => {
   const statusIcons = {
-    checked: <CheckCircle2 className="text-green-600" />,
-    unchecked: (
-      <div className="w-5 h-5 border-2 border-gray-400 rounded-full"></div>
-    ),
+    checked: <CheckCircle2 className="text-gray-900 h-5 w-5" />,
+    unchecked: <div className="w-5 h-5 border-2 border-gray-300 rounded-full"></div>,
   };
   return (
-    <div className="flex items-start space-x-4">
-      <div>{statusIcons[status]}</div>
+    <div className="flex items-start space-x-4 p-5 bg-white border border-gray-200 rounded-xl shadow-sm transition-all">
+      <div className="mt-0.5">{statusIcons[status]}</div>
       <div className="flex-1">
-        <h3
-          className={`font-semibold text-base sm:text-lg ${status === "checked" ? "text-gray-900" : "text-gray-700"
-            }`}
-        >
+        <h3 className={`font-semibold ${status === "checked" ? "text-gray-900" : "text-gray-500"}`}>
           {title}
         </h3>
-        {check && (
-          <p className="px-1 text-xs sm:text-sm text-gray-500 mt-1">{check}</p>
-        )}
-        {children && <div className="mt-4">{children}</div>}
+        {check && <p className="text-sm text-gray-500 mt-1">{check}</p>}
+        {children && <div className="mt-5">{children}</div>}
       </div>
     </div>
   );
 };
 
 const SidebarChecklistItem = ({ label, isChecked }) => (
-  <div className="flex items-center space-x-2">
+  <div className="flex items-center space-x-3">
     {isChecked ? (
-      <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+      <CheckCircle2 className="h-5 w-5 text-gray-900 flex-shrink-0" />
     ) : (
-      <div className="w-4 h-4 border-2 border-gray-400 rounded-full flex-shrink-0"></div>
+      <div className="w-5 h-5 border-2 border-gray-300 rounded-full flex-shrink-0"></div>
     )}
-    <span className={`text-sm ${isChecked ? "text-gray-900" : "text-gray-600"}`}>
+    <span
+      className={`text-sm tracking-wide transition-colors duration-200 ${isChecked ? "text-gray-900 font-semibold" : "text-gray-500 font-medium"
+        }`}
+    >
       {label}
     </span>
   </div>
@@ -300,10 +136,7 @@ const QuizFlow = () => {
   const { quizId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-
-  const [isMobileDevice, setIsMobileDevice] = useState(() =>
-    /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-  );
+  const socket = useSocket(quizId);
 
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -317,245 +150,23 @@ const QuizFlow = () => {
   const [cameraStream, setCameraStream] = useState(null);
   const [screenStream, setScreenStream] = useState(null);
   const [cameraEnabled, setCameraEnabled] = useState(false);
+  const [simulatedGazeDeflected, setSimulatedGazeDeflected] = useState(false);
+  const [simulatedMultipleFaces, setSimulatedMultipleFaces] = useState(false);
   const [screenEnabled, setScreenEnabled] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(!!document.fullscreenElement);
-  const [isAwaitingPermission, setIsAwaitingPermission] = useState(false);
-
   const [warnings, setWarnings] = useState(5);
-  const warningsRef = useRef(warnings);
 
   const cameraFeedRef = useRef(null);
   const screenFeedRef = useRef(null);
   const inputRefs = useRef([]);
   const cameraStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
+  const submittedRef = useRef(false);
+  const lastDeflectionTimeRef = useRef(0);
+  const step4EntryTimeRef = useRef(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState([]);
-  const [timeLeft, setTimeLeft] = useState(null);
-  const toastIdRef = useRef(null);
-  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
-  const fullScreenSize = useRef(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const isSubmittingRef = useRef(false);
-  const [violationLogs, setViolationLogs] = useState([]);
-  const violationLogsRef = useRef([]);
-  const handleSubmitRef = useRef(null);
-  const syncStateRef = useRef(null);
-  const isResumingRef = useRef(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-
-  // --- Compiler State ---
-  const [codingAnswers, setCodingAnswers] = useState({}); // { [questionIndex]: { [lang]: code } }
-  const [selectedLanguages, setSelectedLanguages] = useState({}); // { [questionIndex]: lang }
-  const [testResults, setTestResults] = useState({}); // { [questionIndex]: [results] }
-  const [compilerOutput, setCompilerOutput] = useState("");
-  const [isRunning, setIsRunning] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [activeTab, setActiveTab] = useState("runTests"); // "run", "runTests"
-  const [selectedTestCase, setSelectedTestCase] = useState(0);
-
-  const getCode = (index, lang) => {
-    if (codingAnswers[index] && codingAnswers[index][lang]) {
-      return codingAnswers[index][lang];
-    }
-    const q = quiz.questions[index];
-    if (q && q.starterCode && q.starterCode[lang]) {
-      return q.starterCode[lang];
-    }
-    return "";
-  };
-
-  const setCode = (index, lang, code) => {
-    setCodingAnswers(prev => ({
-      ...prev,
-      [index]: {
-        ...(prev[index] || {}),
-        [lang]: code
-      }
-    }));
-  };
-
-  const getLanguage = (index) => {
-    return selectedLanguages[index] || "python";
-  };
-
-  const handleLanguageChange = (index, lang) => {
-    setSelectedLanguages(prev => ({
-      ...prev,
-      [index]: lang
-    }));
-  };
-
-  const getTests = (index) => {
-    const q = quiz.questions[index];
-    if (q && q.testcases) {
-      return q.testcases.filter(tc => tc.input || tc.output).map((tc, i) => ({
-        id: i + 1,
-        input: tc.input,
-        expected: tc.output
-      }));
-    }
-    return [];
-  };
-
-  const runCode = async (index) => {
-    const lang = getLanguage(index);
-    const code = getCode(index, lang);
-    const tests = getTests(index);
-
-    if (tests.length === 0) {
-      toast.error("No test cases found for this question.");
-      return;
-    }
-
-    setIsRunning(true);
-    setCompilerOutput("⏳ Running your code...");
-
-    try {
-      const selectedTestData = tests[selectedTestCase] || tests[0];
-
-      const res = await axios.post(`${COMPILER_URL}/run`, {
-        language: lang,
-        code,
-        tests: [{ input: selectedTestData.input }]
-      }, {
-        timeout: 15000
-      });
-
-      if (res.data.compile && res.data.compile.code !== 0) {
-        setCompilerOutput(`❌ Compilation Error:\n\n${res.data.compile.stderr || res.data.compile.stdout}`);
-        setIsRunning(false);
-        return;
-      }
-
-      if (res.data.tests && res.data.tests.length > 0) {
-        const testResult = res.data.tests[0];
-        if (testResult.killed) {
-          setCompilerOutput("⏱️ Time Limit Exceeded\n\nYour code took too long to execute (>5 seconds).");
-        } else if (testResult.code !== 0) {
-          setCompilerOutput(`❌ Runtime Error:\n\n${testResult.stderr || testResult.stdout || "Unknown error occurred"}`);
-        } else {
-          const outputText = testResult.stdout.trim();
-          setCompilerOutput(outputText || "(empty output)");
-        }
-
-        // Update answer status to 'answered' if not already 'passed'
-        const newAnswers = [...answers];
-        if (newAnswers[index]?.status !== 'passed' && newAnswers[index]?.status !== 'answered-review' && newAnswers[index]?.status !== 'review') {
-          newAnswers[index] = {
-            ...newAnswers[index],
-            status: "answered",
-            answer: code // Store code as answer
-          };
-          setAnswers(newAnswers);
-        }
-      } else {
-        setCompilerOutput("⚠️ No output received from the server.");
-      }
-    } catch (err) {
-      setCompilerOutput(`❌ Error: ${err.message}`);
-    } finally {
-      setIsRunning(false);
-    }
-  };
-
-  const runAllTests = async (index) => {
-    const lang = getLanguage(index);
-    const code = getCode(index, lang);
-    const tests = getTests(index);
-
-    if (tests.length === 0) {
-      toast.error("No test cases found for this question.");
-      return;
-    }
-
-    setIsRunning(true);
-    setCompilerOutput("⏳ Running all tests...");
-
-    try {
-      const testsPayload = tests.map(t => ({ input: t.input }));
-
-      const res = await axios.post(`${COMPILER_URL}/run`, {
-        language: lang,
-        code,
-        tests: testsPayload
-      }, {
-        timeout: 30000
-      });
-
-      if (res.data.compile && res.data.compile.code !== 0) {
-        setCompilerOutput(`❌ Compilation Error:\n\n${res.data.compile.stderr || res.data.compile.stdout}`);
-        setIsRunning(false);
-        return;
-      }
-
-      const results = [];
-      let allPassed = true;
-      if (res.data.tests && res.data.tests.length > 0) {
-        res.data.tests.forEach((testResult, i) => {
-          const expectedOutput = tests[i].expected?.trim() || "";
-          const actualOutput = testResult.stdout?.trim() || "";
-          const passed = !testResult.killed && testResult.code === 0 && actualOutput === expectedOutput;
-
-          if (!passed) allPassed = false;
-
-          results.push({
-            id: tests[i].id,
-            passed,
-            output: actualOutput,
-            error: testResult.stderr,
-            killed: testResult.killed
-          });
-        });
-      } else {
-        allPassed = false;
-      }
-
-      setTestResults(prev => ({
-        ...prev,
-        [index]: results
-      }));
-
-      // Update answer status
-      const newAnswers = [...answers];
-      const currentStatus = newAnswers[index]?.status;
-      if (currentStatus !== 'answered-review' && currentStatus !== 'review') {
-        newAnswers[index] = {
-          ...newAnswers[index],
-          status: allPassed ? "passed" : "answered",
-          answer: code
-        };
-        setAnswers(newAnswers);
-      }
-
-      // Update output for the selected test
-      const currentRes = results[selectedTestCase] || results[0];
-      if (currentRes) {
-        if (currentRes.killed) setCompilerOutput("⏱️ Time Limit Exceeded");
-        else if (currentRes.error) setCompilerOutput(`❌ Runtime Error:\n\n${currentRes.error}`);
-        else setCompilerOutput(currentRes.output || "(empty output)");
-      }
-    } catch (err) {
-      setCompilerOutput(`❌ Error: ${err.message}`);
-    } finally {
-      setIsRunning(false);
-    }
-  };
-
-  // Update compiler output when selected test case or results change
-  useEffect(() => {
-    const results = testResults[currentQuestionIndex];
-    if (results && results[selectedTestCase]) {
-      const currentRes = results[selectedTestCase];
-      if (currentRes.killed) setCompilerOutput("⏱️ Time Limit Exceeded");
-      else if (currentRes.error) setCompilerOutput(`❌ Runtime Error:\n\n${currentRes.error}`);
-      else setCompilerOutput(currentRes.output || "(empty output)");
-    }
-  }, [selectedTestCase, testResults, currentQuestionIndex]);
-
-  useEffect(() => {
-    warningsRef.current = warnings;
-  }, [warnings]);
+  const [timeLeft, setTimeLeft] = useState(3600);
 
   const stopCamera = useCallback(() => {
     if (cameraStreamRef.current) {
@@ -575,13 +186,21 @@ const QuizFlow = () => {
     setScreenEnabled(false);
   }, []);
 
-  const formatTime = (seconds) => {
-    if (seconds === null || seconds === undefined || isNaN(seconds)) return "00:00";
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    return `${h > 0 ? h + ":" : ""}${m < 10 ? "0" + m : m}:${s < 10 ? "0" + s : s}`;
-  };
+  const formatTime = useCallback((seconds) => {
+    if (!quiz) return '00:00';
+    if (seconds < 0) seconds = 0;
+
+    if (quiz.durationInMinutes >= 60) {
+      const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+      const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+      const s = (seconds % 60).toString().padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    } else {
+      const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+      const s = (seconds % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+  }, [quiz]);
 
   useEffect(() => {
     const fetchAndAuthorizeQuiz = async () => {
@@ -589,122 +208,49 @@ const QuizFlow = () => {
         setLoading(false);
         return;
       }
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Authentication error. Please log in again.");
-        setLoading(false);
-        setTimeout(() => navigate("/login"), 3000);
-        return;
-      }
       try {
         setLoading(true);
-        const existingResultRes = await API.get(
-          `/api/results/check/${quizId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (existingResultRes.data.resultId) {
-          navigate(`/results/${existingResultRes.data.resultId}`, {
-            replace: true,
-          });
+        const existingResultRes = await api.get(`/api/results/check/${quizId}`);
+        if (existingResultRes.data.attempted) {
+          toast.error("You have already attempted this quiz.");
+          navigate(`/staff-dashboard`, { replace: true });
           return;
         }
 
-        const quizRes = await API.get(`/api/quizzes/${quizId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const quizRes = await api.get(`/api/quizzes/${quizId}`);
         const quizData = quizRes.data;
-        const duration = quizData.durationInMinutes || 60;
+
+        // Compute server-authoritative remaining time so late joiners see correct countdown
+        let computedTimeLeft = (quizData.durationInMinutes || 60) * 60;
+        if (quizData.status === 'ACTIVE' && quizData.startedAt) {
+          const elapsedSeconds = Math.floor((Date.now() - new Date(quizData.startedAt).getTime()) / 1000);
+          computedTimeLeft = Math.max((quizData.durationInMinutes * 60) - elapsedSeconds, 0);
+        }
+
         setQuiz({
+          id: quizData.id,
           platformName: "ProctorX",
           title: quizData.title,
-          proctoringProvider: quizData.proctoringProvider || "ProctorX Safeguard",
-          duration:
-            duration >= 60
-              ? `${duration / 60}h`
-              : `${duration}m`,
-          durationInMinutes: duration,
+          status: quizData.status,
+          startedAt: quizData.startedAt,
+          proctoringProvider: "Remote",
+          duration: quizData.durationInMinutes >= 60 ? `${quizData.durationInMinutes / 60}h` : `${quizData.durationInMinutes}m`,
+          durationInMinutes: quizData.durationInMinutes,
           questions: quizData.questions || [],
           studentName: user.name,
           studentEmail: user.email,
         });
-
-        // --- Session Restoration ---
-        const attemptRes = await API.get(`/api/results/attempt-status/${quizId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        if (attemptRes.data.status === "completed") {
-          navigate(`/results/${attemptRes.data.resultId}`, { replace: true });
-          return;
-        }
-
-        if (attemptRes.data.status === "in_progress") {
-          isResumingRef.current = true;
-          const { startedAt, warnings, answers: savedAnswers, violations: savedViolations } = attemptRes.data;
-
-          // Recalculate Time Left
-          let startTime = new Date(startedAt).getTime();
-          // If startTime is Invalid or 1970 (null), use current time as fallback
-          if (isNaN(startTime) || startTime === 0) {
-            startTime = Date.now();
-          }
-
-          const totalSeconds = duration * 60;
-          const now = new Date().getTime();
-          const elapsedSeconds = Math.floor((now - startTime) / 1000);
-          const remainingSeconds = Math.max(0, totalSeconds - elapsedSeconds);
-
-          if (isNaN(remainingSeconds) || remainingSeconds <= 0) {
-            if (!isNaN(remainingSeconds) && remainingSeconds <= 0) {
-              toast.error("Your assessment time has expired.");
-            }
-            setTimeLeft(0);
-          } else {
-            setTimeLeft(remainingSeconds);
-          }
-
-          setWarnings(warnings);
-          warningsRef.current = warnings;
-
-          if (savedAnswers && savedAnswers.length > 0) {
-            setAnswers(savedAnswers);
-          } else {
-            setAnswers(
-              Array.from({ length: quizData.questions.length }, () => ({
-                answer: null,
-                status: "unanswered",
-              }))
-            );
-          }
-
-          if (savedViolations) {
-            setViolationLogs(savedViolations);
-            violationLogsRef.current = savedViolations;
-          }
-
-          // Force Step 3 for re-verification
-          setStep(3);
-          setIsOtpVerified(true); // OTP already verified for this attempt
-          setHonourCodeAgreed(true); // Already agreed in previous session
-          toast.success("Resuming your session. Please re-verify proctoring permissions.");
-        } else {
-          setAnswers(
-            Array.from({ length: quizData.questions.length }, () => ({
-              answer: null,
-              status: "unanswered",
-            }))
-          );
-          setTimeLeft(quizData.durationInMinutes * 60 || 3600);
-          setStep(1);
-          setIsOtpVerified(false);
-          setHonourCodeAgreed(false);
-          isResumingRef.current = false;
-        }
+        setAnswers(
+          Array.from({ length: quizData.questions.length }, () => ({
+            answer: null,
+            status: "unanswered",
+          }))
+        );
+        setTimeLeft(computedTimeLeft);
       } catch (err) {
         console.error("Authorization failed or error fetching data:", err);
         setError(
-          err.response?.data?.message ||
-          "An error occurred while loading the quiz."
+          err.response?.data?.message || "An error occurred while loading the quiz."
         );
       } finally {
         setLoading(false);
@@ -712,181 +258,112 @@ const QuizFlow = () => {
     };
     fetchAndAuthorizeQuiz();
 
-    const handleFullScreenChange = () => {
-      const isNowFullScreen = !!document.fullscreenElement;
-      setIsFullScreen(isNowFullScreen);
-
-      if (isNowFullScreen) {
-        fullScreenSize.current = {
-          w: window.innerWidth,
-          h: window.innerHeight,
-        };
-      } else {
-        fullScreenSize.current = null;
-      }
-    };
+    const handleFullScreenChange = () =>
+      setIsFullScreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handleFullScreenChange);
-
-    // --- Anti-Cheat Event Listeners ---
-    const preventDefault = (e) => e.preventDefault();
-    const handleKeyDown = (e) => {
-      // Block F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+P, Ctrl+S
-      if (
-        e.keyCode === 123 ||
-        (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) ||
-        (e.ctrlKey && (e.keyCode === 85 || e.keyCode === 83 || e.keyCode === 80))
-      ) {
-        e.preventDefault();
-        toast.error("Inspector and shortcuts are disabled for security.", { icon: "🛡️" });
-        return false;
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden && step === 4) {
-        reduceLife("Window focus lost or tab switched. This incident has been logged.", "Tab Switch Violation");
-      }
-    };
-
-    window.addEventListener("contextmenu", preventDefault);
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("selectstart", preventDefault);
-    window.addEventListener("dragstart", preventDefault);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    // Basic DevTools Detection (brittle but deterrent)
-    const devToolsCheck = setInterval(() => {
-      const threshold = 160;
-      if (window.outerWidth - window.innerWidth > threshold || window.outerHeight - window.innerHeight > threshold) {
-        // DevTools likely open
-        if (step === 4 && !isAwaitingPermission) {
-          reduceLife("Detection: Inspection tools appear to be active. Please close all extra tools.", "Inspection Violation");
-        }
-      }
-    }, 2000);
 
     return () => {
       document.removeEventListener("fullscreenchange", handleFullScreenChange);
-      window.removeEventListener("contextmenu", preventDefault);
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("selectstart", preventDefault);
-      window.removeEventListener("dragstart", preventDefault);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      clearInterval(devToolsCheck);
       stopCamera();
       stopScreenShare();
     };
-  }, [quizId, navigate, user, stopCamera, stopScreenShare, step, reduceLife, isAwaitingPermission]);
+  }, [quizId, navigate, user, stopCamera, stopScreenShare]);
+
+  // Track step 4 entry time to prevent immediate fullscreen warning deflection on load
+  useEffect(() => {
+    if (step === 4) {
+      step4EntryTimeRef.current = Date.now();
+    }
+  }, [step]);
 
   const handleSubmit = useCallback(async () => {
-    if (isSubmittingRef.current) return;
-    isSubmittingRef.current = true;
-    setIsSubmitting(true);
+    if (submittedRef.current) return;
+    submittedRef.current = true;
+    // Construct answers array matching backend submit schema
+    const formattedAnswers = quiz.questions.map((q, idx) => {
+      const answerValue = answers[idx]?.answer;
+      let studentAnswer = '';
+
+      if (q.questionType === 'mcq') {
+        // MCQ: answerValue is the option index
+        studentAnswer = answerValue !== null && answerValue !== undefined ? (q.options[answerValue] || '') : '';
+      } else if (q.questionType === 'descriptive' || q.questionType === 'coding') {
+        // Descriptive/Coding: answerValue is the raw text string
+        studentAnswer = typeof answerValue === 'string' ? answerValue : '';
+      }
+
+      return {
+        questionText: q.questionText,
+        studentAnswer
+      };
+    });
+
     const submissionData = {
       quizId: quizId,
       timeTaken: quiz.durationInMinutes * 60 - timeLeft,
-      warnings: 5 - warningsRef.current,
+      warnings: 5 - warnings,
       penalties: 0,
-      answers: quiz.questions.map((q, i) => {
-        if (q.questionType?.toLowerCase() === 'coding' || q.testcases?.length > 0) {
-          const lang = getLanguage(i);
-          const results = testResults[i] || [];
-          // Create an outputs map for the backend evaluation logic
-          const outputs = {};
-          const tests = getTests(i);
-          results.forEach((r, idx) => {
-            const tc = tests[idx];
-            if (tc) {
-              outputs[tc.input] = r.output;
-            }
-          });
-
-          return {
-            type: 'coding',
-            code: getCode(i, lang),
-            language: lang,
-            outputs: outputs, // Map by input
-            results: results  // Full results array (more reliable)
-          };
-        }
-        return answers[i]?.answer ?? null;
-      }),
-      violations: violationLogsRef.current
+      answers: formattedAnswers,
     };
 
     try {
-      const token = localStorage.getItem("token");
-      const response = await API.post(
-        "/api/results/submit",
-        submissionData,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const newResultId = response.data.resultId;
+      const response = await api.post("/api/results/submit", submissionData);
+      const newResultId = response.data.id;
+
+      if (socket) {
+        socket.emit('student:submitted', { quizId, studentId: user.id });
+      }
+
       stopCamera();
       stopScreenShare();
+
+      // Exit fullscreen before redirecting
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(err => console.log(err));
+      }
+
       navigate(`/results/${newResultId}`, { replace: true });
     } catch (error) {
+      submittedRef.current = false;
       console.error("Failed to submit quiz results:", error);
-      toast.error(
-        "There was an error submitting your results. Please try again."
-      );
-    } finally {
-      setIsSubmitting(false);
-      isSubmittingRef.current = false;
+      toast.error(error.response?.data?.message || "Error submitting answers.");
     }
-  }, [
-    quiz,
-    answers,
-    timeLeft,
-    quizId,
-    navigate,
-    stopCamera,
-    stopScreenShare,
-  ]);
+  }, [quiz, answers, timeLeft, warnings, quizId, navigate, stopCamera, stopScreenShare, socket, user]);
 
+  // Handle active socket proctoring monitoring
   useEffect(() => {
-    handleSubmitRef.current = handleSubmit;
-  }, [handleSubmit]);
+    if (step === 4 && socket && user) {
+      // 1. Join room
+      socket.emit('student:join', {
+        quizId,
+        studentId: user.id,
+        name: user.name
+      });
 
-  const syncState = useCallback(async () => {
-    if (step !== 4 || isSyncing) return;
-    const token = localStorage.getItem("token");
-    if (!token) return;
+      // 2. Setup heartbeats
+      const heartbeatTimer = setInterval(() => {
+        socket.emit('student:heartbeat', { quizId, studentId: user.id });
+      }, 25000);
 
-    try {
-      setIsSyncing(true);
-      await API.post(`/api/results/sync-attempt/${quizId}`, {
-        warnings: warningsRef.current,
-        answers: answers,
-        violations: violationLogsRef.current
-      }, { headers: { Authorization: `Bearer ${token}` } });
-    } catch (err) {
-      console.error("Sync failed:", err);
-    } finally {
-      setIsSyncing(false);
+      // 3. Listen for force-submit command
+      socket.on('student:force-submit', ({ reason }) => {
+        toast.error(`Forced Submission: ${reason}`, { duration: 6000 });
+        handleSubmit();
+      });
+
+      return () => {
+        clearInterval(heartbeatTimer);
+        socket.off('student:force-submit');
+      };
     }
-  }, [step, answers, quizId, isSyncing]);
+  }, [step, socket, user, quizId, handleSubmit]);
 
-  useEffect(() => {
-    syncStateRef.current = syncState;
-  }, [syncState]);
-
-  useEffect(() => {
-    if (step === 4) {
-      const interval = setInterval(syncState, 30000); // Sync every 30 seconds
-      return () => clearInterval(interval);
-    }
-  }, [step, syncState]);
-
-  useEffect(() => {
-    warningsRef.current = warnings;
-  }, [warnings]);
-
+  // Heartbeat & Timer countdown
   useEffect(() => {
     if (step === 4) {
       if (timeLeft <= 0) {
         toast.error("Time is up! Submitting your quiz now.");
-        if (handleSubmitRef.current) handleSubmitRef.current();
+        handleSubmit();
         return;
       }
       const timer = setInterval(() => {
@@ -894,145 +371,201 @@ const QuizFlow = () => {
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [step, timeLeft]);
+  }, [step, timeLeft, handleSubmit]);
 
-  const reduceLife = useCallback((message, type = "Proctoring Violation") => {
-    if (toastIdRef.current) {
-      toast.dismiss(toastIdRef.current);
-    }
-
-    const newLog = {
-      type,
-      message: `${message}`,
-      timestamp: new Date()
-    };
-
-    violationLogsRef.current = [...violationLogsRef.current, newLog];
-    setViolationLogs([...violationLogsRef.current]);
-
-    setWarnings((prevWarnings) => {
-      const newWarnings = prevWarnings - 1;
-
-      if (newWarnings <= 0) {
-        toast.error(
-          "Maximum proctoring warnings exceeded. Your assessment is being submitted automatically for review.",
-          { duration: 4000 }
-        );
-
-        const autoSubmitLog = {
-          type: "Auto-Submission",
-          message: "Assessment automatically submitted due to repeated proctoring violations.",
-          timestamp: new Date()
-        };
-        violationLogsRef.current = [...violationLogsRef.current, autoSubmitLog];
-        setViolationLogs([...violationLogsRef.current]);
-
-        warningsRef.current = 0;
-        if (handleSubmitRef.current) handleSubmitRef.current();
-      } else {
-        toastIdRef.current = toast.error(
-          `${message} You have ${newWarnings} ${newWarnings === 1 ? "life" : "lives"} left.`,
-          { icon: "⚠️", duration: 4000 }
-        );
-        // Ensure user is moved out of Step 4 on a critical proctoring violation like fullscreen exit
-        if (type === "Fullscreen Violation" || type === "Clipboard Violation" || message.includes("test environment")) {
-          setStep(3);
-        }
-      }
-
-      if (syncStateRef.current) syncStateRef.current();
-      return newWarnings;
-    });
-  }, []); // Now stable!
-
+  // Full screen warning monitoring
   useEffect(() => {
-    if (step === 4 && !isFullScreen && !isAwaitingPermission) {
-      reduceLife("Fullscreen mode was exited (Escape key or window focus lost).", "Fullscreen Violation");
-    }
-  }, [isFullScreen, step, isAwaitingPermission, reduceLife]);
+    if (step === 4 && !isFullScreen) {
+      // Cooldown of 2 seconds after entering step 4 to allow browser fullscreen API to resolve
+      if (Date.now() - step4EntryTimeRef.current < 2000) return;
+      // Share the same throttle ref as tab-switch handler to prevent double-deduction
+      const now = Date.now();
+      if (now - lastDeflectionTimeRef.current < 3000) return;
+      lastDeflectionTimeRef.current = now;
 
-  useEffect(() => {
-    const handlePaste = (e) => {
-      if (step === 4) {
-        e.preventDefault();
-        if (document.fullscreenElement) {
-          document.exitFullscreen();
+      setWarnings((prevWarnings) => {
+        const newWarnings = prevWarnings - 1;
+
+        // Send websocket warning log
+        if (socket && user) {
+          socket.emit('student:warning', {
+            quizId,
+            studentId: user.id,
+            type: 'FULLSCREEN'
+          });
         }
-        reduceLife("Unauthorized paste attempt detected. Your life was decreased.", "Clipboard Violation");
+
+        if (newWarnings <= 0) {
+          toast.error(
+            "You have exceeded the maximum number of warnings. Your quiz will be submitted automatically.",
+            { duration: 4000 }
+          );
+          setTimeout(() => {
+            handleSubmit();
+          }, 0);
+        } else {
+          toast.error(
+            `You have exited full-screen. You have ${newWarnings} warning lives left.`,
+            { icon: "⚠️", duration: 4050 }
+          );
+          setTimeout(() => {
+            setStep(3); // Navigate back to setup/lock page so student must go full screen again
+          }, 0);
+        }
+
+        return newWarnings;
+      });
+    }
+  }, [isFullScreen, step, handleSubmit, socket, user, quizId]);
+
+  // Tab, Window, and Trackpad deflection warning monitoring (Alt+Tab, swipe, devtools, other windows)
+  useEffect(() => {
+    if (step !== 4) return;
+
+    const handleWindowDeflection = () => {
+      const now = Date.now();
+      // Cooldown of 2 seconds after entering step 4 to allow browser focus to settle
+      if (now - step4EntryTimeRef.current < 2000) return;
+      // Throttle deflection triggers to once every 3 seconds to prevent double triggers on fast switches
+      if (now - lastDeflectionTimeRef.current < 3000) return;
+      lastDeflectionTimeRef.current = now;
+
+      setWarnings((prevWarnings) => {
+        const newWarnings = prevWarnings - 1;
+
+        if (socket && user) {
+          socket.emit('student:warning', {
+            quizId,
+            studentId: user.id,
+            type: 'TAB_SWITCH'
+          });
+        }
+
+        if (newWarnings <= 0) {
+          toast.error(
+            "You have switched tabs, windows, or apps. Maximum warnings exceeded. Submitting quiz now.",
+            { duration: 4000 }
+          );
+          setTimeout(() => {
+            handleSubmit();
+          }, 0);
+        } else {
+          toast.error(
+            `Warning: Switching apps, windows, or desktops is prohibited. You have ${newWarnings} lives left.`,
+            { icon: "⚠️", duration: 4500 }
+          );
+        }
+
+        return newWarnings;
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handleWindowDeflection();
       }
     };
 
-    const handleCopy = (e) => {
-      if (step === 4) {
-        e.preventDefault();
-        toast.error("Copying is not allowed during the assessment.");
-      }
-    };
-
-    window.addEventListener("paste", handlePaste);
-    window.addEventListener("copy", handleCopy);
+    window.addEventListener("blur", handleWindowDeflection);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.removeEventListener("paste", handlePaste);
-      window.removeEventListener("copy", handleCopy);
+      window.removeEventListener("blur", handleWindowDeflection);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [step, reduceLife]);
+  }, [step, socket, user, quizId, handleSubmit]);
 
+  // AI Simulation warning trigger checks
   useEffect(() => {
-    const handleBlur = () => {
-      if (step === 4 && document.fullscreenElement && !isAwaitingPermission) {
-        document.exitFullscreen();
-      }
-    };
+    if (step !== 4) return;
+    let timer = null;
 
-    window.addEventListener("blur", handleBlur);
+    if (simulatedGazeDeflected) {
+      toast("AI: Gaze deflection simulated. Move gaze back within 4s to prevent penalty.", { icon: "👀", duration: 3000 });
+      timer = setTimeout(() => {
+        setWarnings((prevWarnings) => {
+          const newWarnings = prevWarnings - 1;
+
+          if (socket && user) {
+            socket.emit('student:warning', {
+              quizId,
+              studentId: user.id,
+              type: 'FACE_MISSING'
+            });
+          }
+
+          if (newWarnings <= 0) {
+            toast.error("AI proctoring forced submission: Candidates looked away too long.", { duration: 4000 });
+            setTimeout(() => {
+              handleSubmit();
+            }, 0);
+          } else {
+            toast.error(`Warning: Gaze deflection/look-away detected! You have ${newWarnings} lives left.`, { icon: "⚠️", duration: 4000 });
+          }
+
+          return newWarnings;
+        });
+        setSimulatedGazeDeflected(false);
+      }, 4000);
+    }
 
     return () => {
-      window.removeEventListener("blur", handleBlur);
+      if (timer) clearTimeout(timer);
     };
-  }, [step, isAwaitingPermission]);
+  }, [simulatedGazeDeflected, step, socket, user, quizId, handleSubmit]);
 
   useEffect(() => {
-    const handleResize = () => {
-      if (step === 4 && document.fullscreenElement && fullScreenSize.current) {
-        const newW = window.innerWidth;
-        const newH = window.innerHeight;
-        if (newW < fullScreenSize.current.w || newH < fullScreenSize.current.h) {
-          document.exitFullscreen();
-        } else if (
-          newW > fullScreenSize.current.w ||
-          newH > fullScreenSize.current.h
-        ) {
-          fullScreenSize.current = { w: newW, h: newH };
-        }
-      }
-    };
+    if (step !== 4) return;
+    let timer = null;
 
-    window.addEventListener("resize", handleResize);
+    if (simulatedMultipleFaces) {
+      toast("AI: Multiple faces simulated. Clear background within 4s to prevent penalty.", { icon: "👥", duration: 3000 });
+      timer = setTimeout(() => {
+        setWarnings((prevWarnings) => {
+          const newWarnings = prevWarnings - 1;
+
+          if (socket && user) {
+            socket.emit('student:warning', {
+              quizId,
+              studentId: user.id,
+              type: 'OTHER'
+            });
+          }
+
+          if (newWarnings <= 0) {
+            toast.error("AI proctoring forced submission: Multiple persons detected.", { duration: 4000 });
+            setTimeout(() => {
+              handleSubmit();
+            }, 0);
+          } else {
+            toast.error(`Warning: Multiple persons detected in camera view! You have ${newWarnings} lives left.`, { icon: "⚠️", duration: 4000 });
+          }
+
+          return newWarnings;
+        });
+        setSimulatedMultipleFaces(false);
+      }, 4000);
+    }
 
     return () => {
-      window.removeEventListener("resize", handleResize);
+      if (timer) clearTimeout(timer);
     };
-  }, [step]);
+  }, [simulatedMultipleFaces, step, socket, user, quizId, handleSubmit]);
 
   useEffect(() => {
-    if (cameraStream && cameraFeedRef.current) {
-      cameraFeedRef.current.srcObject = cameraStream;
+    if (step === 3) {
+      if (cameraStream && cameraFeedRef.current) {
+        cameraFeedRef.current.srcObject = cameraStream;
+      }
+      if (screenStream && screenFeedRef.current) {
+        screenFeedRef.current.srcObject = screenStream;
+      }
     }
-    if (screenStream && screenFeedRef.current) {
-      screenFeedRef.current.srcObject = screenStream;
-    }
-  }, [cameraStream, screenStream, step, isFullScreen, cameraEnabled, screenEnabled]);
+  }, [cameraStream, screenStream, step]);
 
-  useEffect(() => {
-    if (step < 3) {
-      stopCamera();
-      stopScreenShare();
-    }
-  }, [step, stopCamera, stopScreenShare]);
+  // Removed stream-stopping on previous steps so permissions persist
 
   const handleEnableCamera = async () => {
-    setIsAwaitingPermission(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -1042,16 +575,11 @@ const QuizFlow = () => {
       setCameraStream(stream);
       setCameraEnabled(true);
     } catch (err) {
-      toast.error(
-        "Camera access was denied. Please allow access in your browser settings."
-      );
-    } finally {
-      setIsAwaitingPermission(false);
+      toast.error("Camera access was denied. Please allow access in your browser settings.");
     }
   };
 
   const handleEnableScreenShare = async () => {
-    setIsAwaitingPermission(true);
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { cursor: "always" },
@@ -1063,19 +591,13 @@ const QuizFlow = () => {
         setScreenEnabled(true);
       } else {
         stream.getTracks().forEach((track) => track.stop());
-        toast.error(
-          "You must share your entire screen. Please select the 'Entire Screen' option."
-        );
+        toast.error("You must share your entire screen. Please select the 'Entire Screen' option.");
         setScreenEnabled(false);
       }
     } catch (err) {
-      if (err.name !== "NotAllowedError" && err.name !== "AbortError") {
-        toast.error(
-          "Screen share access was denied. Please select a screen to share."
-        );
+      if (err.name !== "NotAllowedError") {
+        toast.error("Screen share access was denied. Please select a screen to share.");
       }
-    } finally {
-      setIsAwaitingPermission(false);
     }
   };
 
@@ -1110,36 +632,18 @@ const QuizFlow = () => {
     if (!document.fullscreenElement) {
       document.documentElement
         .requestFullscreen()
-        .catch((err) =>
-          toast.error(`Error enabling full-screen: ${err.message}`)
-        );
+        .catch((err) => toast.error(`Error enabling full-screen: ${err.message}`));
     } else {
       document.exitFullscreen();
     }
   };
 
   const handleBeginAssessment = async () => {
-    const token = localStorage.getItem("token");
-
     if (isOtpVerified) {
-      if (!isFullScreen) {
-        toast.error("Please re-enter full-screen mode to continue.");
-        return;
-      }
-
-      try {
-        setIsVerifying(true);
-        // Ensure attempt is started on backend
-        await API.post(`/api/results/start-attempt/${quizId}`, {}, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+      if (isFullScreen) {
         setStep(4);
-      } catch (err) {
-        console.error("Failed to start assessment:", err);
-        const errorMessage = err.response?.data?.message || "Failed to start assessment. Please try again.";
-        toast.error(errorMessage);
-      } finally {
-        setIsVerifying(false);
+      } else {
+        toast.error("Please re-enter full-screen mode to continue.");
       }
       return;
     }
@@ -1148,20 +652,14 @@ const QuizFlow = () => {
     setSecurityCodeError(null);
     try {
       const code = securityCode.join("");
-
-      // Start attempt - this now handles OTP verification on the backend atomically
-      await API.post(`/api/results/start-attempt/${quizId}`,
-        { otp: code },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
+      const res = await api.post(`/api/quizzes/${quizId}/verify-otp`, { otp: code });
       setIsOtpVerified(true);
       setStep(4);
     } catch (err) {
       if (err.response?.data?.message) {
         setSecurityCodeError(err.response.data.message);
       } else {
-        setSecurityCodeError("Something went wrong. Please try again.");
+        setSecurityCodeError("Invalid OTP. Please check with your teacher.");
       }
     } finally {
       setIsVerifying(false);
@@ -1173,7 +671,7 @@ const QuizFlow = () => {
     newAnswers[currentQuestionIndex] = {
       ...newAnswers[currentQuestionIndex],
       answer: optionIndex,
-      status: optionIndex === null ? "unanswered" : "answered",
+      status: "answered",
     };
     setAnswers(newAnswers);
   };
@@ -1199,309 +697,264 @@ const QuizFlow = () => {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <Hourglass className="h-12 w-12 text-red-600 animate-spin" />
+      <div className="flex items-center justify-center h-screen bg-black">
+        <Hourglass className="h-12 w-12 text-black animate-spin" />
       </div>
     );
   if (error)
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50 p-4">
-        <div className="text-center p-6 sm:p-8 bg-white rounded-lg border border-gray-200 shadow-md">
-          <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
-          <p className="mt-4 text-gray-800">{error}</p>
+      <div className="flex items-center justify-center h-screen bg-black">
+        <div className="text-center p-8 bg-[#111827] rounded-xl border border-slate-800">
+          <AlertCircle className="h-12 w-12 text-black mx-auto" />
+          <p className="mt-4 text-gray-900">{error}</p>
         </div>
       </div>
     );
   if (!quiz) return null;
 
+  // Status gate: quiz not yet activated by teacher
+  if (quiz.status === 'PENDING') {
+    return (
+      <div className="flex items-center justify-center h-screen bg-amber-50">
+        <div className="text-center max-w-md px-8 py-12 bg-white rounded-2xl border border-gray-200 shadow-sm space-y-5">
+          <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
+            <Hourglass className="h-7 w-7 text-gray-400" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">{quiz.title}</h1>
+            <p className="mt-2 text-gray-500 text-sm leading-relaxed">
+              This exam hasn't started yet. Your faculty will activate it at the scheduled time.
+            </p>
+          </div>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 text-sm text-amber-800 font-medium">
+            Please stay on standby and refresh when your faculty announces the exam has begun.
+          </div>
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-2 text-xs text-gray-400 hover:text-gray-700 transition underline"
+          >
+            Go back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Status gate: quiz has ended
+  if (quiz.status === 'COMPLETED') {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center max-w-md px-8 py-12 bg-white rounded-2xl border border-gray-200 shadow-sm space-y-5">
+          <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
+            <AlertCircle className="h-7 w-7 text-gray-400" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">{quiz.title}</h1>
+            <p className="mt-2 text-gray-500 text-sm leading-relaxed">
+              The exam window for this assessment has closed.
+            </p>
+          </div>
+          <div className="bg-gray-50 border border-gray-200 rounded-xl px-5 py-4 text-sm text-gray-700 font-medium">
+            Please contact your faculty for a re-attempt or further guidance.
+          </div>
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-2 text-xs text-gray-400 hover:text-gray-700 transition underline"
+          >
+            Go back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const renderContent = () => {
     if (step < 4) {
       const steps = [{ id: 1 }, { id: 2 }, { id: 3 }];
       return (
-        <div className="flex flex-col lg:flex-row min-h-screen bg-white text-gray-900 font-sans relative">
+        <div className="flex h-screen bg-amber-50 text-gray-900 relative">
           <Toaster position="top-center" reverseOrder={false} />
-          <div className="w-full lg:w-128 flex-shrink-0 bg-yellow-50 border-r border-gray-200 flex flex-col justify-between p-6 sm:p-8">
+          <div className="w-[350px] flex-shrink-0 bg-amber-50 border-r border-amber-200 flex flex-col justify-between p-8 shadow-sm z-10">
             <div>
-              <div className="flex items-center space-x-1 mb-6 sm:mb-8">
-                <img
-                  src={LOGO}
-                  alt=""
-                  className="h-16 w-16 sm:h-20 sm:w-20 mt-0.5 text-blue-600"
-                />
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                  Take An Assessment
-                </h1>
+              <div className="flex items-center space-x-3 mb-10">
+                <ShieldCheck className="h-8 w-8 text-gray-900" />
+                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Proctor-X</h1>
               </div>
-              <div className="p-4 sm:p-7 border-2 border-gray-500 rounded-xl bg-white">
-                <h2 className="font-bold text-base sm:text-lg text-gray-900">
-                  {quiz.title}
-                </h2>
-                <div className="border-t-2 border-dashed border-gray-500 my-4 sm:my-7"></div>
-                <div className="grid grid-cols-2 gap-y-4 sm:gap-y-6 gap-x-4 sm:gap-x-6">
-                  <div className="flex items-start space-x-2">
-                    <Mic className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <span className="text-xs sm:text-sm text-gray-600">
-                        Proctoring
-                      </span>
-                      <span className="block font-semibold text-sm sm:text-base text-gray-900">
-                        {quiz.proctoringProvider || "ProctorX Safeguard"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <Hourglass className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <span className="text-xs sm:text-sm text-gray-600">
-                        Max. Duration
-                      </span>
-                      <span className="text-gray-900 font-bold">
-                        {quiz.duration || "N/A"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <HelpCircle className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <span className="text-xs sm:text-sm text-gray-600">
-                        Total Questions
-                      </span>
-                      <span className="block font-semibold text-sm sm:text-base text-gray-900">
-                        {quiz.questions?.length || 0}
-                      </span>
-                    </div>
-                  </div>
+              <div className="p-6 bg-white border border-gray-200 rounded-2xl space-y-5 shadow-sm">
+                <h2 className="text-lg font-bold text-gray-900 leading-snug">{quiz.title}</h2>
+                <div className="flex justify-between items-center text-sm text-gray-600">
+                  <span className="flex items-center font-medium">
+                    <Mic className="w-4 h-4 mr-2 text-gray-400" /> Proctoring
+                  </span>
+                  <span className="font-semibold bg-gray-50 border border-gray-200 text-gray-700 px-3 py-1 rounded-lg">
+                    {quiz.proctoringProvider}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm text-gray-600">
+                  <span className="flex items-center font-medium">
+                    <Hourglass className="w-4 h-4 mr-2 text-gray-400" /> Duration
+                  </span>
+                  <span className="font-semibold text-gray-900">{quiz.duration}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm text-gray-600">
+                  <span className="flex items-center font-medium">
+                    <HelpCircle className="w-4 h-4 mr-2 text-gray-400" /> Questions
+                  </span>
+                  <span className="font-semibold text-gray-900">
+                    {quiz.questions?.length || 0}
+                  </span>
+                </div>
+              </div>
+              <div className="my-10">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-5">
+                  Setup Progress
+                </h3>
+                <div className="space-y-4">
+                  <SidebarChecklistItem
+                    label="Honour Code Agreed"
+                    isChecked={honourCodeAgreed}
+                  />
+                  <SidebarChecklistItem
+                    label="Permissions Enabled"
+                    isChecked={cameraEnabled && screenEnabled}
+                  />
+                  <SidebarChecklistItem
+                    label="Full Screen Active"
+                    isChecked={isFullScreen}
+                  />
+                  <SidebarChecklistItem
+                    label="Security Code Entered"
+                    isChecked={securityCode.join("").length === 6 || isOtpVerified}
+                  />
                 </div>
               </div>
             </div>
-            <div className="flex flex-col items-center mt-8 lg:mt-0">
-              <img
-                src={Proctor}
-                alt="illustration"
-                className="mb-6 w-64 sm:w-80 lg:w-96 h-auto mx-auto"
-              />
-              <div className="text-center w-full">
-                <div className="flex items-center justify-center space-x-3">
-                  <User className="w-8 h-8 p-1.5 bg-gray-200 text-gray-700 rounded-full" />
-                  <div>
-                    <p className="font-semibold text-sm sm:text-base text-gray-900">
-                      {quiz.studentName}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {quiz.studentEmail}
-                    </p>
+            <div className="flex flex-col items-center">
+              <ShieldCheck className="mb-8 w-24 h-24 text-amber-200/60" />
+              <div className="w-full bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                <div className="flex items-center space-x-4">
+                  <User className="w-10 h-10 p-2 bg-gray-50 text-gray-600 rounded-full border border-gray-200" />
+                  <div className="text-left flex-1 overflow-hidden">
+                    <p className="font-bold text-gray-900 text-sm truncate">{quiz.studentName}</p>
+                    <p className="text-xs text-gray-500 truncate">{quiz.studentEmail}</p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <div className="hidden lg:flex absolute top-1/2 left-128 -translate-x-1/2 -translate-y-1/2 flex-col items-center z-10">
+          <div className="absolute top-1/2 left-[350px] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20">
             {steps.map((s, index) => (
               <div key={s.id} className="flex flex-col items-center">
                 <div
-                  className={`w-9 h-9 flex items-center justify-center font-bold transition-all ${s.id < step
-                    ? "bg-green-600 text-white"
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold transition-all duration-300 ${s.id < step
+                    ? "bg-gray-900 text-white shadow-md"
                     : step === s.id
-                      ? "bg-red-600 text-white scale-110"
-                      : "bg-white border-2 border-gray-500 text-black-500"
+                      ? "bg-gray-900 text-white scale-110 shadow-lg ring-4 ring-gray-100"
+                      : "bg-white border-2 border-gray-200 text-gray-400"
                     }`}
                 >
-                  {s.id < step ? <CheckCircle2 size={20} /> : s.id}
+                  {s.id < step ? <CheckCircle2 size={20} className="text-white" /> : s.id}
                 </div>
                 {index < steps.length - 1 && (
-                  <div className="w-0.5 h-16 bg-gray-300 my-2"></div>
+                  <div className={`w-0.5 h-12 my-2 transition-all duration-300 ${s.id < step ? "bg-gray-900" : "bg-gray-200"}`}></div>
                 )}
               </div>
             ))}
           </div>
-          <div className="flex-1 flex flex-col h-full bg-slate-50 relative select-none" onContextMenu={(e) => e.preventDefault()}>
-            {/* Top Banner */}   <div className="flex-1">
+          <div className="flex-1 flex flex-col px-10 lg:px-16 py-10 lg:py-14 overflow-y-auto bg-white">
+            <div className="w-full flex-1">
               {step === 1 && (
-                <div className="space-y-8 sm:space-y-10 text-gray-700">
-                  <div>
-                    <h2 className="text-2xl sm:text-3xl font-bold text-black-900">
-                      Instructions
-                    </h2>
-                    <p className="mt-2 sm:mt-4 text-sm sm:text-base text-black ">
-                      Please read the below instructions carefully and begin the
-                      assessment.
-                    </p>
-                    <ul className="list-disc list-inside space-y-2 text-sm sm:text-base font-semibold mt-4">
-                      <li>
-                        This assessment can be attempted only ONCE. Hence, please
-                        ensure you are seated in a distraction-free environment.
-                      </li>
-                      <li>
-                        Please ensure you are connected to a strong wifi/ethernet
-                        network.
-                      </li>
-                      <li>
-                        In case of internet discrepancies, your timer will still
-                        keep running. However, you can continue attempting the
-                        current question.
-                      </li>
-                      <li>
-                        The security code will be provided by the invigilator at
-                        your venue.
-                      </li>
-                      <li>
-                        In case of any technical difficulties, please reach out
-                        to the invigilator.
-                      </li>
-                      <li>Give your best. Good luck!</li>
-                    </ul>
-                  </div>
-
-                  <div className="bg-amber-50 border border-dashed border-amber-400 rounded-lg p-4 sm:p-6 flex flex-col sm:flex-row justify-between sm:items-center">
+                <div className="space-y-10 text-gray-600">
+                  <h2 className="text-3xl font-bold text-gray-900">Instructions</h2>
+                  <ul className="list-disc list-inside space-y-2">
+                    <li>This assessment can be attempted only ONCE.</li>
+                    <li>Ensure you are connected to a strong network.</li>
+                    <li>
+                      Your timer will not stop for internet discrepancies.
+                    </li>
+                    <li>
+                      The security code will be provided by the invigilator.
+                    </li>
+                    <li>
+                      Reach out to the invigilator for technical issues.
+                    </li>
+                    <li>Good luck!</li>
+                  </ul>
+                  <div className="bg-red-50 border border-red-100 rounded-lg p-6 flex justify-between">
                     <div>
-                      <h3 className="font-bold text-lg sm:text-xl text-gray-900 mb-3">
+                      <h3 className="font-bold text-lg text-gray-900 mb-3">
                         Proctoring Guidelines
                       </h3>
-                      <ul className="list-disc list-inside text-sm sm:text-base space-y-2 text-black-800">
+                      <ul className="list-disc list-inside text-sm space-y-2 text-red-700">
                         <li>
-                          This assessment requires you to share your Camera and
-                          Microphone feed, as well as your entire screen.
+                          This assessment requires Camera, Mic, and entire screen
+                          sharing.
                         </li>
                         <li>
-                          Once the assessment begins, make sure that your Camera
-                          & Microphone feed, along with Screen Sharing, are
-                          clearly visible in the top-left corner of the
-                          assessment screen. If they appear blank or the feed is
-                          incorrect, contact your invigilator right away.
-                          Failure to do so will void your chances for any
-                          further consideration of retake/reevaluation.
+                          Ensure all feeds are visible in the top-left corner
+                          during the test.
                         </li>
                       </ul>
                     </div>
-                    <img
-                      src={ProctoredX}
-                      alt="proctoring"
-                      className="w-40 sm:w-56 object-contain mt-4 sm:mt-0 sm:ml-6 flex-shrink-0"
-                    />
-                  </div>
-
-                  <div>
-                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                      Marking Scheme
-                    </h2>
-                    <p className="mt-2 sm:mt-4 text-sm sm:text-base">
-                      Refer to the top right of each question for the marks
-                      awarded for a correct answer or deducted for an incorrect
-                      answer as shown below.
-                    </p>
-                    <div className="flex items-center space-x-6 mt-4">
-                      <div className="text-center">
-                        <div className="inline-block bg-green-100 text-green-700 font-bold px-3 py-1 rounded border border-green-300">
-                          +X
-                        </div>
-                        <p className="mt-2 text-sm">Correct</p>
-                      </div>
-                      <div className="text-center">
-                        <div className="inline-block bg-red-100 text-red-700 font-bold px-3.5 py-1 rounded border border-red-300">
-                          -Y
-                        </div>
-                        <p className="mt-2 text-sm">Incorrect</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                      Question Palette
-                    </h2>
-                    <p className="mt-2 sm:mt-4 text-sm sm:text-base">
-                      The question palette displayed on the left side of the
-                      assessment screen will show the following statuses depicted
-                      by distinct symbols.
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-6 text-sm sm:text-base">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-blue-600 flex items-center justify-center text-white font-bold flex-shrink-0">
-                          1
-                        </div>
-                        <span>Answered</span>
-                      </div>
-
-                      <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 border-2 border-gray-700 rounded-md flex items-center justify-center text-gray-700 font-bold flex-shrink-0">
-                          2
-                        </div>
-                        <span>Unanswered</span>
-                      </div>
-
-                      <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-orange-400 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0">
-                          5
-                        </div>
-                        <span>Marked for review but answered</span>
-                      </div>
-
-                      <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 border-2 border-orange-400 rounded-lg flex items-center justify-center text-orange-400 font-bold flex-shrink-0">
-                          13
-                        </div>
-                        <span>Marked for review but unanswered</span>
-                      </div>
+                    <div className="w-48 h-32 hidden sm:flex items-center justify-center opacity-50">
+                      <ShieldCheck className="w-20 h-20 text-black" />
                     </div>
                   </div>
                 </div>
               )}
               {step === 2 && (
-                <div className="mt-0 sm:mt-18 space-y-8 sm:space-y-12 text-black-800">
-                  <h2 className="text-2xl sm:text-4xl font-bold text-gray-900">
-                    Proctor-X Honour Code
-                  </h2>
-                  <p className="text-sm sm:text-base">
-                    Before you start this challenge, we want you to take a take
-                    pledge - that you will abide by Proctor-X Honour Code. Here's
-                    what you are promising us.
-                  </p>
-
-                  <div className="space-y-6 sm:space-y-8 mt-8">
-                    <div className="flex items-start space-x-3">
-                      <CheckCircle2 className="h-6 w-6 text-green-600 mt-0.5 flex-shrink-0" />
-                      <span className="text-sm sm:text-base">
-                        I solemnly swear that I am up to no dishonesty! I promise
-                        to be truthful, and honourable and use only my powers of
-                        knowledge to complete this challenge.
-                      </span>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <CheckCircle2 className="h-6 w-6 text-green-600 mt-0.5 flex-shrink-0" />
-                      <span className="text-sm sm:text-base">
-                        I solemnly swear that I will not engage in malpractice
-                        such as (but not limited to) copying from my peers, using
-                        unauthorized resources (we're looking at you,
-                        ChatGPT!), or collaborating with others.
-                      </span>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <CheckCircle2 className="h-6 w-6 text-green-600 mt-0.5 flex-shrink-0" />
-                      <span className="text-sm sm:text-base">
-                        I also solemnly swear that failure to follow the
-                        aforementioned two points in the honour code will result
-                        in a life sentence of guilt, shame, eternal bad luck, and
-                        rejection from the Proctor-X program.
-                      </span>
+                <div className="space-y-8 text-gray-600">
+                  <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Honour Code & Academic Integrity</h2>
+                  <div className="text-gray-600 space-y-8">
+                    <p className="text-base leading-relaxed text-gray-700">
+                      By proceeding with this assessment, you are bound by our strict academic integrity and proctoring policies. Please read carefully before agreeing.
+                    </p>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-5 text-lg">I solemnly affirm and understand that:</h3>
+                      <ul className="space-y-6">
+                        <li className="flex items-start">
+                          <span className="h-2 w-2 mt-2 mr-4 bg-blue-500 rounded-full flex-shrink-0"></span>
+                          <span className="text-base leading-relaxed"><strong className="text-gray-900 font-semibold">Original Work:</strong> I will be truthful and rely exclusively on my own knowledge and skills to complete this assessment.</span>
+                        </li>
+                        <li className="flex items-start">
+                          <span className="h-2 w-2 mt-2 mr-4 bg-blue-500 rounded-full flex-shrink-0"></span>
+                          <span className="text-base leading-relaxed"><strong className="text-gray-900 font-semibold">No Malpractice:</strong> I will not engage in any form of malpractice, including but not limited to copying, collaborating, using unauthorized materials, or accessing external websites.</span>
+                        </li>
+                        <li className="flex items-start">
+                          <span className="h-2 w-2 mt-2 mr-4 bg-blue-500 rounded-full flex-shrink-0"></span>
+                          <span className="text-base leading-relaxed"><strong className="text-gray-900 font-semibold">Environment Integrity:</strong> I am testing in a private, well-lit environment and no other individuals will be present in the room for the duration of the exam.</span>
+                        </li>
+                        <li className="flex items-start">
+                          <span className="h-2 w-2 mt-2 mr-4 bg-blue-500 rounded-full flex-shrink-0"></span>
+                          <span className="text-base leading-relaxed"><strong className="text-gray-900 font-semibold">Continuous Monitoring:</strong> I consent to continuous audio, video, and screen-sharing monitoring via AI and live proctors. I understand that my gaze and background will be actively tracked.</span>
+                        </li>
+                        <li className="flex items-start">
+                          <span className="h-2 w-2 mt-2 mr-4 bg-blue-500 rounded-full flex-shrink-0"></span>
+                          <span className="text-base leading-relaxed"><strong className="text-gray-900 font-semibold">System Usage:</strong> I will remain in full-screen mode at all times. Switching tabs, opening secondary apps, or using multiple monitors is strictly prohibited and will trigger automatic warnings.</span>
+                        </li>
+                        <li className="flex items-start">
+                          <span className="h-2 w-2 mt-2 mr-4 bg-blue-500 rounded-full flex-shrink-0"></span>
+                          <span className="text-base leading-relaxed"><strong className="text-gray-900 font-semibold">Zero Tolerance:</strong> I acknowledge that any violation of these rules, automated or manual, will result in immediate disqualification, cancellation of my score, and potential disciplinary action.</span>
+                        </li>
+                      </ul>
                     </div>
                   </div>
-
-                  <label className="flex items-start space-x-3 cursor-pointer pt-6">
+                  <label className="flex items-start space-x-3 cursor-pointer bg-white border border-gray-200 p-4 rounded-xl hover:bg-gray-50 transition">
                     <input
                       type="checkbox"
                       checked={honourCodeAgreed}
                       onChange={(e) => setHonourCodeAgreed(e.target.checked)}
-                      className="mt-0.5 h-5 w-5 accent-red-600 cursor-pointer flex-shrink-0"
+                      className="mt-1 h-5 w-5 accent-blue-600 cursor-pointer"
                     />
-                    <span className="text-gray-900 font-medium text-sm sm:text-base">
-                      I solemnly swear to abide by the Proctor-X Honour Code.
+                    <span className="text-gray-900 font-medium leading-tight">
+                      I solemnly swear to abide by the Proctor-X Honour Code and accept all proctoring guidelines mentioned above.
                     </span>
                   </label>
                 </div>
               )}
               {step === 3 && (
-                <div className="space-y-8 sm:space-y-10">
-                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                <div className="space-y-10">
+                  <h2 className="text-3xl font-bold text-gray-900">
                     Setup Your Test Environment
                   </h2>
                   <div className="space-y-8">
@@ -1513,74 +966,67 @@ const QuizFlow = () => {
                     <SetupCheckItem
                       title="Permissions"
                       status={
-                        cameraEnabled && (isMobileDevice ? true : screenEnabled)
-                          ? "checked"
-                          : "unchecked"
+                        cameraEnabled && screenEnabled ? "checked" : "unchecked"
                       }
                     >
-                      <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
-                        <div className="flex flex-col space-y-4 w-full sm:w-48">
-                          <div className="w-full h-auto aspect-video sm:h-32 sm:aspect-auto bg-gray-900 rounded-lg flex items-center justify-center">
-                            {cameraEnabled ? (
-                              <video
-                                ref={cameraFeedRef}
-                                autoPlay
-                                playsInline
-                                muted
-                                className="w-full h-full object-cover rounded-lg"
-                              />
-                            ) : (
-                              <Camera className="text-gray-500" />
-                            )}
-                          </div>
-                          {!cameraEnabled ? (
-                            <button
-                              onClick={handleEnableCamera}
-                              className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700 text-sm sm:text-base"
-                            >
-                              Enable Camera
-                            </button>
+                      <div className="flex space-x-4">
+                        <div className="w-48 h-32 bg-black rounded-lg flex items-center justify-center">
+                          {cameraEnabled ? (
+                            <video
+                              ref={cameraFeedRef}
+                              autoPlay
+                              playsInline
+                              muted
+                              className="w-full h-full object-cover rounded-lg"
+                            />
                           ) : (
-                            <button
-                              onClick={stopCamera}
-                              className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700 text-sm sm:text-base"
-                            >
-                              Stop Camera
-                            </button>
+                            <Camera className="text-gray-500" />
                           )}
                         </div>
-
-                        {!isMobileDevice && (
-                          <div className="flex flex-col space-y-4 w-full sm:w-48">
-                            <div className="w-full h-auto aspect-video sm:h-32 sm:aspect-auto bg-gray-900 rounded-lg flex items-center justify-center">
-                              {screenEnabled ? (
-                                <video
-                                  ref={screenFeedRef}
-                                  autoPlay
-                                  playsInline
-                                  muted
-                                  className="w-full h-full object-cover rounded-lg"
-                                />
-                              ) : (
-                                <ScreenShare className="text-gray-500" />
-                              )}
-                            </div>
-                            {!screenEnabled ? (
-                              <button
-                                onClick={handleEnableScreenShare}
-                                className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700 text-sm sm:text-base"
-                              >
-                                Enable Screen Share
-                              </button>
-                            ) : (
-                              <button
-                                onClick={stopScreenShare}
-                                className="px-4 py-2 bg-red-600 text-white rounded font-medium hover:bg-red-700 text-sm sm:text-base"
-                              >
-                                Stop Screen Share
-                              </button>
-                            )}
-                          </div>
+                        <div className="w-48 h-32 bg-black rounded-lg flex items-center justify-center">
+                          {screenEnabled ? (
+                            <video
+                              ref={screenFeedRef}
+                              autoPlay
+                              playsInline
+                              muted
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                          ) : (
+                            <ScreenShare className="text-gray-500" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-4 flex space-x-4">
+                        {!cameraEnabled ? (
+                          <button
+                            onClick={handleEnableCamera}
+                            className="px-5 py-2.5 bg-gray-900 text-white font-medium rounded-lg hover:bg-black transition"
+                          >
+                            Enable Camera
+                          </button>
+                        ) : (
+                          <button
+                            onClick={stopCamera}
+                            className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition"
+                          >
+                            Stop Camera
+                          </button>
+                        )}
+                        {!screenEnabled ? (
+                          <button
+                            onClick={handleEnableScreenShare}
+                            className="px-5 py-2.5 bg-gray-900 text-white font-medium rounded-lg hover:bg-black transition"
+                          >
+                            Enable Screen Share
+                          </button>
+                        ) : (
+                          <button
+                            onClick={stopScreenShare}
+                            className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition"
+                          >
+                            Stop Screen Share
+                          </button>
                         )}
                       </div>
                     </SetupCheckItem>
@@ -1590,19 +1036,14 @@ const QuizFlow = () => {
                     >
                       <button
                         onClick={handleFullScreen}
-                        className={`px-4 py-2 text-white rounded flex items-center space-x-2 font-medium text-sm sm:text-base ${isFullScreen
-                          ? "bg-red-600 hover:bg-red-700"
-                          : "bg-green-600 hover:bg-green-700"
-                          }`}
+                        className="px-5 py-2.5 bg-gray-900 text-white font-medium rounded-lg flex items-center space-x-2 hover:bg-black transition"
                       >
-                        <Expand size={16} />
+                        <Expand size={18} />
                         <span>
                           {isFullScreen ? "Exit Full Screen" : "Go Full Screen"}
                         </span>
                       </button>
                     </SetupCheckItem>
-
-
                     <SetupCheckItem
                       title="Security Code"
                       status={
@@ -1610,67 +1051,52 @@ const QuizFlow = () => {
                           ? "checked"
                           : "unchecked"
                       }
-                      check={isOtpVerified ? "OTP already verified. Please re-enable proctoring features below." : "Enter the 6-digit code from your invigilator."}
+                      check="Enter the 6-digit code from your invigilator."
                     >
-                      {!isOtpVerified ? (
-                        <>
-                          <div className="flex space-x-2 sm:space-x-3">
-                            {securityCode.map((digit, i) => (
-                              <input
-                                key={i}
-                                ref={(el) => (inputRefs.current[i] = el)}
-                                type="text"
-                                maxLength="1"
-                                value={digit}
-                                onChange={(e) => handleSecurityCodeChange(e, i)}
-                                onKeyDown={(e) => handleSecurityCodeKeyDown(e, i)}
-                                disabled={
-                                  !cameraEnabled ||
-                                  (!isMobileDevice && !screenEnabled) ||
-                                  !isFullScreen ||
-                                  !isFullScreen
-
-                                }
-                                className="w-10 h-12 sm:w-12 sm:h-14 border-2 border-gray-300 bg-white rounded text-center text-xl sm:text-2xl text-gray-900 disabled:bg-gray-100 focus:border-red-600 focus:ring-0"
-                              />
-                            ))}
-                          </div>
-                          {securityCodeError && (
-                            <p className="text-sm text-red-600 mt-2">
-                              {securityCodeError}
-                            </p>
-                          )}
-                        </>
-                      ) : (
-                        <div className="flex items-center space-x-2 text-green-600">
-                          <CheckCircle2 className="h-5 w-5" />
-                          <span className="text-sm font-medium">Security code verified successfully</span>
-                        </div>
+                      <div className="flex space-x-3">
+                        {securityCode.map((digit, i) => (
+                          <input
+                            key={i}
+                            ref={(el) => (inputRefs.current[i] = el)}
+                            type="text"
+                            maxLength="1"
+                            value={digit}
+                            onChange={(e) => handleSecurityCodeChange(e, i)}
+                            onKeyDown={(e) => handleSecurityCodeKeyDown(e, i)}
+                            disabled={
+                              !cameraEnabled || !screenEnabled || !isFullScreen || isOtpVerified
+                            }
+                            className="w-12 h-14 border border-gray-300 bg-white rounded-lg text-center text-2xl font-semibold text-gray-900 disabled:bg-gray-100 disabled:text-gray-400 focus:border-gray-900 focus:ring-1 focus:ring-gray-900 outline-none transition"
+                          />
+                        ))}
+                      </div>
+                      {securityCodeError && (
+                        <p className="text-sm text-red-600 mt-2 font-medium">
+                          {securityCodeError}
+                        </p>
                       )}
                     </SetupCheckItem>
                   </div>
                 </div>
               )}
             </div>
-            <div className="flex justify-between items-center mt-6 pt-6 border-t-2 border-black-500">
+            <div className="flex justify-between items-center mt-10 pt-6 border-t border-gray-200">
               <button
                 onClick={handlePrevStep}
                 disabled={step === 1}
-                className="px-3 py-2 sm:px-5 flex items-center space-x-2 bg-red-500 text-white border border-gray-300 rounded font-medium hover:bg-red-700 disabled:opacity-50 text-sm sm:text-base"
+                className="px-6 py-2.5 flex items-center space-x-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium disabled:opacity-50 transition"
               >
-                <ArrowLeft size={16} />
-                <span className="hidden sm:inline">Previous</span>
+                <ArrowLeft size={18} />
+                <span>Previous</span>
               </button>
-
               {step < 3 ? (
                 <button
                   onClick={handleNextStep}
                   disabled={step === 2 && !honourCodeAgreed}
-                  className="px-4 py-2 sm:px-8 flex items-center space-x-2 bg-green-800 text-white rounded font-medium hover:bg-green-900 disabled:bg-gray-300 text-sm sm:text-base"
+                  className="px-8 py-2.5 flex items-center space-x-2 bg-gray-900 text-white font-medium rounded-lg hover:bg-black disabled:bg-gray-300 disabled:text-gray-500 transition"
                 >
-                  <span className="hidden sm:inline">Next</span>
-                  <ArrowRight size={16} />
-                  <p></p>
+                  <span>Next</span>
+                  <ArrowRight size={18} />
                 </button>
               ) : (
                 <button
@@ -1679,12 +1105,11 @@ const QuizFlow = () => {
                     isVerifying ||
                     !honourCodeAgreed ||
                     !cameraEnabled ||
-                    (!isMobileDevice && !screenEnabled) ||
+                    !screenEnabled ||
                     !isFullScreen ||
-
                     (securityCode.join("").length !== 6 && !isOtpVerified)
                   }
-                  className="px-4 py-2 sm:px-8 bg-red-600 text-white rounded font-medium hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 flex items-center space-x-2 text-sm sm:text-base"
+                  className="px-8 py-2.5 bg-gray-900 text-white font-medium rounded-lg hover:bg-black disabled:bg-gray-300 disabled:text-gray-500 flex items-center space-x-2 transition"
                 >
                   {isVerifying ? (
                     <>
@@ -1704,449 +1129,262 @@ const QuizFlow = () => {
       const currentQuestion = quiz.questions[currentQuestionIndex];
       const getStatusColor = (status) => {
         switch (status) {
-          case "passed":
-            return "bg-emerald-500 text-white"; // Bright green for all tests passed
           case "answered":
-            return "bg-green-600 text-white";
+            return "bg-white text-black";
           case "unanswered":
-            return "bg-gray-200 text-gray-700";
+            return "bg-gray-200 text-gray-800";
           case "review":
-            return "bg-red-600 text-white";
+            return "bg-red-600 text-gray-900";
           case "answered-review":
-            return "bg-yellow-500 text-white border-2 border-red-500";
+            return "bg-white text-black border-2 border-black ring-black";
           default:
-            return "bg-gray-200 text-gray-700";
+            return "bg-gray-700";
         }
       };
-
       return (
-        <>
-          <div className="flex flex-col min-h-screen bg-white text-gray-900 font-sans select-none" onContextMenu={(e) => e.preventDefault()}>
-            <Toaster position="top-center" reverseOrder={false} />
-            <InstructionsModal
-              isOpen={isInstructionsOpen}
-              onClose={() => setIsInstructionsOpen(false)}
-              quiz={quiz}
-            />
+        <div className="flex h-screen bg-gray-50 text-gray-900 font-sans">
+          <Toaster position="top-center" reverseOrder={false} />
+          <aside className="w-1/4 bg-gray-950 border-r border-gray-800 flex flex-col p-4 space-y-4">
+            <div className="flex items-center space-x-2">
+              <ShieldCheck className="h-8 w-8 text-black" />
+              <h1 className="text-xl font-bold">ProctorX</h1>
+            </div>
 
-            <header className="flex items-stretch justify-between flex-shrink-0 px-2 sm:px-0 bg-white">
-              <div className="flex items-center py-3">
-                <GraduationCap className="h-6 w-10 sm:h-8 sm:w-12 pl-2 sm:pl-5 text-red-900" />
-                <h1 className="text-base sm:text-lg font-bold pl-1 sm:pl-2 text-gray-800">
-                  {quiz.title}
-                </h1>
-              </div>
+            <div className="flex space-x-2">
+              <ProctoringFeed
+                stream={cameraStream}
+                type="camera"
+                simulatedGazeDeflected={simulatedGazeDeflected}
+                simulatedMultipleFaces={simulatedMultipleFaces}
+              />
+              <ProctoringFeed stream={screenStream} type="screen" />
+            </div>
 
-              <div className="flex items-stretch">
-                {timeLeft !== null && (
-                  <div className="flex items-center font-medium text-black-600 text-sm sm:text-base px-2 sm:px-6">
-                    <Clock className="mr-1 mt-0.3" size={18} />
-                    <span>{formatTime(timeLeft)} left</span>
-                  </div>
-                )}
+            {/* AI Violation Simulator Panel */}
+            <div className="bg-[#111827] border border-gray-800 rounded-xl p-3.5 space-y-2.5">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400 animate-pulse" /> AI Proctoring Simulator
+              </h3>
+              <p className="text-[9px] text-slate-500 leading-relaxed">
+                Test proctoring response loops by triggering simulated canditate violations:
+              </p>
+
+              <div className="flex flex-col gap-1.5 pt-1">
+                <button
+                  onClick={() => setSimulatedGazeDeflected(!simulatedGazeDeflected)}
+                  className={`w-full py-1.5 px-2.5 rounded-lg text-[10px] font-bold transition flex items-center justify-between border ${simulatedGazeDeflected
+                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                    : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
+                    }`}
+                >
+                  <span>Simulate Gaze Deflection</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${simulatedGazeDeflected ? 'bg-amber-400 animate-ping' : 'bg-slate-700'}`}></span>
+                </button>
 
                 <button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className="px-4 sm:px-12 text-sm sm:text-md font-medium text-white bg-gray-900 hover:bg-black-700 focus:outline-none focus:ring-2 focus:ring-black-500 focus:ring-opacity-50 disabled:opacity-50 flex items-center gap-2"
+                  onClick={() => setSimulatedMultipleFaces(!simulatedMultipleFaces)}
+                  className={`w-full py-1.5 px-2.5 rounded-lg text-[10px] font-bold transition flex items-center justify-between border ${simulatedMultipleFaces
+                    ? 'bg-red-500/20 text-red-400 border-black ring-black/40'
+                    : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
+                    }`}
                 >
-                  {isSubmitting && <Loader2 className="animate-spin h-4 w-4" />}
-                  {isSubmitting ? "Submitting..." : "Finish Assessment"}
+                  <span>Simulate Multi-Face</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${simulatedMultipleFaces ? 'bg-red-400 animate-ping' : 'bg-slate-700'}`}></span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto border-t border-gray-800 pt-4">
+              <h2 className="font-semibold mb-3 text-gray-900">Question Palette</h2>
+              <div className="grid grid-cols-5 gap-2">
+                {quiz.questions.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleQuestionNavigation(index)}
+                    className={`h-10 w-10 rounded-md font-bold flex items-center justify-center ${getStatusColor(
+                      answers[index]?.status
+                    )} ${currentQuestionIndex === index ? "ring-2 ring-red-500" : ""
+                      }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
+          <main className="flex-1 flex flex-col p-8">
+            <header className="flex justify-between items-center pb-4 border-b border-gray-200 mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">{quiz.title}</h2>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 text-gray-800 font-semibold bg-gray-100 px-4 py-2 rounded-lg border border-gray-200">
+                  <Clock className="h-5 w-5" />
+                  <span>{formatTime(timeLeft)}</span>
+                </div>
+                <button
+                  onClick={handleSubmit}
+                  className="px-6 py-2 bg-black text-white font-bold rounded-lg hover:bg-gray-900 transition-colors shadow-sm"
+                >
+                  Submit Assignment
                 </button>
               </div>
             </header>
-            <hr className="border-1" />
-
-            <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
-              <aside className="w-full lg:w-1/6 bg-stone-100 border-black-800 lg:border-r-2 flex flex-col flex-shrink-0 overflow-y-auto">
-                <div className="bg-yellow-50 p-2 pt-2">
-                  <div className="flex items-center text-sm space-x-2 text-black-800 max-w-md mx-auto lg:max-w-full">
-                    <span className="text-red-700">
-                      <ScanEye size={30} />
-                    </span>
-                    <span>
-                      Your camera feed, audio and screen are being proctored.
-                    </span>
-                  </div>
-                  <div
-                    className={`flex items-center ${!isMobileDevice && "space-x-2"
-                      } mt-2 w-full max-w-md mx-auto lg:max-w-full`}
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-600">
+                  Question {currentQuestionIndex + 1} of{" "}
+                  {quiz.questions.length}
+                </h3>
+                <span className="text-sm font-bold bg-gray-100 text-gray-800 border border-gray-200 px-3 py-1 rounded-lg">
+                  {currentQuestion.marks || 1} {currentQuestion.marks === 1 ? 'Mark' : 'Marks'}
+                </span>
+              </div>
+              <p className="text-xl mb-6 text-gray-900">{currentQuestion.questionText}</p>
+              <div className="space-y-3">
+                {currentQuestion.questionType === "mcq" && currentQuestion.options.map((option, index) => (
+                  <label
+                    key={index}
+                    className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${answers[currentQuestionIndex]?.answer === index
+                      ? "bg-gray-100 border-black ring-1 ring-black"
+                      : "bg-white border-gray-300 hover:bg-gray-50"
+                      }`}
                   >
-                    <ProctoringFeed stream={cameraStream} type="camera" />
-                    {!isMobileDevice && (
-                      <ProctoringFeed stream={screenStream} type="screen" />
-                    )}
+                    <input
+                      type="radio"
+                      name={`q-${currentQuestionIndex}`}
+                      checked={answers[currentQuestionIndex]?.answer === index}
+                      onChange={() => handleAnswerChange(index)}
+                      className="h-5 w-5 mr-4 accent-black"
+                    />
+                    <span className="text-gray-800 font-medium">{option}</span>
+                  </label>
+                ))}
+
+                {currentQuestion.questionType === "descriptive" && (
+                  <div className="mt-4">
+                    <textarea
+                      className="w-full h-64 p-5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black resize-none leading-relaxed"
+                      placeholder="Type your detailed answer here..."
+                      value={answers[currentQuestionIndex]?.answer || ""}
+                      onChange={(e) => handleAnswerChange(e.target.value)}
+                    ></textarea>
                   </div>
-                </div>
+                )}
 
-                <hr className="border-t-1 border-red-400" />
-
-                <div className="flex-1 lg:mt-4 p-4 lg:p-0">
-                  <h2
-                    onClick={() => setIsInstructionsOpen(true)}
-                    className="font-semibold mb-3 text-center cursor-pointer text-gray-900 flex items-center justify-center gap-1"
-                  >
-                    <GrStatusInfo size={22} className="text-black font-bold" />
-                    Instructions
-                  </h2>
-                  <hr className="w-3/4 mx-auto border-t-2 border-gray-300 my-4" />
-
-                  <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-3 gap-2 lg:gap-3 lg:pl-5">
-                    {quiz.questions.map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => handleQuestionNavigation(index)}
-                        className={`h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14 rounded-md font-bold flex items-center justify-center ${getStatusColor(
-                          answers[index]?.status
-                        )} ${currentQuestionIndex === index
-                          ? "ring-2 ring-red-500"
-                          : ""
-                          }`}
-                      >
-                        {index + 1}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </aside>
-              <div className="flex-1 flex flex-col pt-2 overflow-hidden">
-                <main className={`flex-1 flex flex-col overflow-hidden ${(currentQuestion.questionType?.toLowerCase() === "coding" || currentQuestion.testcases?.length > 0) ? "px-0 py-0" : "px-4 py-4 sm:px-8 sm:py-6 lg:pl-32 lg:pt-16 overflow-y-auto"}`}>
-                  {(currentQuestion.questionType?.toLowerCase() === "coding" || currentQuestion.testcases?.length > 0) ? (
-                    <div className="h-full w-full flex flex-col font-sans text-gray-800 overflow-hidden">
-                      <div className="flex-1 grid grid-cols-1 overflow-hidden">
-                        <div className={`grid h-full bg-white overflow-hidden transition-all duration-300 ${isExpanded ? "grid-rows-[min-content_48px_1fr_40%]" : "grid-rows-[min-content_48px_1fr_40px]"}`}>
-
-                          {/* Question Text for Coding */}
-                          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 overflow-y-auto max-h-[25vh]">
-                            <h2 className="text-xl font-bold text-gray-900 mb-2">
-                              Problem Statement
-                            </h2>
-                            <div
-                              className="text-[15px] leading-relaxed text-gray-700 prose prose-slate max-w-none"
-                              dangerouslySetInnerHTML={{ __html: currentQuestion.questionText }}
-                            />
-                            <div className="mt-4 flex items-center gap-4">
-                              <span className="text-sm font-semibold px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                                Marks: {currentQuestion.marks}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Editor Toolbar */}
-                          <div className="h-12 flex items-center justify-between border-b border-gray-200 bg-white px-4 flex-shrink-0">
-                            <div className="flex h-full items-center gap-4">
-                              <div className="relative">
-                                <select
-                                  value={getLanguage(currentQuestionIndex)}
-                                  onChange={(e) => handleLanguageChange(currentQuestionIndex, e.target.value)}
-                                  className="appearance-none bg-gray-100 border border-gray-300 px-3 py-1 pr-8 rounded text-sm font-bold text-gray-700 hover:bg-gray-200 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                >
-                                  <option value="python">PYTHON</option>
-                                  <option value="cpp">C++</option>
-                                  <option value="java">JAVA</option>
-                                  <option value="javascript">JAVASCRIPT</option>
-                                </select>
-                                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-                              </div>
-
-                              <div className="h-6 w-[1px] bg-gray-300" />
-
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => { setActiveTab("run"); runCode(currentQuestionIndex); }}
-                                  disabled={isRunning}
-                                  className={`px-4 py-1.5 rounded text-sm font-bold transition-all flex items-center gap-2 ${isRunning
-                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                    : "bg-gray-800 text-white hover:bg-gray-700"
-                                    }`}
-                                >
-                                  {isRunning && activeTab === "run" ? (
-                                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                  ) : null}
-                                  Run
-                                </button>
-                                <button
-                                  onClick={() => { setActiveTab("runTests"); runAllTests(currentQuestionIndex); }}
-                                  disabled={isRunning}
-                                  className={`px-4 py-1.5 rounded text-sm font-bold transition-all flex items-center gap-2 ${isRunning
-                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                    : "bg-blue-600 text-white hover:bg-blue-700"
-                                    }`}
-                                >
-                                  {isRunning && activeTab === "runTests" ? (
-                                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                  ) : null}
-                                  Run All Tests
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Code Editor */}
-                          <div className="h-full relative overflow-hidden bg-[#fffffe]">
-                            <Editor
-                              height="100%"
-                              language={getLanguage(currentQuestionIndex) === 'cpp' ? 'cpp' : getLanguage(currentQuestionIndex)}
-                              value={getCode(currentQuestionIndex, getLanguage(currentQuestionIndex))}
-                              onChange={(value) => setCode(currentQuestionIndex, getLanguage(currentQuestionIndex), value)}
-                              theme="light"
-                              onMount={(editor, monaco) => {
-                                editor.onKeyDown((e) => {
-                                  if ((e.ctrlKey || e.metaKey) && e.keyCode === monaco.KeyCode.KeyV) {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    reduceLife("Pasting is not allowed in the editor.");
-                                  }
-                                });
-                                // Block the paste action specifically for context menu or other triggers
-                                const clipboard = editor.getContribution('editor.contrib.clipboard');
-                                if (clipboard) {
-                                  clipboard._onPaste = function (e) {
-                                    reduceLife("Pasting is not allowed in the editor.");
-                                    return; // Block
-                                  };
-                                }
-                              }}
-                              options={{
-                                minimap: { enabled: false },
-                                fontSize: 14,
-                                lineNumbers: "on",
-                                automaticLayout: true,
-                                scrollBeyondLastLine: false,
-                                padding: { top: 16, bottom: 16 },
-                                fontFamily: "'Menlo', 'Monaco', 'Courier New', monospace"
-                              }}
-                            />
-                          </div>
-
-                          {/* Bottom Panel - Test Results */}
-                          <div className="h-full flex flex-col border-t border-gray-300 bg-gray-50 overflow-hidden">
-                            <div className="h-10 bg-gray-100 border-b border-gray-300 flex items-center px-4 flex-shrink-0">
-                              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Test Results</span>
-                              <div className="ml-auto flex items-center gap-4">
-                                {testResults[currentQuestionIndex] && (
-                                  <span className="text-xs font-bold text-gray-600">
-                                    Passed: {testResults[currentQuestionIndex].filter(r => r.passed).length}/{getTests(currentQuestionIndex).length}
-                                  </span>
-                                )}
-                                <button
-                                  onClick={() => setIsExpanded(!isExpanded)}
-                                  className="p-1 hover:bg-gray-200 rounded transition-colors"
-                                >
-                                  {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
-                                </button>
-                              </div>
-                            </div>
-
-                            <div className={`flex-1 flex min-h-0 overflow-hidden ${!isExpanded ? "hidden" : ""}`}>
-                              {/* Test Cases Sidebar */}
-                              <div className="w-48 border-r border-gray-200 bg-gray-50 flex flex-col flex-shrink-0">
-                                <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                  {getTests(currentQuestionIndex).map((t, i) => {
-                                    const result = testResults[currentQuestionIndex]?.find(r => r.id === t.id);
-                                    return (
-                                      <button
-                                        key={t.id}
-                                        onClick={() => setSelectedTestCase(i)}
-                                        className={`w-full flex items-center justify-between px-4 py-3 text-left border-b border-gray-200 transition-colors ${selectedTestCase === i
-                                          ? "bg-white border-l-4 border-l-blue-600 shadow-sm"
-                                          : "hover:bg-gray-100"
-                                          }`}
-                                      >
-                                        <span className={`text-sm font-medium ${selectedTestCase === i ? "text-blue-700" : "text-gray-600"}`}>
-                                          Test Case {t.id}
-                                        </span>
-                                        {result && (
-                                          result.passed ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-red-600" />
-                                        )}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-
-                              {/* Test Case Details */}
-                              <div className="flex-1 p-5 overflow-y-auto bg-white custom-scrollbar">
-                                {getTests(currentQuestionIndex).length > 0 ? (
-                                  <div className="space-y-4">
-                                    <div>
-                                      <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Input</h4>
-                                      <pre className="p-3 bg-gray-50 border border-gray-200 rounded font-mono text-sm overflow-x-auto">
-                                        {getTests(currentQuestionIndex)[selectedTestCase]?.input || "(no input)"}
-                                      </pre>
-                                    </div>
-                                    <div>
-                                      <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Expected Output</h4>
-                                      <pre className="p-3 bg-gray-50 border border-gray-200 rounded font-mono text-sm overflow-x-auto text-gray-700">
-                                        {getTests(currentQuestionIndex)[selectedTestCase]?.expected || "(no output)"}
-                                      </pre>
-                                    </div>
-                                    <div>
-                                      <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Actual Output</h4>
-                                      <div className="relative">
-                                        <pre className={`p-3 border rounded font-mono text-sm overflow-x-auto min-h-[60px] ${compilerOutput.includes("❌") || compilerOutput.includes("⏱️")
-                                          ? "bg-red-50 border-red-200 text-red-700"
-                                          : "bg-gray-50 border-gray-200 text-gray-900"
-                                          }`}>
-                                          {compilerOutput || "Click 'Run' to see output"}
-                                        </pre>
-                                        {testResults[currentQuestionIndex] && (
-                                          <div className="absolute top-2 right-2">
-                                            {testResults[currentQuestionIndex][selectedTestCase]?.passed ? (
-                                              <span className="text-[10px] font-bold px-2 py-0.5 bg-green-100 text-green-700 rounded uppercase">Matched</span>
-                                            ) : testResults[currentQuestionIndex][selectedTestCase] ? (
-                                              <span className="text-[10px] font-bold px-2 py-0.5 bg-red-100 text-red-700 rounded uppercase">Mismatched</span>
-                                            ) : null}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="h-full flex items-center justify-center text-gray-400 text-sm">
-                                    No test cases configured for this problem.
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex flex-col">
-                      <div className="flex flex-col sm:flex-row justify-between sm:items-center">
-                        <button
-                          onClick={handleMarkForReview}
-                          className="flex items-center space-x-2 py-2 sm:py-5 cursor-pointer text-gray-800 rounded font-medium"
+                {currentQuestion.questionType === "coding" && (() => {
+                  const codeVal = answers[currentQuestionIndex]?.answer;
+                  const codeText = typeof codeVal === 'string' ? codeVal : (currentQuestion.starterCode?.cpp || currentQuestion.starterCode?.python || currentQuestion.starterCode?.javascript || '');
+                  const lineCount = (codeText || '').split('\n').length;
+                  return (
+                    <div className="flex flex-col border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm mt-2" style={{minHeight: '520px'}}>
+                      {/* Top bar: language dropdown + fullscreen icon */}
+                      <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-gray-300">
+                        <select
+                          className="bg-white text-gray-900 text-sm font-bold px-3 py-1.5 border border-gray-300 outline-none focus:border-black cursor-pointer uppercase"
+                          defaultValue="cpp"
+                          onChange={(e) => {
+                            const newLang = e.target.value;
+                            if (currentQuestion.starterCode && currentQuestion.starterCode[newLang] && (!answers[currentQuestionIndex]?.answer || answers[currentQuestionIndex]?.answer === '')) {
+                              handleAnswerChange(currentQuestion.starterCode[newLang]);
+                            }
+                          }}
                         >
-                          <Bookmark size={16} />
-                          <span>Mark for Review</span>
+                          <option value="c">C</option>
+                          <option value="cpp">CPP</option>
+                          <option value="python">PYTHON</option>
+                          <option value="java">JAVA</option>
+                          <option value="javascript">NODEJS</option>
+                        </select>
+                        <button className="text-gray-500 hover:text-black p-1">
+                          <Expand size={18} />
                         </button>
-                        <div className="flex items-center mr-0 sm:mr-40 space-x-0 self-end sm:self-center">
-                          <span className="bg-green-100 text-green-700 text-sm font-semibold px-2 py-0.5">
-                            +{currentQuestion.marks}
-                          </span>
-                          <span className="bg-red-100 text-red-700 text-sm font-semibold px-3 py-0.5">
-                            0
-                          </span>
-                        </div>
                       </div>
 
-                      <div className="flex-1">
-                        <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-4 mt-2 sm:mt-5 text-gray-500">
-                          Question {currentQuestionIndex + 1} of{" "}
-                          {quiz.questions.length}
-                        </h3>
-                        <p className="text-lg sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900">
-                          {currentQuestion.questionText}
-                        </p>
-                        <hr className="w-full lg:w-6/7" />
+                      {/* Code editor area */}
+                      <div className="flex flex-1 overflow-hidden bg-[#f5f5f5]" style={{minHeight: '300px'}}>
+                        {/* Line numbers */}
+                        <div className="w-10 bg-[#f0f0f0] border-r border-gray-300 text-gray-400 text-right pr-2 pt-3 select-none font-mono text-[13px] leading-[1.65] overflow-hidden">
+                          {Array.from({length: Math.max(lineCount, 20)}, (_, i) => (
+                            <div key={i}>{i + 1}</div>
+                          ))}
+                        </div>
+                        {/* Textarea */}
+                        <textarea
+                          className="flex-1 bg-[#f5f5f5] text-gray-900 p-3 resize-none outline-none font-mono text-[13px] leading-[1.65]"
+                          placeholder="Write your code here..."
+                          spellCheck="false"
+                          value={codeText}
+                          onChange={(e) => handleAnswerChange(e.target.value)}
+                        />
+                      </div>
 
-                        <div className="space-y-4 sm:space-y-6 pt-4 sm:pt-5">
-                          {(currentQuestion.questionType?.toLowerCase() === "descriptive" || (!currentQuestion.options || currentQuestion.options.length === 0 || currentQuestion.options.every(opt => !opt))) ? (
-                            <div className="lg:max-w-5xl">
-                              <DescriptiveEditor
-                                value={answers[currentQuestionIndex]?.answer || ""}
-                                onChange={(val) => handleAnswerChange(val)}
-                                placeholder={`Write your answer for question ${currentQuestionIndex + 1}...`}
-                              />
-                            </div>
-                          ) : (
-                            currentQuestion.options?.map((option, index) => (
-                              <label
-                                key={index}
-                                className={`flex items-center p-3 sm:p-4 border-3 cursor-pointer transition-colors w-full lg:max-w-md min-h-[3.5rem] ${answers[currentQuestionIndex]?.answer === index
-                                  ? "bg-blue-50 border-blue-600"
-                                  : "bg-gray-100 border-gray-500 hover:bg-gray-200"
-                                  }`}
-                              >
-                                <input
-                                  type="radio"
-                                  name={`q-${currentQuestionIndex}`}
-                                  checked={
-                                    answers[currentQuestionIndex]?.answer === index
-                                  }
-                                  onChange={() => handleAnswerChange(index)}
-                                  className="h-5 w-5 mr-4 accent-blue-600"
-                                />
-                                <span className="text-black-500 text-sm sm:text-base">
-                                  {option}
-                                </span>
-                              </label>
-                            )) ?? (
-                              <div className="text-gray-500 italic">No options available for this question.</div>
-                            )
-                          )}
-
-                          <button
-                            onClick={() => handleAnswerChange(null)}
-                            className="flex items-center px-4 py-2 text-red-700 rounded font-medium space-x-2 w-max mt-4 sm:mt-2"
-                          >
-                            <Eraser size={18} />
-                            <span className="text-sm sm:text-base">
-                              Clear Response
-                            </span>
+                      {/* Bottom bar: Run / Run Tests tabs */}
+                      <div className="border-t border-gray-300 bg-white">
+                        <div className="flex border-b border-gray-200">
+                          <button className="px-5 py-2 text-sm font-bold text-gray-800 border-b-2 border-black">Run</button>
+                          <button className="px-5 py-2 text-sm font-bold text-gray-500 hover:text-gray-800 transition">Run Tests</button>
+                          <div className="flex-1"></div>
+                          <button className="px-3 py-2 text-gray-400 hover:text-black">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
                           </button>
                         </div>
+
+                        {/* Run panel content */}
+                        <div className="p-4">
+                          <div className="flex items-center space-x-2 mb-3">
+                            <button className="flex items-center space-x-1.5 px-4 py-1.5 bg-white border border-gray-300 rounded text-sm font-bold text-gray-700 hover:bg-gray-50 transition shadow-sm">
+                              <Play size={14} className="text-black" />
+                              <span>Run Code</span>
+                            </button>
+                          </div>
+                          <div>
+                            <label className="text-sm font-bold text-gray-800 block mb-1.5">Input</label>
+                            <textarea
+                              className="w-full h-20 p-3 bg-white border border-gray-300 rounded text-sm font-mono text-gray-800 resize-none outline-none focus:border-black"
+                              placeholder="Enter your input here..."
+                            ></textarea>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  )}
-                </main>
-
-                <footer className="flex-shrink-0 flex justify-between items-center mt-2 pt-2 border-t bg-gray-200 px-4 sm:px-8">
-                  <button
-                    onClick={() =>
-                      handleQuestionNavigation(currentQuestionIndex - 1)
-                    }
-                    disabled={currentQuestionIndex === 0}
-                    className="px-3 py-2 sm:px-5 flex items-center space-x-2 cursor-pointer rounded font-medium disabled:opacity-50 text-sm sm:text-base"
-                  >
-                    <ArrowLeft size={16} />
-                    <span className="hidden sm:inline">Previous</span>
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      handleQuestionNavigation(currentQuestionIndex + 1)
-                    }
-                    disabled={
-                      currentQuestionIndex === quiz.questions.length - 1
-                    }
-                    className="px-3 py-2 sm:px-8 flex items-center cursor-pointer space-x-2 text-black rounded font-medium text-sm sm:text-base"
-                  >
-                    <span className="hidden sm:inline">Next</span>
-                    <ArrowRight size={18} />
-                  </button>
-                </footer>
+                  );
+                })()}
               </div>
             </div>
-          </div>
-          <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f1f1;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #ccc;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #bbb;
-        }
-        .prose pre {
-          background-color: #f8f9fa;
-          padding: 1rem;
-          border-radius: 0.5rem;
-          border: 1px solid #e9ecef;
-          font-family: monospace;
-          white-space: pre-wrap;
-        }
-      `}</style>
-        </>
+            <footer className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
+              <button
+                onClick={handleMarkForReview}
+                className="flex items-center space-x-2 px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+              >
+                <Bookmark size={16} />
+                <span>Mark for Review</span>
+              </button>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() =>
+                    handleQuestionNavigation(currentQuestionIndex - 1)
+                  }
+                  disabled={currentQuestionIndex === 0}
+                  className="px-6 py-2.5 flex items-center space-x-2 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+                >
+                  <ArrowLeft size={16} />
+                  <span>Previous</span>
+                </button>
+                <button
+                  onClick={() =>
+                    handleQuestionNavigation(currentQuestionIndex + 1)
+                  }
+                  disabled={
+                    currentQuestionIndex === quiz.questions.length - 1
+                  }
+                  className="px-8 py-2.5 flex items-center space-x-2 bg-black text-white font-bold rounded-lg hover:bg-gray-900 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-sm transition-colors"
+                >
+                  <span>Next</span>
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            </footer>
+          </main>
+        </div>
       );
     }
   };

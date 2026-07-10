@@ -1,143 +1,101 @@
 import { useState, useContext } from "react";
+import { FaEnvelope, FaLock, FaArrowLeft } from "react-icons/fa";
+import api from "../lib/api";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Toaster, toast } from "react-hot-toast";
 import { AuthContext } from "../context/AuthContext";
-import API from "../../Api";
-import Proctor from "../assets/LOGO.png";
-import { Users } from "lucide-react";
 
 export default function StudentLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
   const navigate = useNavigate();
   const { login } = useContext(AuthContext);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setLoading(true);
     try {
-      const res = await API.post("/students/login", { email, password });
+      const res = await api.post("/api/auth/login/student", { email, password });
       login(res.data.token);
-      toast.success("Login Successful!");
-      setTimeout(() => navigate("/"), 1000);
+      navigate("/");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Invalid credentials");
-      setLoading(false);
+      setMessage(err.response?.data?.message || "Error during login");
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-[#FDFCF4] overflow-hidden relative font-sans lg:justify-end">
-      <Toaster position="top-center" />
-
-      {/* Left Side Background Shape (Full Screen Curve) - Now Anchored Left */}
-      <div className="absolute top-0 left-0 w-[60%] h-full hidden lg:block pointer-events-none z-0">
-        <svg
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          className="w-full h-full text-[#F97316] fill-current drop-shadow-[20px_0_30px_rgba(0,0,0,0.05)]"
-          style={{ transform: 'scaleX(-1)' }}
-        >
-          <path d="M 30 0 L 100 0 L 100 100 L 30 100 C -20 60 70 40 30 0 Z" />
-        </svg>
-      </div>
-
-      {/* Left Side Content - Now on Left */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1 }}
-        className="hidden lg:flex absolute top-0 left-0 w-[50%] h-full flex-col justify-center items-center text-white z-20"
-      >
-        <div className="absolute top-12 left-12 flex items-center gap-3">
-          <div className="bg-white/20 p-2 rounded-full backdrop-blur-sm">
-            <img src={Proctor} alt="Logo" className="w-8 h-8 rounded-full bg-white p-1" />
+    <div 
+      className="h-screen w-screen flex items-center justify-center bg-gray-50 p-4 font-sans"
+      style={{ fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" }}
+    >
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8 md:p-10 border border-gray-100 relative">
+        <div className="text-center mb-8">
+          <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center text-white font-extrabold text-xl mx-auto mb-4">
+            PX
           </div>
-          <span className="font-semibold tracking-wider text-lg opacity-90">ProctorX</span>
+          <h2 className="text-2xl font-extrabold text-black tracking-tight">Student Access</h2>
+          <p className="text-gray-500 text-xs mt-1.5 font-medium">Log in to enter the examination portal</p>
         </div>
 
-        <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold mb-4 tracking-tight">Welcome back!</h1>
-          <p className="text-orange-50/90 text-xl font-light">Pick up where you left off</p>
-        </div>
-
-        {/* Illustration Container */}
-        <div className="w-[450px] h-[350px] flex items-center justify-center relative">
-          <div className="relative w-full h-full">
-            <div className="absolute inset-0 bg-white/5 rounded-full blur-3xl transform scale-75"></div>
-            <img
-              src="https://img.freepik.com/free-vector/team-goals-concept-illustration_114360-5175.jpg?w=740&t=st=1707200000~exp=1707200600~hmac=abc"
-              className="relative w-full h-full object-contain mix-blend-screen opacity-90 grayscale-[0.1]"
-              alt="Teamwork Illustration"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.style.display = 'none';
-                e.target.nextSibling.style.display = 'flex';
-              }}
-            />
-            <div className="hidden w-full h-full items-center justify-center text-white/80">
-              <Users size={180} strokeWidth={0.5} />
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Right Side: Form - Now Anchored Right via parent justify-end */}
-      <motion.div
-        initial={{ x: 50, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        className="w-full lg:w-1/2 h-full flex flex-col justify-center items-center p-8 sm:p-12 z-10 lg:ml-auto"
-      >
-        <div className="w-full max-w-md flex flex-col items-center">
-          <h2 className="text-4xl font-bold text-gray-800 mb-12 tracking-wide">Sign In</h2>
-
-          <form onSubmit={handleLogin} className="w-full space-y-12">
-            <div className="space-y-1 group">
+        <form onSubmit={handleLogin} className="space-y-5">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">Email Address</label>
+            <div className="relative">
+              <FaEnvelope className="absolute left-3.5 top-3.5 text-gray-400 w-3.5 h-3.5" />
               <input
                 type="email"
-                placeholder="Email"
-                className="w-full py-4 bg-transparent border-b border-gray-300 focus:border-[#F97316] outline-none transition-colors text-gray-700 placeholder-gray-400 text-base font-medium"
+                placeholder="student@university.edu"
+                className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-black text-sm font-medium focus:outline-none focus:ring-1 focus:ring-black focus:border-black transition-all"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
+          </div>
 
-            <div className="space-y-1 group">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">Password</label>
+            <div className="relative">
+              <FaLock className="absolute left-3.5 top-3.5 text-gray-400 w-3.5 h-3.5" />
               <input
                 type="password"
-                placeholder="Password"
-                className="w-full py-4 bg-transparent border-b border-gray-300 focus:border-[#F97316] outline-none transition-colors text-gray-700 placeholder-gray-400 text-base font-medium"
+                placeholder="Enter your password"
+                className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-black text-sm font-medium focus:outline-none focus:ring-1 focus:ring-black focus:border-black transition-all"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
+          </div>
 
-            <div className="pt-8 text-center w-full">
-              <p className="text-gray-400 text-xs mb-4 uppercase tracking-wider font-semibold">You're all set up!</p>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full sm:w-auto px-16 py-4 bg-[#F97316] text-white rounded-xl font-semibold hover:bg-[#EA580C] transition-all transform active:scale-95 shadow-xl text-lg disabled:opacity-70"
-              >
-                {loading ? "..." : "Complete"}
-              </button>
-            </div>
-          </form>
-
-          <a
-            href="/student-signup"
-            className="mt-16 text-sm text-gray-400 hover:text-[#F97316] transition-colors font-medium border-b border-transparent hover:border-gray-400 pb-0.5"
+          <button
+            type="submit"
+            className="w-full py-3.5 rounded-xl bg-black hover:bg-gray-900 text-white font-bold text-sm transition-all"
           >
-            Create an account
+            Log In
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="w-full py-3.5 rounded-xl bg-white text-gray-600 hover:text-black font-bold text-sm border border-gray-200 hover:border-gray-300 flex items-center justify-center gap-2 transition-all"
+          >
+            <FaArrowLeft className="w-3 h-3" /> Back to Home
+          </button>
+        </form>
+
+        {message && (
+          <div className="mt-5 p-3 bg-red-50 border border-red-100 rounded-lg text-center text-xs font-bold text-red-600">
+            {message}
+          </div>
+        )}
+
+        <div className="mt-8 text-center text-xs font-bold text-gray-500">
+          Don’t have an account?{" "}
+          <a href="/Student-signup" className="text-black hover:underline">
+            Register Here
           </a>
         </div>
-      </motion.div>
-
+      </div>
     </div>
   );
 }
