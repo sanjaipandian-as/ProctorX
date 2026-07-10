@@ -69,7 +69,7 @@ const submitQuiz = async (studentId, { quizId, answers, timeTaken, warnings, pen
 
     if (existing) {
       const err = new Error('Quiz already attempted by this student');
-      err.statusCode = 400;
+      err.statusCode = 409;
       throw err;
     }
 

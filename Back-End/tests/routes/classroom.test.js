@@ -6,7 +6,7 @@ const { app, request, createTestTeacher, createTestStudent, cleanupTestData, pri
 
 describe('Classroom Routes', () => {
   let teacherToken, teacherId;
-  let studentToken, studentId;
+  let studentToken, studentId, studentEmail;
   let student2Token, student2Id;
   let classroomId, classroomCode;
 
@@ -18,6 +18,7 @@ describe('Classroom Routes', () => {
     const student = await createTestStudent({ name: 'Classroom Student 1' });
     studentToken = student.token;
     studentId = student.student.id;
+    studentEmail = student.student.email;
 
     const student2 = await createTestStudent({ name: 'Classroom Student 2' });
     student2Token = student2.token;
@@ -80,7 +81,7 @@ describe('Classroom Routes', () => {
       const res = await request(app)
         .post(`/api/classrooms/${classroomId}/students`)
         .set('Authorization', `Bearer ${teacherToken}`)
-        .send({ studentId });
+        .send({ email: studentEmail });
 
       expect(res.status).toBe(200);
     });
