@@ -79,8 +79,8 @@ describe('Result Routes', () => {
         });
 
       expect(res.status).toBe(201);
-      expect(res.body).toHaveProperty('resultId');
-      resultId = res.body.resultId;
+      expect(res.body).toHaveProperty('id');
+      resultId = res.body.id;
     });
 
     it('should return 409 for duplicate submission', async () => {
