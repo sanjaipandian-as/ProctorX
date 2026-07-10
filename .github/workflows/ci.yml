@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
 env:
   NODE_ENV: test
   DATABASE_URL: postgresql://test:test@localhost:5432/proctorx_test
