@@ -46,7 +46,7 @@ async function seedAdmin() {
 }
 
 // Start listener
-server.listen(env.PORT, async () => {
+server.listen(env.PORT, '0.0.0.0', async () => {
   logger.info(`ProctorX Backend Server listening on port ${env.PORT} in ${env.NODE_ENV} environment.`);
   await seedAdmin();
 });

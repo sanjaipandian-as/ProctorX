@@ -62,6 +62,7 @@ model Quiz {
   scheduledAt       DateTime?
   autoStart         Boolean     @default(true)
   startedAt         DateTime?
+  endsAt            DateTime?   // Absolute wall-clock end deadline
   createdAt         DateTime    @default(now())
   createdById       String
   createdBy         Teacher     @relation(fields: [createdById], references: [id])
@@ -74,6 +75,7 @@ model Quiz {
   @@index([status])
   @@index([createdById, status])
   @@index([otpExpiresAt])
+  @@index([endsAt])
 }
 
 model Classroom {
@@ -133,6 +135,7 @@ model Response {
   studentAnswer String
   correctAnswer String
   isCorrect     Boolean
+  marksObtained Int     @default(0)
   resultId      String
   result        Result  @relation(fields: [resultId], references: [id], onDelete: Cascade)
 }

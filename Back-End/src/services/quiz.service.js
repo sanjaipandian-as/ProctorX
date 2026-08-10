@@ -4,7 +4,7 @@ const { generateQuizId, generateOTP } = require('../utils/helpers');
 const { sendOTPEmail } = require('./email.service');
 const logger = require('../utils/logger');
 
-const createQuiz = async (teacherId, { title, durationInMinutes, allowedStudents, classroomId, scheduledAt, autoStart, questions }) => {
+const createQuiz = async (teacherId, { title, durationInMinutes, allowedStudents, classroomId, scheduledAt, endsAt, autoStart, questions }) => {
   const customQuizId = generateQuizId();
   
   // ALL new quizzes should start as PENDING, even manual ones.
@@ -27,6 +27,7 @@ const createQuiz = async (teacherId, { title, durationInMinutes, allowedStudents
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       autoStart: autoStart !== undefined ? autoStart : true,
       startedAt,
+      endsAt: endsAt ? new Date(endsAt) : null,
       createdById: teacherId,
       classroomId: classroomId || null,
       questions: {
@@ -103,7 +104,7 @@ const getQuizById = async (id) => {
   return quiz;
 };
 
-const editQuiz = async (teacherId, customQuizId, { title, durationInMinutes, allowedStudents, classroomId, scheduledAt, autoStart, questions }) => {
+const editQuiz = async (teacherId, customQuizId, { title, durationInMinutes, allowedStudents, classroomId, scheduledAt, endsAt, autoStart, questions }) => {
   const existing = await prisma.quiz.findUnique({
     where: { quizId: customQuizId }
   });
@@ -136,6 +137,7 @@ const editQuiz = async (teacherId, customQuizId, { title, durationInMinutes, all
         allowedStudents: allowedStudents || [],
         classroomId: classroomId || null,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+        endsAt: endsAt ? new Date(endsAt) : null,
         autoStart: autoStart !== undefined ? autoStart : true,
         questions: {
           create: questions.map((q, idx) => ({
@@ -203,10 +205,16 @@ const duplicateQuiz = async (teacherId, customQuizId) => {
     title: `${quiz.title} (Clone)`,
     durationInMinutes: quiz.durationInMinutes,
     allowedStudents: quiz.allowedStudents,
+    classroomId: quiz.classroomId,
     questions: quiz.questions.map(q => ({
       questionText: q.questionText,
+      questionType: q.questionType,
       options: q.options,
       correctAns: q.correctAns,
+      descriptiveAnswer: q.descriptiveAnswer,
+      testcases: q.testcases,
+      starterCode: q.starterCode,
+      marks: q.marks,
       order: q.order
     }))
   });
@@ -302,6 +310,13 @@ const verifyOTP = async (studentId, studentEmail, studentName, customQuizId, otp
     }
   }
 
+  // Block access if exam end time has already passed
+  if (dbQuiz.endsAt && new Date() > new Date(dbQuiz.endsAt)) {
+    const err = new Error('Test time has ended. This exam is no longer available.');
+    err.statusCode = 403;
+    throw err;
+  }
+
   // Check if student already attempted the quiz
   const existingResult = await prisma.result.findUnique({
     where: { quizId_studentId: { quizId: dbQuiz.id, studentId } }
@@ -312,13 +327,6 @@ const verifyOTP = async (studentId, studentEmail, studentName, customQuizId, otp
     err.statusCode = 400;
     throw err;
   }
-
-  // One-time verification: invalidate key
-  await redis.del(`otp:${customQuizId}`);
-  await prisma.quiz.update({
-    where: { id: dbQuiz.id },
-    data: { otp: null, otpExpiresAt: null }
-  });
 
   return { success: true, message: 'OTP verified successfully', quiz: dbQuiz };
 };
@@ -340,7 +348,12 @@ const changeQuizStatus = async (teacherId, customQuizId, status) => {
 
   const updateData = { status };
   if (status === 'ACTIVE') {
-    updateData.startedAt = new Date();
+    const activatedAt = new Date();
+    updateData.startedAt = activatedAt;
+    // Auto-compute endsAt if teacher did not set one explicitly
+    if (!quiz.endsAt) {
+      updateData.endsAt = new Date(activatedAt.getTime() + quiz.durationInMinutes * 60 * 1000);
+    }
     if (!quiz.otp) {
       const otpCode = generateOTP();
       const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
@@ -423,6 +436,40 @@ const getPublicQuizByQuizId = async (quizId) => {
   };
 };
 
+const ensureActiveQuizOTP = async (quiz) => {
+  if (quiz.status !== 'ACTIVE') return quiz;
+
+  // ── Check Redis first (single-threaded, no race condition) ──
+  // If the key still exists in Redis the OTP is still valid.
+  const cachedOtp = await redis.get(`otp:${quiz.quizId}`);
+  if (cachedOtp) {
+    // Keep quiz object in sync with what's in Redis/DB
+    quiz.otp = cachedOtp;
+    return quiz;
+  }
+
+  // Redis key expired → OTP window has ended → generate a fresh OTP
+  const now = new Date();
+  if (!quiz.otp || !quiz.otpExpiresAt || new Date(quiz.otpExpiresAt) < now) {
+    const otpCode = generateOTP();
+    const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
+
+    await prisma.quiz.update({
+      where: { id: quiz.id },
+      data: { otp: otpCode, otpExpiresAt }
+    });
+
+    // Store in Redis with 5-min TTL — this is the single source of truth
+    await redis.setex(`otp:${quiz.quizId}`, 300, otpCode);
+    await redis.del(`quiz:${quiz.quizId}`);
+
+    quiz.otp = otpCode;
+    quiz.otpExpiresAt = otpExpiresAt;
+  }
+
+  return quiz;
+};
+
 module.exports = {
   createQuiz,
   getQuizByQuizId,
@@ -434,5 +481,6 @@ module.exports = {
   verifyOTP,
   changeQuizStatus,
   getPublicQuizzes,
-  getPublicQuizByQuizId
+  getPublicQuizByQuizId,
+  ensureActiveQuizOTP
 };

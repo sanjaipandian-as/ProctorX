@@ -58,7 +58,8 @@ const getDashboard = async (studentId) => {
           title: true,
           questions: {
             select: {
-              id: true
+              id: true,
+              marks: true
             }
           }
         }
@@ -67,14 +68,17 @@ const getDashboard = async (studentId) => {
     orderBy: { completedAt: 'desc' }
   });
 
-  const formattedQuizzes = results.map(r => ({
-    resultId: r.id,
-    quizTitle: r.quiz?.title || 'Deleted Quiz',
-    score: r.score,
-    totalQuestions: r.totalQuestions,
-    accuracy: r.accuracy,
-    completedAt: r.completedAt
-  }));
+  const formattedQuizzes = results.map(r => {
+    const totalPossibleMarks = r.quiz?.questions?.reduce((sum, q) => sum + (q.marks || 1), 0) || r.totalQuestions || 0;
+    return {
+      resultId: r.id,
+      quizTitle: r.quiz?.title || 'Deleted Quiz',
+      score: r.score,
+      totalQuestions: totalPossibleMarks,
+      accuracy: r.accuracy,
+      completedAt: r.completedAt
+    };
+  });
 
   // Fetch enrolled classrooms
   const enrolledClassrooms = await prisma.classroom.findMany({

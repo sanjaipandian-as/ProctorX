@@ -22,17 +22,20 @@ const getMyQuizzes = async (req, res, next) => {
       }
     });
 
-    const formatted = quizzes.map(q => ({
-      id: q.id,
-      quizId: q.quizId,
-      title: q.title,
-      status: q.status,
-      durationInMinutes: q.durationInMinutes,
-      totalQuestions: q._count.questions,
-      totalAttempts: q._count.results,
-      otp: q.otp,
-      otpExpiresAt: q.otpExpiresAt,
-      createdAt: q.createdAt
+    const formatted = await Promise.all(quizzes.map(async (q) => {
+      const ensured = await quizService.ensureActiveQuizOTP(q);
+      return {
+        id: ensured.id,
+        quizId: ensured.quizId,
+        title: ensured.title,
+        status: ensured.status,
+        durationInMinutes: ensured.durationInMinutes,
+        totalQuestions: ensured._count.questions,
+        totalAttempts: ensured._count.results,
+        otp: ensured.otp,
+        otpExpiresAt: ensured.otpExpiresAt,
+        createdAt: ensured.createdAt
+      };
     }));
 
     res.status(200).json(formatted);

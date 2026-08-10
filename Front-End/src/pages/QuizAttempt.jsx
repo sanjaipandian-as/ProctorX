@@ -4,6 +4,7 @@ import api from "../lib/api";
 import useSocket from "../hooks/useSocket";
 import { useAuth } from "../context/AuthContext";
 import toast, { Toaster } from "react-hot-toast";
+import axios from "axios";
 
 import {
   CheckCircle2,
@@ -21,7 +22,11 @@ import {
   Loader2,
   Bookmark,
   Clock,
-  Play
+  Play,
+  Zap,
+  XCircle,
+  Volume2,
+  RotateCcw
 } from "lucide-react";
 
 const ProctoringFeed = ({ stream, type, simulatedGazeDeflected, simulatedMultipleFaces }) => {
@@ -132,16 +137,521 @@ const SidebarChecklistItem = ({ label, isChecked }) => (
   </div>
 );
 
+const COMPILER_URL = import.meta.env.VITE_COMPILER_URL || "http://localhost:4000";
+
+const CodingQuestion = ({ question, answer, onChange }) => {
+  const [activeTab, setActiveTab] = useState('runTests');
+  const [selectedTest, setSelectedTest] = useState(0);
+  const [language, setLanguage] = useState(() => {
+    const savedLang = localStorage.getItem(`qz_${question.id}_lang`);
+    return savedLang || "cpp";
+  });
+
+  const [isRunning, setIsRunning] = useState(false);
+  const [isRunningTests, setIsRunningTests] = useState(false);
+  const [testResults, setTestResults] = useState([]);
+  const [consoleOutput, setConsoleOutput] = useState("");
+  const [customInput, setCustomInput] = useState("");
+  const [showResultsBanner, setShowResultsBanner] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  let parsedStarterCode = question.starterCode || {};
+  if (typeof parsedStarterCode === 'string') {
+    try { parsedStarterCode = JSON.parse(parsedStarterCode); } catch (e) { parsedStarterCode = {}; }
+  }
+
+  // Load language-specific code from localStorage or fallback to starter template
+  const getLanguageCode = useCallback((lang) => {
+    const saved = localStorage.getItem(`qz_${question.id}_code_${lang}`);
+    if (saved !== null) return saved;
+    return parsedStarterCode?.[lang] || parsedStarterCode?.cpp || '';
+  }, [question.id, parsedStarterCode]);
+
+  const [codeText, setCodeText] = useState(() => getLanguageCode(language));
+
+  // Only restore code from storage when question or language changes — do NOT call onChange here
+  // (calling onChange here causes "setState during render" because CodingQuestion is mid-render)
+  useEffect(() => {
+    const currentCode = getLanguageCode(language);
+    setCodeText(currentCode);
+    // Intentionally NOT calling onChange here.
+    // The parent's answer state is updated only via explicit user edits (handleCodeChange).
+  }, [question.id, language, getLanguageCode]);
+
+  const handleCodeChange = (newCode) => {
+    setCodeText(newCode);
+    localStorage.setItem(`qz_${question.id}_code_${language}`, newCode);
+    onChange(newCode);
+  };
+
+  const handleLanguageChange = (newLang) => {
+    setLanguage(newLang);
+    localStorage.setItem(`qz_${question.id}_lang`, newLang);
+    const codeForNewLang = getLanguageCode(newLang);
+    setCodeText(codeForNewLang);
+    onChange(codeForNewLang);
+  };
+
+  const lineCount = (codeText || '').split('\n').length;
+
+  // Code suggestions helper based on language syntax
+  const getCodeSuggestions = () => {
+    const suggestions = {
+      cpp: [
+        { snippet: "#include <iostream>\nusing namespace std;", desc: "Basic header import and namespace" },
+        { snippet: "int main() {\n    return 0;\n}", desc: "Main entry point structure" },
+        { snippet: "for (int i = 0; i < length; i++) {\n    \n}", desc: "Basic counter-based for loop" },
+        { snippet: "string s;\ncin >> s;", desc: "Read word string from stdin input" },
+      ],
+      c: [
+        { snippet: "#include <stdio.h>\n#include <string.h>", desc: "Standard headers for Input/Output & Strings" },
+        { snippet: "printf(\"output\\n\");", desc: "Print standard text output to console" },
+        { snippet: "int len = strlen(str);", desc: "Get string length function" },
+        { snippet: "for (int i = 0; i < len; i++) {\n    \n}", desc: "Basic loop syntax" },
+      ],
+      python: [
+        { snippet: "print(\"output\")", desc: "Standard print function" },
+        { snippet: "for i in range(len(arr)):", desc: "Basic sequence loop structure" },
+        { snippet: "import sys\nfor line in sys.stdin:\n    word = line.strip()", desc: "Read word lines from stdin redirected input" },
+        { snippet: "s = s[::-1]", desc: "Basic string reversal slice syntax" },
+      ],
+      java: [
+        { snippet: "import java.util.Scanner;\n\npublic class Main {\n    public static void main(String[] args) {\n        \n    }\n}", desc: "Main class template & scanner import" },
+        { snippet: "System.out.println(\"output\");", desc: "System console print function" },
+        { snippet: "for (int i = 0; i < str.length(); i++) {\n    char c = str.charAt(i);\n}", desc: "Iterate through string characters" },
+      ],
+      javascript: [
+        { snippet: "console.log(\"output\");", desc: "Console print statement" },
+        { snippet: "const len = str.length;\nfor (let i = 0; i < len; i++) {\n    \n}", desc: "Basic let-based loop iterator" },
+        { snippet: "const reversed = str.split(\"\").reverse().join(\"\");", desc: "String reverse helper reference" },
+      ]
+    };
+    return suggestions[language] || [];
+  };
+
+  let tests = [];
+  try {
+    tests = Array.isArray(question.testcases)
+      ? question.testcases
+      : (typeof question.testcases === 'string' ? JSON.parse(question.testcases || '[]') : []);
+  } catch (e) {
+    tests = [];
+  }
+
+  const runCode = async () => {
+    if (!codeText || codeText.trim() === '') {
+      setConsoleOutput("❌ Error:\n\nCode cannot be empty.");
+      return;
+    }
+    setIsRunning(true);
+    setConsoleOutput("⏳ Running your code...");
+    try {
+      const res = await axios.post(`${COMPILER_URL}/run`, {
+        language,
+        code: codeText,
+        tests: [{ input: customInput || "" }]
+      });
+
+      if (res.data.compile && res.data.compile.code !== 0) {
+        setConsoleOutput(`❌ Compilation Error:\n\n${res.data.compile.stderr || res.data.compile.stdout}`);
+        return;
+      }
+
+      if (res.data.tests && res.data.tests.length > 0) {
+        const testResult = res.data.tests[0];
+        if (testResult.killed) {
+          setConsoleOutput("⏱️ Time Limit Exceeded\n\nYour code took too long to execute.");
+        } else if (testResult.code !== 0) {
+          setConsoleOutput(`❌ Runtime Error:\n\n${testResult.stderr || testResult.stdout || "Unknown error"}`);
+        } else {
+          setConsoleOutput(testResult.stdout || "(empty output)");
+        }
+      }
+    } catch (err) {
+      const details = err.response?.data?.details?.map(d => `${d.field}: ${d.message}`).join("\n");
+      const errorMessage = details ? `${err.response.data.error}\n${details}` : err.response?.data?.error || err.message;
+      setConsoleOutput(`❌ Error:\n\n${errorMessage}`);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const runAllTests = async () => {
+    if (!codeText || codeText.trim() === '') {
+      toast.error("Code cannot be empty.");
+      return;
+    }
+    if (tests.length === 0) {
+      toast.error("No test cases available.");
+      return;
+    }
+    setIsRunningTests(true);
+    setTestResults([]);
+    setShowResultsBanner(false);
+    try {
+      const res = await axios.post(`${COMPILER_URL}/run`, {
+        language,
+        code: codeText,
+        tests: tests.map(t => ({ input: t.input || "" }))
+      });
+
+      if (res.data.compile && res.data.compile.code !== 0) {
+        toast.error("Compilation Error");
+        const compError = res.data.compile.stderr || res.data.compile.stdout;
+        setConsoleOutput(`❌ Compilation Error:\n\n${compError}`);
+
+        const results = tests.map((t, index) => ({
+          id: index,
+          passed: false,
+          output: "",
+          error: `Compilation Error:\n${compError}`,
+          killed: false,
+          durationMs: 0
+        }));
+        setTestResults(results);
+        setShowResultsBanner(true);
+        setIsRunningTests(false);
+        return;
+      }
+
+      const results = [];
+      if (res.data.tests && res.data.tests.length > 0) {
+        res.data.tests.forEach((testResult, index) => {
+          const expectedOutput = tests[index]?.output?.trim() || "";
+          const actualOutput = testResult.stdout?.trim() || "";
+          const passed = !testResult.killed && testResult.code === 0 && actualOutput === expectedOutput;
+
+          results.push({
+            id: index,
+            passed,
+            output: actualOutput,
+            error: testResult.stderr,
+            killed: testResult.killed,
+            durationMs: testResult.durationMs,
+          });
+        });
+      }
+      setTestResults(results);
+      setShowResultsBanner(true);
+    } catch (err) {
+      const details = err.response?.data?.details?.map(d => `${d.field}: ${d.message}`).join("\n");
+      const errorMsg = err.response?.data?.error || err.message;
+      toast.error(`Error: ${errorMsg}`);
+      if (details) {
+        setConsoleOutput(`❌ Validation Error:\n\n${details}`);
+      }
+      const results = tests.map((t, index) => ({
+        id: index,
+        passed: false,
+        output: "",
+        error: `Execution Error:\n${details || errorMsg}`,
+        killed: false,
+        durationMs: 0
+      }));
+      setTestResults(results);
+      setShowResultsBanner(true);
+    } finally {
+      setIsRunningTests(false);
+    }
+  };
+
+  const passedTestsCount = testResults.filter(r => r.passed).length;
+  const totalTestsCount = tests.length || 0;
+
+  return (
+    <div className="flex flex-col border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm mt-2 flex-1 min-h-[650px] max-h-[850px]">
+      {/* Top bar: language dropdown + fullscreen icon */}
+      <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-gray-200 flex-shrink-0">
+        <select
+          className="bg-white text-gray-500 text-sm font-bold px-4 py-2 border-2 border-gray-400 outline-none cursor-pointer uppercase rounded-none transition-all"
+          value={language}
+          onChange={(e) => handleLanguageChange(e.target.value)}
+        >
+          <option value="c">C</option>
+          <option value="cpp">CPP</option>
+          <option value="python">PYTHON</option>
+          <option value="java">JAVA</option>
+          <option value="javascript">NODEJS</option>
+        </select>
+        <button
+          onClick={() => {
+            if (window.confirm("Are you sure you want to reset the code for this language? Your progress will be lost.")) {
+              const defaultTemplates = {
+                cpp: "#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write your C++ code here\n    return 0;\n}",
+                c: "#include <stdio.h>\n\nint main() {\n    // Write your C code here\n    return 0;\n}",
+                python: "# Write your Python code here",
+                java: "public class Main {\n    public static void main(String[] args) {\n        // Write your Java code here\n    }\n}",
+                javascript: "// Write your Node.js JavaScript code here"
+              };
+              handleCodeChange(defaultTemplates[language] || "");
+            }
+          }}
+          className="text-gray-500 hover:text-black p-1.5 hover:bg-slate-200 transition-colors"
+          title="Reset Code Template"
+        >
+          <RotateCcw size={16} />
+        </button>
+      </div>
+
+      {/* Code editor area */}
+      <div className="flex flex-[3] overflow-hidden bg-white min-h-0 relative">
+        <div className="w-12 bg-slate-50 border-r border-gray-200 text-gray-400 text-right pr-3 pt-3 select-none font-mono text-[12px] leading-[1.7] overflow-y-auto custom-scrollbar">
+          {Array.from({ length: Math.max(lineCount, 20) }, (_, i) => (
+            <div key={i}>{i + 1}</div>
+          ))}
+        </div>
+        <textarea
+          className="flex-1 bg-white text-slate-800 p-4 resize-none outline-none font-mono text-[13px] leading-[1.7] overflow-y-auto custom-scrollbar"
+          placeholder="Write your code here..."
+          spellCheck="false"
+          value={codeText}
+          onChange={(e) => handleCodeChange(e.target.value)}
+        />
+      </div>
+
+      {/* Bottom bar: Run / Run Tests / Suggestions tabs */}
+      <div className="border-t border-gray-300 bg-white flex flex-col flex-[2] min-h-0 flex-shrink-0">
+        <div className="flex border-b border-gray-300 bg-slate-50 flex-shrink-0">
+          <button
+            onClick={() => setActiveTab('run')}
+            disabled={isRunning || isRunningTests}
+            className={`px-6 py-3 text-xs font-extrabold uppercase tracking-wider transition-all border-r border-gray-200 flex items-center gap-2 ${isRunning || isRunningTests ? 'text-gray-400 cursor-not-allowed' : activeTab === 'run' ? 'text-black bg-white border-b-2 border-b-black' : 'text-slate-600 hover:bg-slate-100'}`}>
+            {isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Run
+          </button>
+          <button
+            onClick={() => setActiveTab('runTests')}
+            disabled={isRunning || isRunningTests}
+            className={`px-6 py-3 text-xs font-extrabold uppercase tracking-wider transition-all border-r border-gray-200 flex items-center gap-2 ${isRunning || isRunningTests ? 'text-gray-400 cursor-not-allowed' : activeTab === 'runTests' ? 'text-black bg-white border-b-2 border-b-black' : 'text-slate-600 hover:bg-slate-100'}`}>
+            {isRunningTests ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />} Run Tests
+          </button>
+          <button
+            onClick={() => setActiveTab('suggestions')}
+            disabled={isRunning || isRunningTests}
+            className={`px-6 py-3 text-xs font-extrabold uppercase tracking-wider transition-all border-r border-gray-200 flex items-center gap-2 ${isRunning || isRunningTests ? 'text-gray-400 cursor-not-allowed' : activeTab === 'suggestions' ? 'text-black bg-white border-b-2 border-b-black' : 'text-slate-600 hover:bg-slate-100'}`}>
+            Syntax Reference
+          </button>
+        </div>
+
+        {activeTab === 'suggestions' && (
+          <div className="p-5 flex-1 overflow-y-auto custom-scrollbar bg-gray-50 flex flex-col min-h-0">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-200">
+              <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">Syntax Reference & Snippets ({language.toUpperCase()})</span>
+              <span className="text-[10px] text-rose-600 font-bold tracking-wider uppercase bg-rose-50 px-2.5 py-1 rounded border border-rose-200">Manual Typing Required</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {getCodeSuggestions().map((s, idx) => (
+                <div key={idx} className="p-4 bg-white rounded-xl border border-gray-200 flex flex-col justify-between hover:border-gray-300 transition-colors shadow-sm">
+                  <span className="text-xs font-semibold text-gray-700 block mb-2">{s.desc}</span>
+                  <pre
+                    className="p-3 bg-gray-50 text-gray-900 rounded-lg font-mono text-xs select-none pointer-events-none overflow-x-auto border border-gray-200"
+                  >
+                    {s.snippet}
+                  </pre>
+                </div>
+              ))}
+              {getCodeSuggestions().length === 0 && (
+                <div className="col-span-2 text-center text-xs text-gray-400 py-10">No snippets loaded for {language}</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'runTests' && (
+          <div className="flex flex-col min-h-0 flex-1 overflow-hidden">
+            {showResultsBanner && (
+              <div className={`border-b border-gray-400 px-5 py-1.5 flex items-center justify-center relative flex-shrink-0 ${passedTestsCount === totalTestsCount ? 'bg-[#d4edda]' : 'bg-[#fce4ec]'}`}>
+                <span className="text-[13px] font-bold text-gray-900">
+                  You have passed {passedTestsCount}/{totalTestsCount} tests
+                </span>
+                <button
+                  onClick={() => setShowResultsBanner(false)}
+                  className="absolute right-5 text-[11px] text-gray-600 hover:text-black italic font-bold underline">
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            <div className="flex flex-1 min-h-0 overflow-hidden">
+              {/* Left sidebar for test cases */}
+              <div className="w-56 border-r border-gray-300 bg-[#f5f5f5] flex flex-col flex-shrink-0 min-h-0">
+                <div className="p-3 border-b border-gray-200 flex-shrink-0">
+                  <button
+                    onClick={runAllTests}
+                    disabled={isRunningTests}
+                    className="w-auto mx-auto flex items-center space-x-2 px-4 py-1.5 bg-white border border-gray-300 rounded text-sm font-medium text-gray-800 hover:bg-gray-50 transition shadow-sm disabled:opacity-50 justify-center">
+                    {isRunningTests ? <Loader2 size={14} className="animate-spin text-black" /> : <Play size={14} className="text-black" />}
+                    <span>Run Tests</span>
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+                  {tests.map((t, i) => {
+                    const result = testResults.find(r => r.id === i);
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => setSelectedTest(i)}
+                        className={`w-full flex items-center justify-between px-4 py-3 border-b border-gray-200 text-left transition-colors flex-shrink-0 ${selectedTest === i ? 'bg-white text-gray-900 font-bold shadow-sm' : 'text-gray-600 hover:bg-[#e9e9e9] font-medium'}`}>
+                        <span className="text-[13px]">Test Case {i + 1}</span>
+                        {result && (
+                          result.passed ? (
+                            <CheckCircle2 className="w-4 h-4 text-[#4caf50]" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-[#d32f2f]" />
+                          )
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right content for selected test case */}
+              <div className="flex-1 bg-gray-50 overflow-y-auto custom-scrollbar relative min-h-0">
+                {tests[selectedTest]?.hidden ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mb-2"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" y1="2" x2="22" y2="22" /></svg>
+                    <span className="text-sm font-medium">This is a hidden test case</span>
+                  </div>
+                ) : (
+                  <div className="p-5 space-y-5">
+                    <div>
+                      <h4 className="text-[13px] font-bold text-gray-800 mb-2 tracking-tight">Input</h4>
+                      <div className="w-full p-3 bg-white border border-gray-300 rounded text-[13px] font-mono text-gray-800 whitespace-pre-wrap">
+                        {tests[selectedTest]?.input || 'none'}
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-[13px] font-bold text-gray-800 mb-2 tracking-tight">Expected Output</h4>
+                      <div className="w-full p-3 bg-white border border-gray-300 rounded text-[13px] font-mono text-gray-800 whitespace-pre-wrap">
+                        {tests[selectedTest]?.output || 'none'}
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-[13px] font-bold text-gray-800 mb-2 tracking-tight">Output</h4>
+                      {(() => {
+                        const currentResult = testResults.find(r => r.id === selectedTest);
+                        const actualOutput = currentResult?.output || "";
+                        const expectedOutput = tests[selectedTest]?.output?.trim() || "";
+                        const isMatched = actualOutput === expectedOutput;
+                        const hasOutput = actualOutput.length > 0;
+
+                        if (!currentResult) {
+                          return <div className="w-full p-3 bg-gray-100 border border-gray-300 rounded text-[13px] font-mono text-gray-500 whitespace-pre-wrap italic">Click 'Run Tests' to see output</div>;
+                        }
+
+                        return (
+                          <div className={`w-full p-3 bg-white border rounded text-[13px] font-mono whitespace-pre-wrap ${hasOutput && isMatched ? "border-green-400 bg-green-50 text-green-900" : "border-red-400 bg-red-50 text-red-900"}`}>
+                            {currentResult.error ? `Error:\n${currentResult.error}` :
+                              currentResult.killed ? "Time Limit Exceeded" :
+                                actualOutput || "(empty output)"}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'run' && (
+          <div className="p-4 flex-1 overflow-y-auto custom-scrollbar bg-gray-50 flex flex-col min-h-0">
+            <div>
+              <button
+                onClick={runCode}
+                disabled={isRunning}
+                className="flex items-center space-x-1.5 px-4 py-1.5 bg-white border border-gray-300 rounded text-sm font-bold text-gray-700 hover:bg-gray-50 transition shadow-sm mb-4 disabled:opacity-50">
+                {isRunning ? <Loader2 size={14} className="animate-spin text-black" /> : <Play size={14} className="text-black" />}
+                <span>Run Code</span>
+              </button>
+              <label className="text-[13px] font-bold text-gray-800 block mb-2 tracking-tight">Custom Input</label>
+              <textarea
+                className="w-full h-24 p-3 bg-white border border-gray-300 rounded text-[13px] font-mono text-gray-800 resize-none outline-none focus:border-black"
+                placeholder="Enter your input here..."
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+              ></textarea>
+            </div>
+            <div className="mt-5 flex-1 min-h-[100px] flex flex-col">
+              <label className="text-[13px] font-bold text-gray-800 block mb-2 tracking-tight">Console Output</label>
+              <div className="w-full flex-1 p-3 bg-gray-900 border border-gray-900 rounded text-[13px] font-mono text-green-400 whitespace-pre-wrap overflow-y-auto custom-scrollbar">
+                {consoleOutput || "Output will appear here..."}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const QuizFlow = () => {
   const { quizId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const socket = useSocket(quizId);
-
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [step, setStep] = useState(1);
+
+  const autoSubmitSavedAnswers = useCallback(async (quizData, savedAnswersRaw, savedWarningsRaw) => {
+    try {
+      const savedAnswers = JSON.parse(savedAnswersRaw);
+      const savedWarnings = savedWarningsRaw !== null ? parseInt(savedWarningsRaw, 10) : 5;
+
+      const formattedAnswers = quizData.questions.map((q, idx) => {
+        const answerValue = savedAnswers[idx]?.answer;
+        let studentAnswer = '';
+
+        const qType = (q.questionType || '').toLowerCase();
+        if (qType === 'mcq') {
+          studentAnswer = answerValue !== null && answerValue !== undefined ? (q.options[answerValue] || '') : '';
+        } else if (qType === 'descriptive' || qType === 'coding') {
+          studentAnswer = typeof answerValue === 'string' ? answerValue : '';
+        }
+
+        return {
+          questionText: q.questionText,
+          studentAnswer
+        };
+      });
+
+      const submissionData = {
+        quizId: quizData.id,
+        timeTaken: quizData.durationInMinutes * 60,
+        warnings: 5 - savedWarnings,
+        penalties: 0,
+        answers: formattedAnswers,
+      };
+
+      const response = await api.post("/api/results/submit", submissionData);
+      const newResultId = response.data.id;
+
+      if (user) {
+        localStorage.removeItem(`isOtpVerified_${quizId}_${user.id}`);
+        localStorage.removeItem(`warnings_${quizId}_${user.id}`);
+        localStorage.removeItem(`answers_${quizId}_${user.id}`);
+        localStorage.removeItem(`honourCodeAgreed_${quizId}_${user.id}`);
+      }
+
+      toast.success("Time has expired! Your saved answers have been automatically submitted.", { duration: 6000 });
+      navigate(`/results/${newResultId}`, { replace: true });
+    } catch (err) {
+      console.error("Failed to auto-submit offline answers:", err);
+      if (err.response?.status === 400 || err.response?.data?.message?.includes("already attempted")) {
+        if (user) {
+          localStorage.removeItem(`isOtpVerified_${quizId}_${user.id}`);
+          localStorage.removeItem(`warnings_${quizId}_${user.id}`);
+          localStorage.removeItem(`answers_${quizId}_${user.id}`);
+          localStorage.removeItem(`honourCodeAgreed_${quizId}_${user.id}`);
+        }
+        navigate(`/staff-dashboard`, { replace: true });
+      }
+    }
+  }, [quizId, navigate, user]);
+
   const [honourCodeAgreed, setHonourCodeAgreed] = useState(false);
   const [securityCode, setSecurityCode] = useState(Array(6).fill(""));
   const [securityCodeError, setSecurityCodeError] = useState(null);
@@ -155,6 +665,7 @@ const QuizFlow = () => {
   const [screenEnabled, setScreenEnabled] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(!!document.fullscreenElement);
   const [warnings, setWarnings] = useState(5);
+  const [devToolsDetected, setDevToolsDetected] = useState(false);
 
   const cameraFeedRef = useRef(null);
   const screenFeedRef = useRef(null);
@@ -163,10 +674,57 @@ const QuizFlow = () => {
   const screenStreamRef = useRef(null);
   const submittedRef = useRef(false);
   const lastDeflectionTimeRef = useRef(0);
+  const warningInFlightRef = useRef(false); // prevents concurrent double-deductions
   const step4EntryTimeRef = useRef(0);
+  const deflectionToastRef = useRef(null);
+  const deflectionPenalizedRef = useRef(false);
+  const multipleFacesToastRef = useRef(null);
+  const multipleFacesPenalizedRef = useRef(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState([]);
   const [timeLeft, setTimeLeft] = useState(3600);
+
+  // Restore state once user and quizId are loaded
+  useEffect(() => {
+    if (user && quizId) {
+      const savedOtp = localStorage.getItem(`isOtpVerified_${quizId}_${user.id}`);
+      if (savedOtp === "true") setIsOtpVerified(true);
+
+      const savedWarnings = localStorage.getItem(`warnings_${quizId}_${user.id}`);
+      if (savedWarnings !== null) setWarnings(parseInt(savedWarnings, 10));
+
+      const savedHonour = localStorage.getItem(`honourCodeAgreed_${quizId}_${user.id}`);
+      if (savedHonour === "true") setHonourCodeAgreed(true);
+    }
+  }, [user, quizId]);
+
+  // Persist answers
+  useEffect(() => {
+    if (user && quizId && answers && answers.length > 0) {
+      localStorage.setItem(`answers_${quizId}_${user.id}`, JSON.stringify(answers));
+    }
+  }, [answers, quizId, user]);
+
+  // Persist warnings
+  useEffect(() => {
+    if (user && quizId) {
+      localStorage.setItem(`warnings_${quizId}_${user.id}`, warnings.toString());
+    }
+  }, [warnings, quizId, user]);
+
+  // Persist honourCodeAgreed
+  useEffect(() => {
+    if (user && quizId) {
+      localStorage.setItem(`honourCodeAgreed_${quizId}_${user.id}`, honourCodeAgreed ? "true" : "false");
+    }
+  }, [honourCodeAgreed, quizId, user]);
+
+  // Persist isOtpVerified
+  useEffect(() => {
+    if (user && quizId) {
+      localStorage.setItem(`isOtpVerified_${quizId}_${user.id}`, isOtpVerified ? "true" : "false");
+    }
+  }, [isOtpVerified, quizId, user]);
 
   const stopCamera = useCallback(() => {
     if (cameraStreamRef.current) {
@@ -217,6 +775,12 @@ const QuizFlow = () => {
           return;
         }
 
+        // Initialize warnings from DB warning count (authoritative to prevent reload resets)
+        const dbWarningsCount = existingResultRes.data.warningCount || 0;
+        const initialWarnings = Math.max(5 - dbWarningsCount, 0);
+        setWarnings(initialWarnings);
+        localStorage.setItem(`warnings_${quizId}_${user.id}`, initialWarnings.toString());
+
         const quizRes = await api.get(`/api/quizzes/${quizId}`);
         const quizData = quizRes.data;
 
@@ -226,6 +790,30 @@ const QuizFlow = () => {
           const elapsedSeconds = Math.floor((Date.now() - new Date(quizData.startedAt).getTime()) / 1000);
           computedTimeLeft = Math.max((quizData.durationInMinutes * 60) - elapsedSeconds, 0);
         }
+        // Respect the hard wall-clock endsAt deadline — late joiners get less time
+        if (quizData.endsAt) {
+          const secondsUntilEnd = Math.floor((new Date(quizData.endsAt).getTime() - Date.now()) / 1000);
+          computedTimeLeft = Math.min(computedTimeLeft, Math.max(secondsUntilEnd, 0));
+        }
+
+        // If the exam is closed or the time limit is up
+        const isTimeExpired = (quizData.endsAt && new Date() > new Date(quizData.endsAt)) || computedTimeLeft <= 0 || quizData.status === 'COMPLETED';
+
+        if (isTimeExpired) {
+          const savedAnswersRaw = localStorage.getItem(`answers_${quizId}_${user.id}`);
+          const savedWarningsRaw = localStorage.getItem(`warnings_${quizId}_${user.id}`);
+
+          if (savedAnswersRaw) {
+            // Auto-submit saved work!
+            await autoSubmitSavedAnswers(quizData, savedAnswersRaw, savedWarningsRaw);
+            return;
+          } else {
+            // No saved work to submit, show standard ended screen
+            setError('exam_ended');
+            setLoading(false);
+            return;
+          }
+        }
 
         setQuiz({
           id: quizData.id,
@@ -233,6 +821,7 @@ const QuizFlow = () => {
           title: quizData.title,
           status: quizData.status,
           startedAt: quizData.startedAt,
+          endsAt: quizData.endsAt || null,
           proctoringProvider: "Remote",
           duration: quizData.durationInMinutes >= 60 ? `${quizData.durationInMinutes / 60}h` : `${quizData.durationInMinutes}m`,
           durationInMinutes: quizData.durationInMinutes,
@@ -240,12 +829,17 @@ const QuizFlow = () => {
           studentName: user.name,
           studentEmail: user.email,
         });
-        setAnswers(
-          Array.from({ length: quizData.questions.length }, () => ({
-            answer: null,
-            status: "unanswered",
-          }))
-        );
+        const savedAnswers = localStorage.getItem(`answers_${quizId}_${user.id}`);
+        if (savedAnswers) {
+          setAnswers(JSON.parse(savedAnswers));
+        } else {
+          setAnswers(
+            Array.from({ length: quizData.questions.length }, () => ({
+              answer: null,
+              status: "unanswered",
+            }))
+          );
+        }
         setTimeLeft(computedTimeLeft);
       } catch (err) {
         console.error("Authorization failed or error fetching data:", err);
@@ -284,10 +878,11 @@ const QuizFlow = () => {
       const answerValue = answers[idx]?.answer;
       let studentAnswer = '';
 
-      if (q.questionType === 'mcq') {
+      const qType = (q.questionType || '').toLowerCase();
+      if (qType === 'mcq') {
         // MCQ: answerValue is the option index
         studentAnswer = answerValue !== null && answerValue !== undefined ? (q.options[answerValue] || '') : '';
-      } else if (q.questionType === 'descriptive' || q.questionType === 'coding') {
+      } else if (qType === 'descriptive' || qType === 'coding') {
         // Descriptive/Coding: answerValue is the raw text string
         studentAnswer = typeof answerValue === 'string' ? answerValue : '';
       }
@@ -316,6 +911,14 @@ const QuizFlow = () => {
 
       stopCamera();
       stopScreenShare();
+
+      // Clear localStorage on successful submit
+      if (user) {
+        localStorage.removeItem(`isOtpVerified_${quizId}_${user.id}`);
+        localStorage.removeItem(`warnings_${quizId}_${user.id}`);
+        localStorage.removeItem(`answers_${quizId}_${user.id}`);
+        localStorage.removeItem(`honourCodeAgreed_${quizId}_${user.id}`);
+      }
 
       // Exit fullscreen before redirecting
       if (document.fullscreenElement) {
@@ -373,50 +976,51 @@ const QuizFlow = () => {
     }
   }, [step, timeLeft, handleSubmit]);
 
-  // Full screen warning monitoring
+  // Fullscreen warning — event-driven so it can't double-fire with tab-switch
   useEffect(() => {
-    if (step === 4 && !isFullScreen) {
-      // Cooldown of 2 seconds after entering step 4 to allow browser fullscreen API to resolve
-      if (Date.now() - step4EntryTimeRef.current < 2000) return;
-      // Share the same throttle ref as tab-switch handler to prevent double-deduction
+    if (step !== 4) return;
+
+    const handleFullscreenChange = () => {
+      const nowFullscreen = !!document.fullscreenElement;
+      if (nowFullscreen) return; // re-entered fullscreen — no penalty
+
       const now = Date.now();
-      if (now - lastDeflectionTimeRef.current < 3000) return;
+      if (now - step4EntryTimeRef.current < 2000) return;
+      if (warningInFlightRef.current) return;
+      if (now - lastDeflectionTimeRef.current < 5000) return;
+
+      warningInFlightRef.current = true;
       lastDeflectionTimeRef.current = now;
 
       setWarnings((prevWarnings) => {
         const newWarnings = prevWarnings - 1;
 
-        // Send websocket warning log
         if (socket && user) {
-          socket.emit('student:warning', {
-            quizId,
-            studentId: user.id,
-            type: 'FULLSCREEN'
-          });
+          socket.emit('student:warning', { quizId, studentId: user.id, type: 'FULLSCREEN' });
         }
 
         if (newWarnings <= 0) {
-          toast.error(
-            "You have exceeded the maximum number of warnings. Your quiz will be submitted automatically.",
-            { duration: 4000 }
-          );
-          setTimeout(() => {
-            handleSubmit();
-          }, 0);
+          toast.error("You have exceeded the maximum number of warnings. Your quiz will be submitted automatically.", { duration: 4000 });
+          setTimeout(() => { handleSubmit(); warningInFlightRef.current = false; }, 0);
         } else {
-          toast.error(
-            `You have exited full-screen. You have ${newWarnings} warning lives left.`,
-            { icon: "⚠️", duration: 4050 }
-          );
+          toast.error(`You have exited full-screen. You have ${newWarnings} warning lives left.`, { icon: "⚠️", duration: 4050 });
           setTimeout(() => {
-            setStep(3); // Navigate back to setup/lock page so student must go full screen again
-          }, 0);
+            setStep(3);
+            setSecurityCode(Array(6).fill(""));
+            if (document.fullscreenElement) {
+              document.exitFullscreen().catch(err => console.log(err));
+            }
+          }, 100);
+          setTimeout(() => { warningInFlightRef.current = false; }, 5000); // 5s lock to settle screen transitions
         }
 
         return newWarnings;
       });
-    }
-  }, [isFullScreen, step, handleSubmit, socket, user, quizId]);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, [step, handleSubmit, socket, user, quizId]);
 
   // Tab, Window, and Trackpad deflection warning monitoring (Alt+Tab, swipe, devtools, other windows)
   useEffect(() => {
@@ -426,34 +1030,34 @@ const QuizFlow = () => {
       const now = Date.now();
       // Cooldown of 2 seconds after entering step 4 to allow browser focus to settle
       if (now - step4EntryTimeRef.current < 2000) return;
-      // Throttle deflection triggers to once every 3 seconds to prevent double triggers on fast switches
-      if (now - lastDeflectionTimeRef.current < 3000) return;
+      // Global lock: prevent any concurrent deduction (fullscreen + blur + visibility all at once)
+      if (warningInFlightRef.current) return;
+      // Throttle to once every 5 seconds to prevent double triggers
+      if (now - lastDeflectionTimeRef.current < 5000) return;
+
+      warningInFlightRef.current = true;
       lastDeflectionTimeRef.current = now;
 
       setWarnings((prevWarnings) => {
         const newWarnings = prevWarnings - 1;
 
         if (socket && user) {
-          socket.emit('student:warning', {
-            quizId,
-            studentId: user.id,
-            type: 'TAB_SWITCH'
-          });
+          socket.emit('student:warning', { quizId, studentId: user.id, type: 'TAB_SWITCH' });
         }
 
         if (newWarnings <= 0) {
-          toast.error(
-            "You have switched tabs, windows, or apps. Maximum warnings exceeded. Submitting quiz now.",
-            { duration: 4000 }
-          );
-          setTimeout(() => {
-            handleSubmit();
-          }, 0);
+          toast.error("You have switched tabs, windows, or apps. Maximum warnings exceeded. Submitting quiz now.", { duration: 4000 });
+          setTimeout(() => { handleSubmit(); warningInFlightRef.current = false; }, 0);
         } else {
-          toast.error(
-            `Warning: Switching apps, windows, or desktops is prohibited. You have ${newWarnings} lives left.`,
-            { icon: "⚠️", duration: 4500 }
-          );
+          toast.error(`Warning: Switching apps, windows, or desktops is prohibited. You have ${newWarnings} lives left.`, { icon: "⚠️", duration: 4500 });
+          setTimeout(() => {
+            setStep(3);
+            setSecurityCode(Array(6).fill(""));
+            if (document.fullscreenElement) {
+              document.exitFullscreen().catch(err => console.log(err));
+            }
+          }, 100);
+          setTimeout(() => { warningInFlightRef.current = false; }, 5000);
         }
 
         return newWarnings;
@@ -475,13 +1079,326 @@ const QuizFlow = () => {
     };
   }, [step, socket, user, quizId, handleSubmit]);
 
+  // Block Copy, Cut, Paste, and Context Menu actions completely during exam setup and attempt
+  useEffect(() => {
+    const handleCopyCutPaste = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toast.error("Copying, cutting, and pasting is strictly prohibited!", {
+        id: "clipboard-toast",
+        icon: "🚫",
+        duration: 3000
+      });
+    };
+
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+      toast.error("Right-click context menu is disabled during the assessment.", {
+        id: "context-menu-toast",
+        duration: 3000
+      });
+    };
+
+    document.addEventListener("copy", handleCopyCutPaste, true);
+    document.addEventListener("cut", handleCopyCutPaste, true);
+    document.addEventListener("paste", handleCopyCutPaste, true);
+    document.addEventListener("contextmenu", handleContextMenu, true);
+
+    return () => {
+      document.removeEventListener("copy", handleCopyCutPaste, true);
+      document.removeEventListener("cut", handleCopyCutPaste, true);
+      document.removeEventListener("paste", handleCopyCutPaste, true);
+      document.removeEventListener("contextmenu", handleContextMenu, true);
+    };
+  }, []);
+
+  // Block Keyboard Navigation & Inspect Shortcuts (Alt+Left/Right/Home, Backspace, F12, Ctrl+Shift+I/J/C, Ctrl+U, Ctrl+S)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const isAltLeft = e.altKey && (e.key === "ArrowLeft" || e.keyCode === 37);
+      const isAltRight = e.altKey && (e.key === "ArrowRight" || e.keyCode === 39);
+      const isAltHome = e.altKey && (e.key === "Home" || e.keyCode === 36);
+      const isBackspaceBack = e.key === "Backspace" &&
+        e.target.tagName !== "INPUT" &&
+        e.target.tagName !== "TEXTAREA" &&
+        !e.target.isContentEditable;
+
+      const isInspectKey = e.key === "F12" ||
+        (e.ctrlKey && e.shiftKey && ["I", "i", "J", "j", "C", "c"].includes(e.key)) ||
+        (e.ctrlKey && ["U", "u", "S", "s"].includes(e.key)) ||
+        (e.metaKey && e.altKey && ["I", "i", "J", "j", "C", "c"].includes(e.key));
+
+      if (isAltLeft || isAltRight || isAltHome || isBackspaceBack || isInspectKey) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const warningMsg = isInspectKey
+          ? "DevTools / Inspect shortcuts are strictly prohibited."
+          : "Browser navigation shortcuts are prohibited.";
+
+        if (step === 4) {
+          const now = Date.now();
+          if (now - step4EntryTimeRef.current < 2000) return;
+          if (warningInFlightRef.current) return;
+          if (now - lastDeflectionTimeRef.current < 5000) return;
+
+          warningInFlightRef.current = true;
+          lastDeflectionTimeRef.current = now;
+
+          setWarnings((prevWarnings) => {
+            const newWarnings = prevWarnings - 1;
+
+            if (socket && user) {
+              socket.emit('student:warning', { quizId, studentId: user.id, type: 'TAB_SWITCH' });
+            }
+
+            if (newWarnings <= 0) {
+              toast.error(`${warningMsg} Maximum warnings exceeded. Submitting quiz now.`, { duration: 4000 });
+              setTimeout(() => { handleSubmit(); warningInFlightRef.current = false; }, 0);
+            } else {
+              toast.error(`Warning: ${warningMsg} You have ${newWarnings} lives left.`, { icon: "⚠️", duration: 4500 });
+              setTimeout(() => {
+                setStep(3);
+                setSecurityCode(Array(6).fill(""));
+                if (document.fullscreenElement) {
+                  document.exitFullscreen().catch(err => console.log(err));
+                }
+              }, 100);
+              setTimeout(() => { warningInFlightRef.current = false; }, 5000);
+            }
+
+            return newWarnings;
+          });
+        } else {
+          toast.error(`${warningMsg} Action blocked.`, { id: "step-block-toast", duration: 3000 });
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [step, socket, user, quizId, handleSubmit]);
+
+  // Block Browser History Navigation (PopState / Back Button)
+  useEffect(() => {
+    if (step !== 4) return;
+
+    // Push state immediately to create a history entry we can capture
+    window.history.pushState(null, null, window.location.href);
+
+    const handlePopState = (e) => {
+      // Re-push state to lock the user on the quiz page
+      window.history.pushState(null, null, window.location.href);
+
+      const now = Date.now();
+      if (now - step4EntryTimeRef.current < 2000) return;
+      if (warningInFlightRef.current) return;
+      if (now - lastDeflectionTimeRef.current < 5000) return;
+
+      warningInFlightRef.current = true;
+      lastDeflectionTimeRef.current = now;
+
+      setWarnings((prevWarnings) => {
+        const newWarnings = prevWarnings - 1;
+
+        if (socket && user) {
+          socket.emit('student:warning', { quizId, studentId: user.id, type: 'TAB_SWITCH' });
+        }
+
+        if (newWarnings <= 0) {
+          toast.error("Navigation attempt detected. Maximum warnings exceeded. Submitting quiz now.", { duration: 4000 });
+          setTimeout(() => { handleSubmit(); warningInFlightRef.current = false; }, 0);
+        } else {
+          toast.error(`Warning: Navigating away is prohibited. You have ${newWarnings} lives left.`, { icon: "⚠️", duration: 4500 });
+          setTimeout(() => {
+            setStep(3);
+            setSecurityCode(Array(6).fill(""));
+            if (document.fullscreenElement) {
+              document.exitFullscreen().catch(err => console.log(err));
+            }
+          }, 100);
+          setTimeout(() => { warningInFlightRef.current = false; }, 5000);
+        }
+
+        return newWarnings;
+      });
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [step, socket, user, quizId, handleSubmit]);
+
+  // Warn on reload/close tab (BeforeUnload)
+  useEffect(() => {
+    if (step !== 4) return;
+
+    const handleBeforeUnload = (e) => {
+      if (submittedRef.current) return;
+      const message = "Are you sure you want to leave? Your exam progress will be lost and may be submitted automatically.";
+      e.returnValue = message;
+      return message;
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [step]);
+
+  // Viewport size, debugger timing, and console evaluation monitor to detect DevTools and Side Panels across all steps
+  useEffect(() => {
+    // Console property evaluation trick
+    const devtoolsState = { isOpen: false };
+    const element = new Image();
+    Object.defineProperty(devtoolsState, 'isOpen', {
+      get: () => {
+        devtoolsState.isOpen = true;
+        handleDevToolsViolation();
+        return true;
+      }
+    });
+
+    const handleDevToolsViolation = () => {
+      setDevToolsDetected(true);
+
+      if (step === 4) {
+        const now = Date.now();
+        // Cooldown of 3 seconds after entering step 4 to allow resize/transitions to settle
+        if (now - step4EntryTimeRef.current < 3000) return;
+        if (warningInFlightRef.current) return;
+        if (now - lastDeflectionTimeRef.current < 5000) return;
+
+        warningInFlightRef.current = true;
+        lastDeflectionTimeRef.current = now;
+
+        setWarnings((prevWarnings) => {
+          const newWarnings = prevWarnings - 1;
+
+          if (socket && user) {
+            socket.emit('student:warning', { quizId, studentId: user.id, type: 'OTHER' });
+          }
+
+          if (newWarnings <= 0) {
+            toast.error("DevTools / Side Panel detected. Maximum warnings exceeded. Submitting quiz now.", { duration: 4000 });
+            setTimeout(() => { handleSubmit(); warningInFlightRef.current = false; }, 0);
+          } else {
+            toast.error(`Warning: Opening DevTools or browser Side Panels (e.g. Gemini) is strictly prohibited. You have ${newWarnings} lives left.`, { icon: "⚠️", duration: 4500 });
+            setTimeout(() => {
+              setStep(3);
+              setSecurityCode(Array(6).fill(""));
+              if (document.fullscreenElement) {
+                document.exitFullscreen().catch(err => console.log(err));
+              }
+            }, 100);
+            setTimeout(() => { warningInFlightRef.current = false; }, 5000);
+          }
+
+          return newWarnings;
+        });
+      }
+    };
+
+    const checkDevTools = () => {
+      // 1. Viewport size delta check (for docked DevTools and Side Panels like Gemini)
+      const threshold = 160;
+      const widthDev = window.outerWidth - window.innerWidth > threshold;
+      const heightDev = window.outerHeight - window.innerHeight > threshold;
+
+      if (widthDev || heightDev) {
+        handleDevToolsViolation();
+        return;
+      }
+
+      // 2. Debugger timing latency check (compiled dynamically inside a VM to hide QuizAttempt.jsx code context)
+      const startTime = performance.now();
+      try {
+        Function("debugger")();
+      } catch (e) { }
+      const endTime = performance.now();
+      if (endTime - startTime > 100) {
+        handleDevToolsViolation();
+        return;
+      }
+
+      // 3. Evaluate console getter
+      console.log(devtoolsState);
+
+      // If no checks failed, reset detection
+      setDevToolsDetected(false);
+    };
+
+    // Run check periodically and on window events
+    const intervalId = setInterval(checkDevTools, 1000);
+    window.addEventListener("resize", checkDevTools);
+    window.addEventListener("focus", checkDevTools);
+    document.addEventListener("visibilitychange", checkDevTools);
+
+    // Initial check
+    checkDevTools();
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("resize", checkDevTools);
+      window.removeEventListener("focus", checkDevTools);
+      document.removeEventListener("visibilitychange", checkDevTools);
+    };
+  }, [step, socket, user, quizId, handleSubmit]);
+
+  // Touch gestures blocker & meta viewport modifier (blocks double-touch zoom & inspect zoom)
+  useEffect(() => {
+    // 1. Inject meta viewport settings to disable touch zooming
+    let metaTag = document.querySelector('meta[name="viewport"]');
+    const originalViewportContent = metaTag ? metaTag.getAttribute("content") : "width=device-width, initial-scale=1.0";
+
+    if (metaTag) {
+      metaTag.setAttribute("content", "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no");
+    } else {
+      metaTag = document.createElement("meta");
+      metaTag.name = "viewport";
+      metaTag.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
+      document.getElementsByTagName("head")[0].appendChild(metaTag);
+    }
+
+    // 2. Block double touch (double tap) gesture
+    let lastTouchTime = 0;
+    const handleTouchStart = (e) => {
+      const now = Date.now();
+      if (now - lastTouchTime < 300) {
+        // Prevent zoom or double-tap context actions
+        e.preventDefault();
+        toast.error("Double-touch actions are prohibited during the assessment.", {
+          id: "touch-toast",
+          duration: 2000
+        });
+      }
+      lastTouchTime = now;
+    };
+
+    document.addEventListener("touchstart", handleTouchStart, { passive: false });
+
+    return () => {
+      // Restore original viewport content
+      if (metaTag) {
+        metaTag.setAttribute("content", originalViewportContent);
+      }
+      document.removeEventListener("touchstart", handleTouchStart);
+    };
+  }, []);
+
   // AI Simulation warning trigger checks
   useEffect(() => {
     if (step !== 4) return;
     let timer = null;
 
     if (simulatedGazeDeflected) {
-      toast("AI: Gaze deflection simulated. Move gaze back within 4s to prevent penalty.", { icon: "👀", duration: 3000 });
+      deflectionPenalizedRef.current = false;
+      const toastId = toast("AI: Gaze deflection simulated. Move gaze back within 4s to prevent penalty.", { icon: "👀", duration: 4000 });
+      deflectionToastRef.current = toastId;
+
       timer = setTimeout(() => {
         setWarnings((prevWarnings) => {
           const newWarnings = prevWarnings - 1;
@@ -501,12 +1418,28 @@ const QuizFlow = () => {
             }, 0);
           } else {
             toast.error(`Warning: Gaze deflection/look-away detected! You have ${newWarnings} lives left.`, { icon: "⚠️", duration: 4000 });
+            setTimeout(() => {
+              setStep(3);
+              setSecurityCode(Array(6).fill(""));
+              if (document.fullscreenElement) {
+                document.exitFullscreen().catch(err => console.log(err));
+              }
+            }, 100);
           }
 
           return newWarnings;
         });
+        deflectionPenalizedRef.current = true;
         setSimulatedGazeDeflected(false);
       }, 4000);
+    } else {
+      if (deflectionToastRef.current) {
+        toast.dismiss(deflectionToastRef.current);
+        deflectionToastRef.current = null;
+        if (!deflectionPenalizedRef.current) {
+          toast.success("AI: Gaze restored. Penalty averted.", { icon: "✅", duration: 2500 });
+        }
+      }
     }
 
     return () => {
@@ -519,7 +1452,10 @@ const QuizFlow = () => {
     let timer = null;
 
     if (simulatedMultipleFaces) {
-      toast("AI: Multiple faces simulated. Clear background within 4s to prevent penalty.", { icon: "👥", duration: 3000 });
+      multipleFacesPenalizedRef.current = false;
+      const toastId = toast("AI: Multiple faces simulated. Clear background within 4s to prevent penalty.", { icon: "👥", duration: 4000 });
+      multipleFacesToastRef.current = toastId;
+
       timer = setTimeout(() => {
         setWarnings((prevWarnings) => {
           const newWarnings = prevWarnings - 1;
@@ -539,12 +1475,28 @@ const QuizFlow = () => {
             }, 0);
           } else {
             toast.error(`Warning: Multiple persons detected in camera view! You have ${newWarnings} lives left.`, { icon: "⚠️", duration: 4000 });
+            setTimeout(() => {
+              setStep(3);
+              setSecurityCode(Array(6).fill(""));
+              if (document.fullscreenElement) {
+                document.exitFullscreen().catch(err => console.log(err));
+              }
+            }, 100);
           }
 
           return newWarnings;
         });
+        multipleFacesPenalizedRef.current = true;
         setSimulatedMultipleFaces(false);
       }, 4000);
+    } else {
+      if (multipleFacesToastRef.current) {
+        toast.dismiss(multipleFacesToastRef.current);
+        multipleFacesToastRef.current = null;
+        if (!multipleFacesPenalizedRef.current) {
+          toast.success("AI: Environment restored. Penalty averted.", { icon: "✅", duration: 2500 });
+        }
+      }
     }
 
     return () => {
@@ -666,15 +1618,17 @@ const QuizFlow = () => {
     }
   };
 
-  const handleAnswerChange = (optionIndex) => {
-    const newAnswers = [...answers];
-    newAnswers[currentQuestionIndex] = {
-      ...newAnswers[currentQuestionIndex],
-      answer: optionIndex,
-      status: "answered",
-    };
-    setAnswers(newAnswers);
-  };
+  const handleAnswerChange = useCallback((valueOrIndex) => {
+    setAnswers((prev) => {
+      const newAnswers = [...prev];
+      newAnswers[currentQuestionIndex] = {
+        ...newAnswers[currentQuestionIndex],
+        answer: valueOrIndex,
+        status: "answered",
+      };
+      return newAnswers;
+    });
+  }, [currentQuestionIndex]);
 
   const handleQuestionNavigation = (index) => {
     if (index >= 0 && index < quiz.questions.length)
@@ -699,6 +1653,31 @@ const QuizFlow = () => {
     return (
       <div className="flex items-center justify-center h-screen bg-black">
         <Hourglass className="h-12 w-12 text-black animate-spin" />
+      </div>
+    );
+  if (error === 'exam_ended')
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-50">
+        <div className="text-center max-w-md px-8 py-12 bg-white rounded-2xl border border-red-100 shadow-lg space-y-5">
+          <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto">
+            <Clock className="h-8 w-8 text-red-500" />
+          </div>
+          <div>
+            <h1 className="text-xl font-extrabold text-gray-900">Test Time Has Ended</h1>
+            <p className="mt-2 text-gray-500 text-sm leading-relaxed">
+              The allocated time for this exam has passed. You can no longer access or submit answers for this test.
+            </p>
+          </div>
+          <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-sm text-red-700 font-medium">
+            Please contact your faculty if you believe this is an error.
+          </div>
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-2 px-6 py-2.5 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition"
+          >
+            Go Back to Dashboard
+          </button>
+        </div>
       </div>
     );
   if (error)
@@ -740,28 +1719,34 @@ const QuizFlow = () => {
     );
   }
 
-  // Status gate: quiz has ended
+  // Status gate: quiz has ended (COMPLETED status)
   if (quiz.status === 'COMPLETED') {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-center max-w-md px-8 py-12 bg-white rounded-2xl border border-gray-200 shadow-sm space-y-5">
-          <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
-            <AlertCircle className="h-7 w-7 text-gray-400" />
+      <div className="flex items-center justify-center h-screen bg-slate-50">
+        <div className="text-center max-w-md px-8 py-12 bg-white rounded-2xl border border-red-100 shadow-lg space-y-5">
+          <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto">
+            <Clock className="h-8 w-8 text-red-500" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">{quiz.title}</h1>
-            <p className="mt-2 text-gray-500 text-sm leading-relaxed">
-              The exam window for this assessment has closed.
+            <h1 className="text-xl font-extrabold text-gray-900">Test Time Has Ended</h1>
+            <p className="mt-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">{quiz.title}</p>
+            <p className="mt-3 text-gray-500 text-sm leading-relaxed">
+              The allocated time for this exam has passed. No new attempts can be made.
             </p>
+            {quiz.endsAt && (
+              <p className="mt-2 text-xs text-red-400 font-medium">
+                Exam closed at: {new Date(quiz.endsAt).toLocaleString()}
+              </p>
+            )}
           </div>
-          <div className="bg-gray-50 border border-gray-200 rounded-xl px-5 py-4 text-sm text-gray-700 font-medium">
-            Please contact your faculty for a re-attempt or further guidance.
+          <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-sm text-red-700 font-medium">
+            Please contact your faculty for any re-attempt or further guidance.
           </div>
           <button
             onClick={() => navigate(-1)}
-            className="mt-2 text-xs text-gray-400 hover:text-gray-700 transition underline"
+            className="mt-2 px-6 py-2.5 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition"
           >
-            Go back
+            Go Back to Dashboard
           </button>
         </div>
       </div>
@@ -773,7 +1758,6 @@ const QuizFlow = () => {
       const steps = [{ id: 1 }, { id: 2 }, { id: 3 }];
       return (
         <div className="flex h-screen bg-amber-50 text-gray-900 relative">
-          <Toaster position="top-center" reverseOrder={false} />
           <div className="w-[350px] flex-shrink-0 bg-amber-50 border-r border-amber-200 flex flex-col justify-between p-8 shadow-sm z-10">
             <div>
               <div className="flex items-center space-x-3 mb-10">
@@ -1130,266 +2114,280 @@ const QuizFlow = () => {
       const getStatusColor = (status) => {
         switch (status) {
           case "answered":
-            return "bg-white text-black";
+            return "bg-emerald-500 text-white border border-emerald-600 hover:bg-emerald-600";
           case "unanswered":
-            return "bg-gray-200 text-gray-800";
+            return "bg-slate-200 text-slate-700 hover:bg-slate-300";
           case "review":
-            return "bg-red-600 text-gray-900";
+            return "bg-amber-500 text-white border border-amber-600 hover:bg-amber-600";
           case "answered-review":
-            return "bg-white text-black border-2 border-black ring-black";
+            return "bg-emerald-500 text-white border-2 border-amber-400 hover:bg-emerald-600";
           default:
-            return "bg-gray-700";
+            return "bg-slate-200 text-slate-700";
         }
       };
       return (
-        <div className="flex h-screen bg-gray-50 text-gray-900 font-sans">
-          <Toaster position="top-center" reverseOrder={false} />
-          <aside className="w-1/4 bg-gray-950 border-r border-gray-800 flex flex-col p-4 space-y-4">
-            <div className="flex items-center space-x-2">
-              <ShieldCheck className="h-8 w-8 text-black" />
-              <h1 className="text-xl font-bold">ProctorX</h1>
-            </div>
+        <div className="flex flex-col min-h-screen bg-white text-gray-900 font-sans" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
 
-            <div className="flex space-x-2">
-              <ProctoringFeed
-                stream={cameraStream}
-                type="camera"
-                simulatedGazeDeflected={simulatedGazeDeflected}
-                simulatedMultipleFaces={simulatedMultipleFaces}
-              />
-              <ProctoringFeed stream={screenStream} type="screen" />
-            </div>
-
-            {/* AI Violation Simulator Panel */}
-            <div className="bg-[#111827] border border-gray-800 rounded-xl p-3.5 space-y-2.5">
-              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400 animate-pulse" /> AI Proctoring Simulator
-              </h3>
-              <p className="text-[9px] text-slate-500 leading-relaxed">
-                Test proctoring response loops by triggering simulated canditate violations:
-              </p>
-
-              <div className="flex flex-col gap-1.5 pt-1">
-                <button
-                  onClick={() => setSimulatedGazeDeflected(!simulatedGazeDeflected)}
-                  className={`w-full py-1.5 px-2.5 rounded-lg text-[10px] font-bold transition flex items-center justify-between border ${simulatedGazeDeflected
-                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
-                    : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
-                    }`}
-                >
-                  <span>Simulate Gaze Deflection</span>
-                  <span className={`w-1.5 h-1.5 rounded-full ${simulatedGazeDeflected ? 'bg-amber-400 animate-ping' : 'bg-slate-700'}`}></span>
-                </button>
-
-                <button
-                  onClick={() => setSimulatedMultipleFaces(!simulatedMultipleFaces)}
-                  className={`w-full py-1.5 px-2.5 rounded-lg text-[10px] font-bold transition flex items-center justify-between border ${simulatedMultipleFaces
-                    ? 'bg-red-500/20 text-red-400 border-black ring-black/40'
-                    : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
-                    }`}
-                >
-                  <span>Simulate Multi-Face</span>
-                  <span className={`w-1.5 h-1.5 rounded-full ${simulatedMultipleFaces ? 'bg-red-400 animate-ping' : 'bg-slate-700'}`}></span>
-                </button>
+          {/* Global Top Bar matching reference design */}
+          <header className="h-14 border-b border-gray-200 bg-white flex items-center justify-between pl-6 z-20 flex-shrink-0">
+            <div className="flex items-center space-x-4">
+              <div className="h-8 w-8 bg-red-600 flex items-center justify-center font-bold text-white text-xl rounded">
+                K
               </div>
+              <span className="font-extrabold text-sm text-black tracking-wide">ProctorX Assessment Room</span>
+              <span className="text-gray-300 text-sm">|</span>
+              <span className="text-gray-600 font-semibold text-xs">{quiz.title}</span>
             </div>
 
-            <div className="flex-1 overflow-y-auto border-t border-gray-800 pt-4">
-              <h2 className="font-semibold mb-3 text-gray-900">Question Palette</h2>
-              <div className="grid grid-cols-5 gap-2">
-                {quiz.questions.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleQuestionNavigation(index)}
-                    className={`h-10 w-10 rounded-md font-bold flex items-center justify-center ${getStatusColor(
-                      answers[index]?.status
-                    )} ${currentQuestionIndex === index ? "ring-2 ring-red-500" : ""
-                      }`}
-                  >
-                    {index + 1}
-                  </button>
-                ))}
+            <div className="flex items-center h-full">
+              <button className="text-gray-500 hover:text-black p-2 rounded transition-colors mr-3">
+                <Volume2 size={18} />
+              </button>
+              <div className="text-gray-300 mr-4">|</div>
+              <div className="flex items-center space-x-2 text-black font-extrabold text-sm mr-6">
+                <Clock className="h-4 w-4 text-amber-500" />
+                <span>{formatTime(timeLeft)}</span>
               </div>
+              <button
+                onClick={handleSubmit}
+                className="h-full px-8 bg-neutral-900 text-white font-bold text-xs hover:bg-neutral-800 transition-colors uppercase tracking-wider flex items-center justify-center border-l border-neutral-800"
+              >
+                Exit Workout
+              </button>
             </div>
-          </aside>
-          <main className="flex-1 flex flex-col p-8">
-            <header className="flex justify-between items-center pb-4 border-b border-gray-200 mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">{quiz.title}</h2>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2 text-gray-800 font-semibold bg-gray-100 px-4 py-2 rounded-lg border border-gray-200">
-                  <Clock className="h-5 w-5" />
-                  <span>{formatTime(timeLeft)}</span>
-                </div>
-                <button
-                  onClick={handleSubmit}
-                  className="px-6 py-2 bg-black text-white font-bold rounded-lg hover:bg-gray-900 transition-colors shadow-sm"
-                >
-                  Submit Assignment
-                </button>
+          </header>
+
+          <div className="flex flex-1 min-h-0">
+            <aside className="w-[320px] bg-slate-50 border-r border-gray-200 flex flex-col p-4 space-y-4 shadow-sm z-10 flex-shrink-0 sticky top-14 h-[calc(100vh-56px)]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+
+              <div className="flex space-x-2">
+                <ProctoringFeed
+                  stream={cameraStream}
+                  type="camera"
+                  simulatedGazeDeflected={simulatedGazeDeflected}
+                  simulatedMultipleFaces={simulatedMultipleFaces}
+                />
+                <ProctoringFeed stream={screenStream} type="screen" />
               </div>
-            </header>
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-600">
-                  Question {currentQuestionIndex + 1} of{" "}
-                  {quiz.questions.length}
+
+              {/* AI Violation Simulator Panel */}
+              <div className="bg-white border border-gray-200 rounded-xl p-3.5 space-y-2.5 shadow-sm">
+                <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-gray-500" /> AI Proctoring Simulator
                 </h3>
-                <span className="text-sm font-bold bg-gray-100 text-gray-800 border border-gray-200 px-3 py-1 rounded-lg">
-                  {currentQuestion.marks || 1} {currentQuestion.marks === 1 ? 'Mark' : 'Marks'}
-                </span>
-              </div>
-              <p className="text-xl mb-6 text-gray-900">{currentQuestion.questionText}</p>
-              <div className="space-y-3">
-                {currentQuestion.questionType === "mcq" && currentQuestion.options.map((option, index) => (
-                  <label
-                    key={index}
-                    className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${answers[currentQuestionIndex]?.answer === index
-                      ? "bg-gray-100 border-black ring-1 ring-black"
-                      : "bg-white border-gray-300 hover:bg-gray-50"
+                <p className="text-[9px] text-gray-500 leading-relaxed">
+                  Test proctoring response loops by triggering simulated candidate violations:
+                </p>
+
+                <div className="flex flex-col gap-1.5 pt-1">
+                  <button
+                    onClick={() => setSimulatedGazeDeflected(!simulatedGazeDeflected)}
+                    className={`w-full py-1.5 px-2.5 rounded-lg text-[10px] font-bold transition flex items-center justify-between border ${simulatedGazeDeflected
+                      ? 'bg-amber-50 text-amber-700 border-amber-300'
+                      : 'bg-slate-50 text-gray-700 border-gray-200 hover:bg-gray-100'
                       }`}
                   >
-                    <input
-                      type="radio"
-                      name={`q-${currentQuestionIndex}`}
-                      checked={answers[currentQuestionIndex]?.answer === index}
-                      onChange={() => handleAnswerChange(index)}
-                      className="h-5 w-5 mr-4 accent-black"
-                    />
-                    <span className="text-gray-800 font-medium">{option}</span>
-                  </label>
-                ))}
+                    <span>Simulate Gaze Deflection</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${simulatedGazeDeflected ? 'bg-amber-500 animate-ping' : 'bg-gray-300'}`}></span>
+                  </button>
 
-                {currentQuestion.questionType === "descriptive" && (
-                  <div className="mt-4">
-                    <textarea
-                      className="w-full h-64 p-5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:border-black focus:ring-1 focus:ring-black resize-none leading-relaxed"
-                      placeholder="Type your detailed answer here..."
-                      value={answers[currentQuestionIndex]?.answer || ""}
-                      onChange={(e) => handleAnswerChange(e.target.value)}
-                    ></textarea>
-                  </div>
-                )}
+                  <button
+                    onClick={() => setSimulatedMultipleFaces(!simulatedMultipleFaces)}
+                    className={`w-full py-1.5 px-2.5 rounded-lg text-[10px] font-bold transition flex items-center justify-between border ${simulatedMultipleFaces
+                      ? 'bg-red-50 text-red-600 border-red-200'
+                      : 'bg-slate-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                      }`}
+                  >
+                    <span>Simulate Multi-Face</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${simulatedMultipleFaces ? 'bg-red-500 animate-ping' : 'bg-gray-300'}`}></span>
+                  </button>
+                </div>
+              </div>
 
-                {currentQuestion.questionType === "coding" && (() => {
-                  const codeVal = answers[currentQuestionIndex]?.answer;
-                  const codeText = typeof codeVal === 'string' ? codeVal : (currentQuestion.starterCode?.cpp || currentQuestion.starterCode?.python || currentQuestion.starterCode?.javascript || '');
-                  const lineCount = (codeText || '').split('\n').length;
-                  return (
-                    <div className="flex flex-col border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm mt-2" style={{minHeight: '520px'}}>
-                      {/* Top bar: language dropdown + fullscreen icon */}
-                      <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-gray-300">
-                        <select
-                          className="bg-white text-gray-900 text-sm font-bold px-3 py-1.5 border border-gray-300 outline-none focus:border-black cursor-pointer uppercase"
-                          defaultValue="cpp"
-                          onChange={(e) => {
-                            const newLang = e.target.value;
-                            if (currentQuestion.starterCode && currentQuestion.starterCode[newLang] && (!answers[currentQuestionIndex]?.answer || answers[currentQuestionIndex]?.answer === '')) {
-                              handleAnswerChange(currentQuestion.starterCode[newLang]);
-                            }
-                          }}
-                        >
-                          <option value="c">C</option>
-                          <option value="cpp">CPP</option>
-                          <option value="python">PYTHON</option>
-                          <option value="java">JAVA</option>
-                          <option value="javascript">NODEJS</option>
-                        </select>
-                        <button className="text-gray-500 hover:text-black p-1">
-                          <Expand size={18} />
-                        </button>
-                      </div>
-
-                      {/* Code editor area */}
-                      <div className="flex flex-1 overflow-hidden bg-[#f5f5f5]" style={{minHeight: '300px'}}>
-                        {/* Line numbers */}
-                        <div className="w-10 bg-[#f0f0f0] border-r border-gray-300 text-gray-400 text-right pr-2 pt-3 select-none font-mono text-[13px] leading-[1.65] overflow-hidden">
-                          {Array.from({length: Math.max(lineCount, 20)}, (_, i) => (
-                            <div key={i}>{i + 1}</div>
+              <div className="flex-1 overflow-y-auto border-t border-gray-200 pt-4 custom-scrollbar">
+                <h2 className="font-semibold mb-3 text-gray-900">Question Palette</h2>
+                <div className="grid grid-cols-5 gap-2">
+                  {quiz.questions.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleQuestionNavigation(index)}
+                      className={`h-10 w-10 rounded-md font-bold flex items-center justify-center transition-all ${getStatusColor(
+                        answers[index]?.status
+                      )} ${currentQuestionIndex === index ? "border-2 border-red-500" : ""
+                        }`}
+                    >
+                      {index + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </aside>
+            <main className="flex-1 flex flex-col p-6 bg-white min-w-0" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              <header className="flex justify-between items-center pb-2 mb-4 flex-shrink-0">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs uppercase tracking-wider font-extrabold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                    Proctoring Active
+                  </span>
+                </div>
+                {/* Warning lives counter — always visible so student knows their status */}
+                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${warnings >= 4 ? 'bg-green-50 border-green-200 text-green-700' :
+                    warnings >= 2 ? 'bg-amber-50 border-amber-300 text-amber-700' :
+                      'bg-red-50 border-red-300 text-red-700 animate-pulse'
+                  }`}>
+                  <span>{Array.from({ length: Math.max(warnings, 0) }, () => '❤️').join('')}{Array.from({ length: Math.max(5 - warnings, 0) }, () => '🖤').join('')}</span>
+                  <span>{warnings} / 5 lives left</span>
+                </div>
+              </header>
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-semibold text-gray-600">
+                    Question {currentQuestionIndex + 1} of{" "}
+                    {quiz.questions.length}
+                  </h3>
+                  <span className="text-sm font-bold bg-gray-100 text-gray-800 border border-gray-200 px-3 py-1 rounded-lg">
+                    {currentQuestion.marks || 1} {currentQuestion.marks === 1 ? 'Mark' : 'Marks'}
+                  </span>
+                </div>
+                <p className="text-lg mb-4 text-gray-900 font-medium">{currentQuestion.questionText}</p>
+                <div className="space-y-3 flex-1 flex flex-col min-h-0 overflow-hidden">
+                  {(() => {
+                    const qType = (currentQuestion.questionType || "").toLowerCase();
+                    if (qType === "mcq") {
+                      return (
+                        <div className="overflow-y-auto space-y-3 pb-2 custom-scrollbar pr-2">
+                          {currentQuestion.options.map((option, index) => (
+                            <label
+                              key={index}
+                              className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${answers[currentQuestionIndex]?.answer === index
+                                  ? "bg-emerald-50/40 border-emerald-500"
+                                  : "bg-white border-gray-300 hover:bg-gray-50"
+                                }`}
+                            >
+                              <input
+                                type="radio"
+                                name={`q-${currentQuestionIndex}`}
+                                checked={answers[currentQuestionIndex]?.answer === index}
+                                onChange={() => handleAnswerChange(index)}
+                                className="h-5 w-5 mr-4 accent-emerald-600"
+                              />
+                              <span className="text-gray-800 font-medium">{option}</span>
+                            </label>
                           ))}
                         </div>
-                        {/* Textarea */}
-                        <textarea
-                          className="flex-1 bg-[#f5f5f5] text-gray-900 p-3 resize-none outline-none font-mono text-[13px] leading-[1.65]"
-                          placeholder="Write your code here..."
-                          spellCheck="false"
-                          value={codeText}
-                          onChange={(e) => handleAnswerChange(e.target.value)}
-                        />
-                      </div>
-
-                      {/* Bottom bar: Run / Run Tests tabs */}
-                      <div className="border-t border-gray-300 bg-white">
-                        <div className="flex border-b border-gray-200">
-                          <button className="px-5 py-2 text-sm font-bold text-gray-800 border-b-2 border-black">Run</button>
-                          <button className="px-5 py-2 text-sm font-bold text-gray-500 hover:text-gray-800 transition">Run Tests</button>
-                          <div className="flex-1"></div>
-                          <button className="px-3 py-2 text-gray-400 hover:text-black">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                          </button>
+                      );
+                    }
+                    if (qType === "descriptive") {
+                      return (
+                        <div className="mt-4 flex-1">
+                          <textarea
+                            className="w-full h-64 p-5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 resize-none leading-relaxed"
+                            placeholder="Type your detailed answer here..."
+                            value={answers[currentQuestionIndex]?.answer || ""}
+                            onChange={(e) => handleAnswerChange(e.target.value)}
+                          ></textarea>
                         </div>
-
-                        {/* Run panel content */}
-                        <div className="p-4">
-                          <div className="flex items-center space-x-2 mb-3">
-                            <button className="flex items-center space-x-1.5 px-4 py-1.5 bg-white border border-gray-300 rounded text-sm font-bold text-gray-700 hover:bg-gray-50 transition shadow-sm">
-                              <Play size={14} className="text-black" />
-                              <span>Run Code</span>
-                            </button>
-                          </div>
-                          <div>
-                            <label className="text-sm font-bold text-gray-800 block mb-1.5">Input</label>
-                            <textarea
-                              className="w-full h-20 p-3 bg-white border border-gray-300 rounded text-sm font-mono text-gray-800 resize-none outline-none focus:border-black"
-                              placeholder="Enter your input here..."
-                            ></textarea>
-                          </div>
+                      );
+                    }
+                    if (qType === "coding") {
+                      return (
+                        <div className="flex-1 min-h-0 overflow-hidden">
+                          <CodingQuestion
+                            key={currentQuestion.id}
+                            question={currentQuestion}
+                            answer={answers[currentQuestionIndex]?.answer}
+                            onChange={handleAnswerChange}
+                          />
                         </div>
+                      );
+                    }
+                    console.log("QuizAttempt - Unrecognized or unrendered question type:", currentQuestion.questionType, currentQuestion);
+                    return (
+                      <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs space-y-1">
+                        <p className="font-bold">Debug Information (Question Type Mismatch):</p>
+                        <p>Type in DB: <code className="bg-red-100 px-1 py-0.5 rounded font-mono font-bold">"{currentQuestion.questionType}"</code></p>
+                        <pre className="bg-white p-2.5 rounded border border-red-150 font-mono text-[10px] text-gray-800 overflow-x-auto">
+                          {JSON.stringify(currentQuestion, null, 2)}
+                        </pre>
                       </div>
-                    </div>
-                  );
-                })()}
+                    );
+                  })()}
+                </div>
               </div>
-            </div>
-            <footer className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
-              <button
-                onClick={handleMarkForReview}
-                className="flex items-center space-x-2 px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-              >
-                <Bookmark size={16} />
-                <span>Mark for Review</span>
-              </button>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() =>
-                    handleQuestionNavigation(currentQuestionIndex - 1)
-                  }
-                  disabled={currentQuestionIndex === 0}
-                  className="px-6 py-2.5 flex items-center space-x-2 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
-                >
-                  <ArrowLeft size={16} />
-                  <span>Previous</span>
-                </button>
-                <button
-                  onClick={() =>
-                    handleQuestionNavigation(currentQuestionIndex + 1)
-                  }
-                  disabled={
-                    currentQuestionIndex === quiz.questions.length - 1
-                  }
-                  className="px-8 py-2.5 flex items-center space-x-2 bg-black text-white font-bold rounded-lg hover:bg-gray-900 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-sm transition-colors"
-                >
-                  <span>Next</span>
-                  <ArrowRight size={16} />
-                </button>
-              </div>
-            </footer>
-          </main>
+              <footer className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200 flex-shrink-0">
+                <div className="flex space-x-3">
+                  <button
+                    onClick={handleMarkForReview}
+                    className="flex items-center space-x-2 px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                  >
+                    <Bookmark size={16} />
+                    <span>Mark for Review</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const newAnswers = [...answers];
+                      newAnswers[currentQuestionIndex] = {
+                        answer: null,
+                        status: "unanswered",
+                      };
+                      setAnswers(newAnswers);
+                    }}
+                    className="flex items-center space-x-2 px-5 py-2.5 bg-white border border-red-200 text-red-600 font-bold rounded-lg hover:bg-red-50/50 transition-colors shadow-sm"
+                  >
+                    <span>Clear Selection</span>
+                  </button>
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() =>
+                      handleQuestionNavigation(currentQuestionIndex - 1)
+                    }
+                    disabled={currentQuestionIndex === 0}
+                    className="px-6 py-2.5 flex items-center space-x-2 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+                  >
+                    <ArrowLeft size={16} />
+                    <span>Previous</span>
+                  </button>
+                  <button
+                    onClick={() =>
+                      handleQuestionNavigation(currentQuestionIndex + 1)
+                    }
+                    disabled={
+                      currentQuestionIndex === quiz.questions.length - 1
+                    }
+                    className="px-8 py-2.5 flex items-center space-x-2 bg-black text-white font-bold rounded-lg hover:bg-gray-900 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-sm transition-colors"
+                  >
+                    <span>Next</span>
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
+              </footer>
+            </main>
+          </div>
         </div>
       );
     }
   };
 
-  return renderContent();
+  return (
+    <>
+      <Toaster position="top-center" reverseOrder={false} />
+      {devToolsDetected && (
+        <div className="fixed inset-0 bg-white flex flex-col items-center justify-center text-gray-900 z-[9999] p-8 text-center" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+          <div className="w-20 h-20 rounded-full bg-red-50 border border-red-200 flex items-center justify-center mb-6 animate-pulse">
+            <XCircle className="w-10 h-10 text-red-500" />
+          </div>
+          <h1 className="text-2xl font-extrabold mb-4">Developer Tools or Side Panel Detected</h1>
+          <p className="text-gray-500 text-sm max-w-md mb-6 leading-relaxed">
+            Opening developer inspection tools, consoles, or browser side panels (such as Gemini or search feeds) is prohibited.
+          </p>
+          <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-xs text-red-700 font-medium max-w-md animate-bounce">
+            Please close DevTools (press F12) or close the Chrome Side Panel (Gemini) to continue with the assessment.
+          </div>
+        </div>
+      )}
+      {renderContent()}
+    </>
+  );
 };
 
 export default QuizFlow;

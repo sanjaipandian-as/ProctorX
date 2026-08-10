@@ -56,10 +56,30 @@ const exportQuizResults = async (req, res, next) => {
   }
 };
 
+const resetQuizAttempt = async (req, res, next) => {
+  try {
+    const result = await resultService.resetQuizAttempt(req.user.id, req.params.quizId, req.params.studentId);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const gradeResponse = async (req, res, next) => {
+  try {
+    const result = await resultService.gradeResponse(req.user.id, req.params.responseId, req.body.marksObtained);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   submitResult,
   checkAttempt,
   getResultDetails,
   getQuizResults,
-  exportQuizResults
+  exportQuizResults,
+  resetQuizAttempt,
+  gradeResponse
 };

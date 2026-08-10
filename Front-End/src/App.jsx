@@ -6,6 +6,7 @@ import Dashboard from "./Dashboard";
 import StudentLogin from "./components/Studentlogin";
 import StudentSignup from "./components/Studentsignup";
 import StaffLogin from "./components/Stafflogin";
+import { Toaster } from "react-hot-toast";
 
 // Lazy Loaded Pages
 const StaffDashboard = React.lazy(() => import("./components/StaffDashboard"));
@@ -33,6 +34,7 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
+        <Toaster position="top-center" reverseOrder={false} />
         <Suspense
           fallback={
             <div className="h-screen w-screen flex items-center justify-center bg-white text-black font-sans">

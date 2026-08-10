@@ -20,7 +20,7 @@ const questionSchema = z.object({
   correctAns: z.number().int().nonnegative().optional().default(0),
   descriptiveAnswer: z.string().optional().nullable(),
   testcases: z.array(testcaseSchema).optional().nullable(),
-  starterCode: starterCodeSchema,
+  starterCode: starterCodeSchema.optional(),
   marks: z.number().int().positive().default(1),
   order: z.number().int().nonnegative()
 });
@@ -31,6 +31,7 @@ const createQuizSchema = z.object({
   allowedStudents: z.array(z.string().email('Invalid email')).optional().default([]),
   classroomId: z.string().nullable().optional(),
   scheduledAt: z.string().nullable().optional(),
+  endsAt: z.string().nullable().optional(),
   autoStart: z.boolean().optional(),
   questions: z.array(questionSchema).min(1, 'Quiz must have at least one question')
 });

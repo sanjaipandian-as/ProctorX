@@ -16,7 +16,7 @@ export default function StudentLogin() {
     try {
       const res = await api.post("/api/auth/login/student", { email, password });
       login(res.data.token);
-      navigate("/");
+      navigate("/student-profile");
     } catch (err) {
       setMessage(err.response?.data?.message || "Error during login");
     }

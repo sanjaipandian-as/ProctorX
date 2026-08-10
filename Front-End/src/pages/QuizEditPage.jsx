@@ -32,6 +32,7 @@ export default function EditQuizPage() {
     classroomId: "",
     allowedStudentsRaw: "",
     scheduledAt: "",
+    endsAt: "",
     autoStart: true,
     questions: [],
   });
@@ -59,6 +60,7 @@ export default function EditQuizPage() {
           classroomId: quizData.classroomId || "",
           allowedStudentsRaw: quizData.allowedStudents ? quizData.allowedStudents.join(", ") : "",
           scheduledAt: quizData.scheduledAt ? formatDateTimeLocal(quizData.scheduledAt) : "",
+          endsAt: quizData.endsAt ? formatDateTimeLocal(quizData.endsAt) : "",
           autoStart: quizData.autoStart !== undefined ? quizData.autoStart : true,
           questions: quizData.questions ? quizData.questions.map(q => ({
             id: q.id,
@@ -164,6 +166,16 @@ export default function EditQuizPage() {
       return toast.error("Quiz title is required");
     }
 
+    // Validate endsAt > scheduledAt if both are set
+    if (formData.endsAt && formData.scheduledAt) {
+      if (new Date(formData.endsAt) <= new Date(formData.scheduledAt)) {
+        return toast.error("End time must be after the start time");
+      }
+    }
+    if (formData.endsAt && new Date(formData.endsAt) <= new Date()) {
+      return toast.error("End time must be in the future");
+    }
+
     for (let i = 0; i < formData.questions.length; i++) {
       const q = formData.questions[i];
       if (!q.questionText) {
@@ -221,6 +233,7 @@ export default function EditQuizPage() {
         allowedStudents,
         classroomId: formData.classroomId || null,
         scheduledAt: formData.scheduledAt ? new Date(formData.scheduledAt).toISOString() : null,
+        endsAt: formData.endsAt ? new Date(formData.endsAt).toISOString() : null,
         autoStart: formData.autoStart,
         questions: formattedQuestions,
       };
@@ -300,16 +313,29 @@ export default function EditQuizPage() {
             <button
               type="button"
               onClick={() => navigate("/staff-dashboard")}
-              className="px-4 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold rounded-lg transition-all text-xs"
+              className="px-4 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold rounded-lg transition-all text-xs cursor-pointer flex items-center justify-center"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="px-5 py-2 bg-black hover:bg-gray-900 text-white font-bold rounded-lg transition-all flex items-center gap-2 text-xs disabled:bg-gray-700"
+              className="px-5 py-2 bg-black hover:bg-gray-900 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2 text-xs disabled:bg-gray-700 disabled:opacity-75 cursor-pointer disabled:cursor-not-allowed min-w-[120px]"
             >
-              <FaCheckCircle className="w-3.5 h-3.5" /> {isSaving ? "Saving..." : "Save Changes"}
+              {isSaving ? (
+                <>
+                  <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <FaCheckCircle className="w-3.5 h-3.5" />
+                  <span>Save Changes</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -398,6 +424,23 @@ export default function EditQuizPage() {
                   />
                   <p className="text-[10px] text-gray-500 leading-relaxed">
                     Leave blank to launch manually whenever you click "Go Live".
+                  </p>
+                </div>
+
+                {/* End Date & Time */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                    <FaCalendarAlt className="text-red-400" /> End Date &amp; Time
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="endsAt"
+                    value={formData.endsAt}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2.5 rounded-lg bg-white border border-red-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 transition-all text-xs"
+                  />
+                  <p className="text-[10px] text-red-500 leading-relaxed">
+                    ⏰ Exam auto-closes at this time. Active students get force-submitted.
                   </p>
                 </div>
 

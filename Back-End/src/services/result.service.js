@@ -15,9 +15,15 @@ const submitQuiz = async (studentId, { quizId, answers, timeTaken, warnings, pen
     throw err;
   }
 
+  // NOTE: We intentionally do NOT block submissions after endsAt here.
+  // Students who were already in the exam when the deadline hit must be able to submit.
+  // Access control is enforced at the OTP verify step (quiz.service.js verifyOTP),
+  // which prevents new students from joining after endsAt.
+
   // Calculate score using marks-weighted grading per question type
   const totalQuestions = quiz.questions.length;
   const totalPossibleMarks = quiz.questions.reduce((sum, q) => sum + (q.marks || 1), 0);
+
   let score = 0;
 
   const responsesData = quiz.questions.map(q => {
@@ -49,7 +55,8 @@ const submitQuiz = async (studentId, { quizId, answers, timeTaken, warnings, pen
       questionText: q.questionText,
       studentAnswer: studentAnswerText,
       correctAnswer: correctAnswerText,
-      isCorrect
+      isCorrect,
+      marksObtained: isCorrect ? questionMarks : 0
     };
   });
 
@@ -102,28 +109,38 @@ const submitQuiz = async (studentId, { quizId, answers, timeTaken, warnings, pen
 };
 
 const checkAttempt = async (studentId, quizId) => {
-  const cachedCheck = await redis.get(`result:check:${quizId}:${studentId}`);
-  if (cachedCheck === 'true') return { attempted: true };
-
-  // If cache miss, check database
   const quiz = await prisma.quiz.findUnique({ where: { quizId } });
-  if (!quiz) return { attempted: false };
+  if (!quiz) return { attempted: false, warningCount: 0 };
 
-  const attempt = await prisma.result.findUnique({
-    where: {
-      quizId_studentId: {
-        quizId: quiz.id,
-        studentId
+  const cachedCheck = await redis.get(`result:check:${quizId}:${studentId}`);
+  let attempted = false;
+
+  if (cachedCheck === 'true') {
+    attempted = true;
+  } else {
+    const attempt = await prisma.result.findUnique({
+      where: {
+        quizId_studentId: {
+          quizId: quiz.id,
+          studentId
+        }
       }
+    });
+
+    attempted = !!attempt;
+    if (attempted) {
+      await redis.setex(`result:check:${quizId}:${studentId}`, 86400, 'true');
+    }
+  }
+
+  const warningCount = await prisma.warning.count({
+    where: {
+      studentId,
+      quizId: quiz.id
     }
   });
 
-  const attempted = !!attempt;
-  if (attempted) {
-    await redis.setex(`result:check:${quizId}:${studentId}`, 86400, 'true');
-  }
-
-  return { attempted };
+  return { attempted, warningCount };
 };
 
 const getResult = async (resultId) => {
@@ -137,8 +154,14 @@ const getResult = async (resultId) => {
           quizId: true,
           questions: {
             select: {
+              id: true,
               questionText: true,
-              options: true
+              options: true,
+              questionType: true,
+              descriptiveAnswer: true,
+              testcases: true,
+              starterCode: true,
+              marks: true
             }
           }
         }
@@ -167,14 +190,20 @@ const getResult = async (resultId) => {
     orderBy: { createdAt: 'asc' }
   });
 
+  const totalPossibleMarks = result.quiz?.questions?.reduce((sum, q) => sum + (q.marks || 1), 0) || result.totalQuestions;
+
   return {
     ...result,
+    totalQuestions: totalPossibleMarks,
     warningsList
   };
 };
 
 const getQuizResults = async (teacherId, quizId) => {
-  const quiz = await prisma.quiz.findUnique({ where: { quizId } });
+  const quiz = await prisma.quiz.findUnique({
+    where: { quizId },
+    include: { questions: { select: { marks: true } } }
+  });
   if (!quiz) {
     const err = new Error('Quiz not found');
     err.statusCode = 404;
@@ -202,12 +231,180 @@ const getQuizResults = async (teacherId, quizId) => {
     orderBy: { completedAt: 'desc' }
   });
 
-  return results;
+  const totalPossibleMarks = quiz.questions.reduce((sum, q) => sum + (q.marks || 1), 0);
+
+  return results.map(r => ({
+    ...r,
+    totalQuestions: totalPossibleMarks
+  }));
+};
+
+const resetQuizAttempt = async (teacherId, quizId, studentId) => {
+  // 1. Fetch internal Quiz ID and verify ownership
+  const quiz = await prisma.quiz.findUnique({ where: { quizId } });
+  if (!quiz) {
+    const err = new Error('Quiz not found');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (quiz.createdById !== teacherId) {
+    const err = new Error('Unauthorized to reset this quiz attempt');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  // 2. Perform transactions to clean attempt data
+  await prisma.$transaction(async (tx) => {
+    // Delete responses for this result
+    await tx.response.deleteMany({
+      where: {
+        result: {
+          quizId: quiz.id,
+          studentId: studentId
+        }
+      }
+    });
+
+    // Delete the result itself
+    await tx.result.deleteMany({
+      where: {
+        quizId: quiz.id,
+        studentId: studentId
+      }
+    });
+
+    // Delete warnings logged for this quiz/student
+    await tx.warning.deleteMany({
+      where: {
+        quizId: quiz.id,
+        studentId: studentId
+      }
+    });
+  });
+
+  // 3. Clear Redis attempt caching so the student can re-attempt instantly
+  await redis.del(`result:check:${quizId}:${studentId}`);
+  await redis.del(`admin:stats`);
+
+  logger.info(`Teacher ${teacherId} reset attempt of student ${studentId} for quiz ${quizId}`);
+  return { success: true, message: 'Quiz attempt reset successfully' };
+};
+
+const gradeResponse = async (teacherId, responseId, rawMarksObtained) => {
+  const marksObtained = parseInt(rawMarksObtained, 10);
+  if (isNaN(marksObtained)) {
+    const err = new Error('Marks must be a valid integer');
+    err.statusCode = 400;
+    throw err;
+  }
+  // 1. Fetch response and its associated result and quiz
+  const responseObj = await prisma.response.findUnique({
+    where: { id: responseId },
+    include: {
+      result: {
+        include: {
+          quiz: true
+        }
+      }
+    }
+  });
+
+  if (!responseObj) {
+    const err = new Error('Response not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const { result } = responseObj;
+  const { quiz } = result;
+
+  // 2. Verify authorization: the teacher must own the quiz
+  if (quiz.createdById !== teacherId) {
+    const err = new Error('Unauthorized to grade this response');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  // 3. Find corresponding question to validate marks range
+  const question = await prisma.question.findFirst({
+    where: {
+      quizId: quiz.id,
+      questionText: responseObj.questionText
+    }
+  });
+
+  const maxMarks = question ? (question.marks || 1) : 1;
+  if (marksObtained < 0 || marksObtained > maxMarks) {
+    const err = new Error(`Marks obtained must be between 0 and ${maxMarks}`);
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // 4. Perform transaction to update response marks and update result total score
+  const updatedResult = await prisma.$transaction(async (tx) => {
+    // Update the specific response
+    await tx.response.update({
+      where: { id: responseId },
+      data: {
+        marksObtained,
+        isCorrect: marksObtained > 0 // if it has points, mark as correct (helps accuracy/score counts)
+      }
+    });
+
+    // Fetch all responses for this result to compute total score
+    const allResponses = await tx.response.findMany({
+      where: { resultId: result.id }
+    });
+
+    // Fetch all questions to compute total possible marks
+    const allQuestions = await tx.question.findMany({
+      where: { quizId: quiz.id }
+    });
+
+    // Auto-repair legacy MCQ responses if they have isCorrect: true but marksObtained: 0
+    for (const resp of allResponses) {
+      const question = allQuestions.find(q => q.questionText === resp.questionText);
+      if (question && question.questionType === 'mcq' && resp.isCorrect && resp.marksObtained === 0) {
+        const questionMarks = question.marks || 1;
+        await tx.response.update({
+          where: { id: resp.id },
+          data: { marksObtained: questionMarks }
+        });
+        resp.marksObtained = questionMarks; // Update in-memory for the reduce calculation below
+      }
+    }
+
+    const newScore = allResponses.reduce((sum, res) => sum + res.marksObtained, 0);
+
+    const totalPossibleMarks = allQuestions.reduce((sum, q) => sum + (q.marks || 1), 0);
+
+    const newAccuracy = totalPossibleMarks > 0 ? parseFloat(((newScore / totalPossibleMarks) * 100).toFixed(2)) : 0;
+
+    // Update the result
+    return tx.result.update({
+      where: { id: result.id },
+      data: {
+        score: newScore,
+        accuracy: newAccuracy
+      },
+      include: {
+        responses: true
+      }
+    });
+  });
+
+  // Clear cache if needed (optional)
+  await redis.del(`admin:stats`);
+
+  logger.info(`Teacher ${teacherId} updated response ${responseId} grade to ${marksObtained}`);
+  return updatedResult;
 };
 
 module.exports = {
   submitQuiz,
   checkAttempt,
   getResult,
-  getQuizResults
+  getQuizResults,
+  resetQuizAttempt,
+  gradeResponse
 };

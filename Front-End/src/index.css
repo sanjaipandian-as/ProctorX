@@ -4,7 +4,7 @@
   --background: #090d16;
   --panel-bg: #111827;
   --panel-border: rgba(255, 255, 255, 0.08);
-  
+
   --primary: #4f46e5;
   --primary-hover: #4338ca;
   --secondary: #10b981;
@@ -20,9 +20,17 @@ body {
   padding: 0;
   background-color: var(--background);
   color: var(--text-primary);
-  font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+button, [role="button"] {
+  cursor: pointer;
+}
+
+button:disabled, [role="button"]:disabled {
+  cursor: not-allowed;
 }
 
 /* Custom premium scrollbar styling */
@@ -53,9 +61,12 @@ body {
 }
 
 @keyframes laser {
-  0%, 100% {
+
+  0%,
+  100% {
     top: 0%;
   }
+
   50% {
     top: 100%;
   }
