@@ -24,15 +24,39 @@ const submitQuiz = async (studentId, { quizId, answers, timeTaken, warnings, pen
   const totalQuestions = quiz.questions.length;
   const totalPossibleMarks = quiz.questions.reduce((sum, q) => sum + (q.marks || 1), 0);
 
-  let score = 0;
+  const aiService = require('./ai/aiService');
+  const cleanEnv = require('../config/env');
 
-  const responsesData = quiz.questions.map(q => {
+  const pMap = async (array, mapper, concurrency = 3) => {
+    const results = [];
+    const executing = new Set();
+    for (const item of array) {
+      const p = Promise.resolve().then(() => mapper(item));
+      results.push(p);
+      executing.add(p);
+      const clean = () => executing.delete(p);
+      p.then(clean, clean);
+      if (executing.size >= concurrency) {
+        await Promise.race(executing);
+      }
+    }
+    return Promise.all(results);
+  };
+
+  const concurrencyLimit = cleanEnv.AI_GRADING_CONCURRENCY || 3;
+
+  const responsesData = await pMap(quiz.questions, async (q) => {
     const questionMarks = q.marks || 1;
     const studentAnsObj = answers.find(a => a.questionText === q.questionText);
     const studentAnswerText = studentAnsObj ? studentAnsObj.studentAnswer : '';
 
     let isCorrect = false;
     let correctAnswerText = '';
+    let marksObtained = 0;
+    let aiFeedback = null;
+    let aiGraded = false;
+    let aiModel = null;
+    let aiPromptVersion = null;
 
     if (q.questionType === 'mcq') {
       // MCQ: auto-grade by comparing option text
@@ -40,15 +64,41 @@ const submitQuiz = async (studentId, { quizId, answers, timeTaken, warnings, pen
       if (studentAnswerText && correctAnswerText) {
         isCorrect = correctAnswerText.trim().toLowerCase() === studentAnswerText.trim().toLowerCase();
       }
-      if (isCorrect) score += questionMarks;
+      marksObtained = isCorrect ? questionMarks : 0;
     } else if (q.questionType === 'descriptive') {
-      // Descriptive: NOT auto-graded — always 0 marks, marked for manual review
-      correctAnswerText = q.descriptiveAnswer || '[Manual Review Required]';
-      isCorrect = false;
+      // Descriptive: AI auto-graded using Python AI Service
+      correctAnswerText = q.descriptiveAnswer || '';
+      if (studentAnswerText.trim() && correctAnswerText.trim()) {
+        try {
+          const gradeResult = await aiService.gradeAnswer(
+            q.questionText,
+            studentAnswerText,
+            correctAnswerText,
+            questionMarks
+          );
+          marksObtained = gradeResult.score;
+          aiFeedback = `AI Grade: ${gradeResult.score}/${questionMarks}\nFeedback: ${gradeResult.feedback}\nStrengths: ${gradeResult.strengths}\nSuggestions: ${gradeResult.suggestions}\nMissing Concepts: ${gradeResult.missing_concepts && gradeResult.missing_concepts.length ? gradeResult.missing_concepts.join(', ') : 'None'}`;
+          aiGraded = true;
+          isCorrect = marksObtained > 0;
+          aiModel = gradeResult.model;
+          aiPromptVersion = gradeResult.promptVersion;
+        } catch (err) {
+          logger.error('Failed to auto-grade descriptive answer:', err);
+          aiFeedback = `AI auto-grading failed/timed out. Pending teacher review. Error: ${err.message}`;
+          aiGraded = false;
+          marksObtained = 0;
+          isCorrect = false;
+        }
+      } else {
+        marksObtained = 0;
+        aiFeedback = 'No response provided by the student.';
+        aiGraded = true;
+      }
     } else if (q.questionType === 'coding') {
       // Coding: NOT auto-graded here — always 0 marks, marked for manual review
       correctAnswerText = '[Coding - Manual/Test Case Review Required]';
       isCorrect = false;
+      marksObtained = 0;
     }
 
     return {
@@ -56,10 +106,15 @@ const submitQuiz = async (studentId, { quizId, answers, timeTaken, warnings, pen
       studentAnswer: studentAnswerText,
       correctAnswer: correctAnswerText,
       isCorrect,
-      marksObtained: isCorrect ? questionMarks : 0
+      marksObtained,
+      aiFeedback,
+      aiGraded,
+      aiModel,
+      aiPromptVersion
     };
-  });
+  }, concurrencyLimit);
 
+  const score = responsesData.reduce((sum, r) => sum + r.marksObtained, 0);
   const accuracy = totalPossibleMarks > 0 ? parseFloat(((score / totalPossibleMarks) * 100).toFixed(2)) : 0;
 
   // Run in database transaction

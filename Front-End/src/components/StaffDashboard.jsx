@@ -22,6 +22,7 @@ import {
   LogOut,
   FolderPlus,
   Clock,
+  Sparkles,
 } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
 
@@ -393,6 +394,12 @@ export default function TeacherDashboard() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate("/ai-quiz")}
+            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold rounded-lg transition-all flex items-center gap-1.5 text-xs shadow-md transform hover:-translate-y-0.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" /> Create with AI
+          </button>
           <button
             onClick={() => navigate("/create-quiz")}
             className="px-4 py-2 bg-black hover:bg-gray-900 text-white font-bold rounded-lg transition-all flex items-center gap-1.5 text-xs shadow-sm"

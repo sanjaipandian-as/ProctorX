@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import {
   FaPlus,
   FaTrash,
@@ -25,6 +27,15 @@ export default function EditQuizPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showAiDrawer, setShowAiDrawer] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiMcq, setAiMcq] = useState(0);
+  const [aiDesc, setAiDesc] = useState(0);
+  const [aiCoding, setAiCoding] = useState(0);
+  const [aiMode, setAiMode] = useState("append"); // "append" | "replace"
+  const [aiGenerating, setAiGenerating] = useState(false);
+
+  const [loadingQuestions, setLoadingQuestions] = useState({});
 
   const [formData, setFormData] = useState({
     title: "",
@@ -249,6 +260,65 @@ export default function EditQuizPage() {
       toast.error(err.response?.data?.message || "Failed to update quiz");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAiBulkGenerate = async () => {
+    if (!aiPrompt.trim()) {
+      toast.error("Please enter a topic or instructions");
+      return;
+    }
+    if (aiMcq === 0 && aiDesc === 0 && aiCoding === 0) {
+      toast.error("Please select at least 1 question to generate");
+      return;
+    }
+
+    setAiGenerating(true);
+    try {
+      const res = await api.post("/api/ai/generate-quiz", {
+        prompt: aiPrompt.trim(),
+        numMcq: aiMcq,
+        numDescriptive: aiDesc,
+        numCoding: aiCoding,
+        difficulty: "Medium"
+      }, {
+        timeout: 180000 // 3 minutes
+      });
+
+      const parsed = res.data.parsed;
+      if (!parsed?.questions?.length) {
+        toast.error("AI did not generate any questions. Try refining the prompt.");
+        return;
+      }
+
+      const normalized = parsed.questions.map((q) => ({
+        questionText: q.questionText || "",
+        questionType: q.questionType || "mcq",
+        options: q.options || (q.questionType === "mcq" ? ["", "", "", ""] : []),
+        correctAns: q.correctAns !== undefined ? q.correctAns : 0,
+        descriptiveAnswer: q.descriptiveAnswer || "",
+        testcases: q.testcases || (q.questionType === "coding" ? [{ input: "", output: "" }] : []),
+        starterCode: q.starterCode || { python: "", javascript: "", java: "", cpp: "" },
+        marks: q.marks || (q.questionType === "coding" ? 10 : q.questionType === "descriptive" ? 5 : 1)
+      }));
+
+      if (aiMode === "replace") {
+        setFormData({ ...formData, questions: normalized });
+        toast.success(`Generated and replaced with ${normalized.length} questions!`);
+      } else {
+        setFormData({ ...formData, questions: [...formData.questions, ...normalized] });
+        toast.success(`Generated and appended ${normalized.length} questions!`);
+      }
+
+      setAiPrompt("");
+      setAiMcq(0);
+      setAiDesc(0);
+      setAiCoding(0);
+      setShowAiDrawer(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.response?.data?.error || "AI generation failed");
+    } finally {
+      setAiGenerating(false);
     }
   };
 
@@ -552,6 +622,13 @@ export default function EditQuizPage() {
               
               {/* Filter / Jump tags */}
               <div className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setShowAiDrawer(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-black hover:bg-gray-900 text-white font-extrabold rounded-lg text-[10px] uppercase tracking-wider shadow-sm transition-all cursor-pointer mr-2"
+                >
+                  <Sparkles size={11} /> Generate with AI
+                </button>
                 <span className="px-2.5 py-1 bg-green-50 border border-green-200 text-green-700 font-bold rounded-lg flex items-center gap-1">
                   <FaListUl className="w-3 h-3" /> {mcqCount} MCQ
                 </span>
@@ -566,8 +643,33 @@ export default function EditQuizPage() {
 
             {/* Questions Mapping */}
             <div className="space-y-8">
-              {formData.questions.map((q, qIndex) => (
-                <div key={qIndex} className="p-6 md:p-8 rounded-2xl bg-white border border-gray-200 shadow-sm space-y-6 transition-all hover:shadow-md relative overflow-hidden">
+              {formData.questions.map((q, qIndex) => {
+                const isQIndexLoading = !!loadingQuestions[qIndex];
+                
+                if (isQIndexLoading) {
+                  return (
+                    <div key={qIndex} className="p-6 md:p-8 rounded-2xl bg-white border border-gray-200 shadow-sm space-y-4 animate-pulse">
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-16 h-6 bg-gray-200 rounded-md" />
+                          <div className="w-32 h-5 bg-gray-200 rounded-lg" />
+                        </div>
+                        <div className="w-12 h-5 bg-gray-200 rounded-lg" />
+                      </div>
+                      <div className="space-y-3 pt-1">
+                        <div className="w-full h-12 bg-gray-100 rounded-xl" />
+                        <div className="w-full h-16 bg-gray-55 bg-gray-100 rounded-xl" />
+                        <div className="flex items-center gap-2 pt-2">
+                          <Loader2 className="w-3.5 h-3.5 text-black animate-spin" />
+                          <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">AI is rewriting question...</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={qIndex} className="p-6 md:p-8 rounded-2xl bg-white border border-gray-200 shadow-sm space-y-6 transition-all hover:shadow-md relative overflow-hidden">
 
                   {/* Header row: Question index label, Type pills, Marks, Delete */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
@@ -772,8 +874,28 @@ export default function EditQuizPage() {
                     </div>
                   )}
 
+                  {/* AI Assistant Widget */}
+                  <div className="mt-4 pt-4 border-t border-gray-150">
+                    <QuestionEditAiHelper
+                      question={q}
+                      onUpdated={(updatedQ) => {
+                        const newQuestions = [...formData.questions];
+                        newQuestions[qIndex] = {
+                          ...newQuestions[qIndex],
+                          ...updatedQ,
+                          id: newQuestions[qIndex].id
+                        };
+                        setFormData({ ...formData, questions: newQuestions });
+                      }}
+                      loading={isQIndexLoading}
+                      setLoading={(isLoading) => {
+                        setLoadingQuestions(prev => ({ ...prev, [qIndex]: isLoading }));
+                      }}
+                    />
+                  </div>
+
                 </div>
-              ))}
+              )})}
             </div>
 
             {/* Premium Add Question Options */}
@@ -808,6 +930,241 @@ export default function EditQuizPage() {
         </div>
 
       </form>
+
+      {/* AI Slide-over Panel (Drawer) */}
+      <AnimatePresence>
+        {showAiDrawer && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAiDrawer(false)}
+              className="fixed inset-0 bg-black/30 backdrop-blur-xs z-40"
+            />
+            
+            {/* Drawer Body */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-white border-l border-gray-200 shadow-2xl z-50 overflow-y-auto p-6 space-y-6 flex flex-col"
+            >
+              <div className="space-y-6 flex-1">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-gray-150 pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest leading-none">AI Assistant</h3>
+                      <p className="text-[9px] text-gray-400 font-bold mt-1.5">Generate and append or replace questions</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAiDrawer(false)}
+                    className="text-[9px] font-extrabold text-gray-400 hover:text-black uppercase tracking-widest transition-colors px-2.5 py-1.5 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="space-y-5">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block">Topic or Instructions</label>
+                    <textarea
+                      placeholder="E.g. Generate 5 medium difficulty questions about computer networking IP routing..."
+                      className="w-full p-3 bg-white border border-gray-200 rounded-xl text-xs text-gray-900 resize-none focus:outline-none focus:border-black font-semibold leading-relaxed"
+                      rows={4}
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-center p-2.5 bg-gray-50 border border-gray-200 rounded-xl">
+                      <label className="text-[9px] font-black text-gray-400 uppercase block mb-1">MCQ</label>
+                      <div className="flex items-center justify-between px-1">
+                        <button type="button" onClick={() => setAiMcq(m => Math.max(0, m - 1))} className="text-xs font-black text-gray-400 hover:text-black cursor-pointer">-</button>
+                        <span className="text-xs font-black text-gray-800">{aiMcq}</span>
+                        <button type="button" onClick={() => setAiMcq(m => m + 1)} className="text-xs font-black text-gray-400 hover:text-black cursor-pointer">+</button>
+                      </div>
+                    </div>
+
+                    <div className="text-center p-2.5 bg-gray-50 border border-gray-200 rounded-xl">
+                      <label className="text-[9px] font-black text-gray-400 uppercase block mb-1">Desc</label>
+                      <div className="flex items-center justify-between px-1">
+                        <button type="button" onClick={() => setAiDesc(d => Math.max(0, d - 1))} className="text-xs font-black text-gray-400 hover:text-black cursor-pointer">-</button>
+                        <span className="text-xs font-black text-gray-800">{aiDesc}</span>
+                        <button type="button" onClick={() => setAiDesc(d => d + 1)} className="text-xs font-black text-gray-400 hover:text-black cursor-pointer">+</button>
+                      </div>
+                    </div>
+
+                    <div className="text-center p-2.5 bg-gray-50 border border-gray-200 rounded-xl">
+                      <label className="text-[9px] font-black text-gray-400 uppercase block mb-1">Coding</label>
+                      <div className="flex items-center justify-between px-1">
+                        <button type="button" onClick={() => setAiCoding(c => Math.max(0, c - 1))} className="text-xs font-black text-gray-400 hover:text-black cursor-pointer">-</button>
+                        <span className="text-xs font-black text-gray-800">{aiCoding}</span>
+                        <button type="button" onClick={() => setAiCoding(c => c + 1)} className="text-xs font-black text-gray-400 hover:text-black cursor-pointer">+</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block">Action Mode</label>
+                    <div className="grid grid-cols-2 gap-2 bg-gray-50 border border-gray-250 p-1 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setAiMode("append")}
+                        className={`py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${aiMode === "append" ? "bg-black text-white shadow-sm" : "text-gray-500 hover:text-black"}`}
+                      >
+                        Append to Quiz
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAiMode("replace")}
+                        className={`py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${aiMode === "replace" ? "bg-black text-white shadow-sm" : "text-gray-500 hover:text-black"}`}
+                      >
+                        Replace All
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAiBulkGenerate}
+                    disabled={aiGenerating}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-black hover:bg-gray-900 text-white rounded-xl font-bold text-xs transition-all disabled:opacity-50 shadow-sm cursor-pointer"
+                  >
+                    {aiGenerating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                    {aiGenerating ? "Generating..." : "Generate Questions"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AI Assistant Widget for Single Question Card (Refine or Generate)
+// ---------------------------------------------------------------------------
+function QuestionEditAiHelper({ question, onUpdated, loading, setLoading }) {
+  const [prompt, setPrompt] = useState("");
+  const [mode, setMode] = useState("refine"); // "refine" | "generate"
+  const [show, setShow] = useState(false);
+
+  const handleApply = async () => {
+    if (!prompt.trim()) return;
+    setLoading(true);
+    try {
+      if (mode === "refine") {
+        const res = await api.post("/api/ai/regenerate-question", {
+          question: {
+            questionText: question.questionText,
+            questionType: question.questionType,
+            options: question.options,
+            correctAns: question.correctAns,
+            descriptiveAnswer: question.descriptiveAnswer,
+            testcases: question.testcases,
+            marks: question.marks
+          },
+          prompt: prompt.trim()
+        }, {
+          timeout: 120000 // 2 minutes
+        });
+        onUpdated(res.data);
+        toast.success("Question refined by AI");
+      } else {
+        const res = await api.post("/api/ai/generate-quiz", {
+          prompt: prompt.trim(),
+          numMcq: question.questionType === "mcq" ? 1 : 0,
+          numDescriptive: question.questionType === "descriptive" ? 1 : 0,
+          numCoding: question.questionType === "coding" ? 1 : 0,
+          difficulty: "Medium"
+        }, {
+          timeout: 180000 // 3 minutes
+        });
+
+        const generatedQs = res.data.parsed?.questions || [];
+        if (generatedQs.length > 0) {
+          const newQ = generatedQs[0];
+          onUpdated({
+            ...newQ,
+            marks: question.marks || (question.questionType === "coding" ? 10 : question.questionType === "descriptive" ? 5 : 1)
+          });
+          toast.success("Question generated by AI");
+        } else {
+          toast.error("AI did not return any questions. Try a different topic.");
+        }
+      }
+      setPrompt("");
+      setShow(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.response?.data?.error || "AI operation failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 font-sans">
+      {!show ? (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => { setMode("refine"); setShow(true); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-xs font-medium text-gray-600 rounded-lg transition-colors cursor-pointer"
+          >
+            <RefreshCw size={11} className="text-gray-400" /> Refine with AI
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode("generate"); setShow(true); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-xs font-medium text-gray-600 rounded-lg transition-colors cursor-pointer"
+          >
+            <Sparkles size={11} className="text-gray-400" /> Use AI to Generate
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2 mt-2 bg-gray-50 border border-gray-200 p-3.5 rounded-xl">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-medium text-gray-500">
+              {mode === "refine" ? "Instruct AI to rewrite this question" : `Generate a new ${question.questionType} question from topic`}
+            </span>
+            <button type="button" onClick={() => setShow(false)} className="text-[9px] text-gray-400 font-bold hover:text-black cursor-pointer">Cancel</button>
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder={mode === "refine" 
+                ? "E.g. Make this question harder, use different names, add Python syntax..."
+                : "E.g. Binary Search Tree search runtime, Docker isolation benefits, etc..."}
+              className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-black text-gray-900"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleApply()}
+            />
+            <button
+              type="button"
+              onClick={handleApply}
+              disabled={loading || !prompt.trim()}
+              className="px-3 bg-black hover:bg-gray-900 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-20 flex items-center justify-center min-w-[64px] cursor-pointer"
+            >
+              {loading ? <Loader2 size={12} className="animate-spin" /> : "Apply"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

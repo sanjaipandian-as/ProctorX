@@ -154,7 +154,7 @@ const loginTeacher = async (email, password) => {
     throw err;
   }
 
-  const payload = { id: teacher.id, name: teacher.name, email: teacher.email, role: 'teacher' };
+  const payload = { id: teacher.id, name: teacher.name, email: teacher.email, role: 'teacher', aiAccess: teacher.aiAccess };
   const token = generateToken(payload);
 
   return {

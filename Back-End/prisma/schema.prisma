@@ -63,6 +63,9 @@ model Quiz {
   autoStart         Boolean     @default(true)
   startedAt         DateTime?
   endsAt            DateTime?   // Absolute wall-clock end deadline
+  documentId        String?
+  aiModel           String?
+  aiPromptVersion   String?
   createdAt         DateTime    @default(now())
   createdById       String
   createdBy         Teacher     @relation(fields: [createdById], references: [id])
@@ -94,6 +97,7 @@ model Classroom {
 model Question {
   id                String   @id @default(uuid())
   questionText      String
+  imageUrl          String?  // Optional image attached to the question
   options           String[]
   correctAns        Int      @default(0)
   order             Int
@@ -136,6 +140,10 @@ model Response {
   correctAnswer String
   isCorrect     Boolean
   marksObtained Int     @default(0)
+  aiFeedback    String?
+  aiGraded      Boolean @default(false)
+  aiModel       String?
+  aiPromptVersion String?
   resultId      String
   result        Result  @relation(fields: [resultId], references: [id], onDelete: Cascade)
 }

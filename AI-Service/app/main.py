@@ -1,9 +1,26 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from app.services.nvidia_client import nvidia_client
 from app.config import settings
+from app.routers import documents, quiz, grading, documents_list, regenerate
 
 app = FastAPI(title="ProctorX AI Service")
+
+# Configure CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:8000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(documents.router)
+app.include_router(documents_list.router)
+app.include_router(quiz.router)
+app.include_router(regenerate.router)
+app.include_router(grading.router)
 
 class ChatRequest(BaseModel):
     prompt: str
@@ -25,4 +42,6 @@ async def chat_test(req: ChatRequest):
             "response": response["choices"][0]["message"]["content"]
         }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

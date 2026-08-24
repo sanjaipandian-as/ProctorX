@@ -4,7 +4,7 @@ const { generateQuizId, generateOTP } = require('../utils/helpers');
 const { sendOTPEmail } = require('./email.service');
 const logger = require('../utils/logger');
 
-const createQuiz = async (teacherId, { title, durationInMinutes, allowedStudents, classroomId, scheduledAt, endsAt, autoStart, questions }) => {
+const createQuiz = async (teacherId, { title, durationInMinutes, allowedStudents, classroomId, scheduledAt, endsAt, autoStart, documentId, aiModel, aiPromptVersion, questions }) => {
   const customQuizId = generateQuizId();
   
   // ALL new quizzes should start as PENDING, even manual ones.
@@ -30,6 +30,9 @@ const createQuiz = async (teacherId, { title, durationInMinutes, allowedStudents
       endsAt: endsAt ? new Date(endsAt) : null,
       createdById: teacherId,
       classroomId: classroomId || null,
+      documentId: documentId || null,
+      aiModel: aiModel || null,
+      aiPromptVersion: aiPromptVersion || null,
       questions: {
         create: questions.map((q, idx) => ({
           questionText: q.questionText,
@@ -104,7 +107,7 @@ const getQuizById = async (id) => {
   return quiz;
 };
 
-const editQuiz = async (teacherId, customQuizId, { title, durationInMinutes, allowedStudents, classroomId, scheduledAt, endsAt, autoStart, questions }) => {
+const editQuiz = async (teacherId, customQuizId, { title, durationInMinutes, allowedStudents, classroomId, scheduledAt, endsAt, autoStart, documentId, aiModel, aiPromptVersion, questions }) => {
   const existing = await prisma.quiz.findUnique({
     where: { quizId: customQuizId }
   });
@@ -139,6 +142,9 @@ const editQuiz = async (teacherId, customQuizId, { title, durationInMinutes, all
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
         endsAt: endsAt ? new Date(endsAt) : null,
         autoStart: autoStart !== undefined ? autoStart : true,
+        documentId: documentId || null,
+        aiModel: aiModel || null,
+        aiPromptVersion: aiPromptVersion || null,
         questions: {
           create: questions.map((q, idx) => ({
             questionText: q.questionText,

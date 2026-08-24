@@ -33,6 +33,9 @@ const createQuizSchema = z.object({
   scheduledAt: z.string().nullable().optional(),
   endsAt: z.string().nullable().optional(),
   autoStart: z.boolean().optional(),
+  documentId: z.string().nullable().optional(),
+  aiModel: z.string().nullable().optional(),
+  aiPromptVersion: z.string().nullable().optional(),
   questions: z.array(questionSchema).min(1, 'Quiz must have at least one question')
 });
 

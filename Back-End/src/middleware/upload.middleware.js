@@ -34,9 +34,11 @@ const getUpload = (folder) => {
 
 const studentUpload = getUpload('students');
 const teacherUpload = getUpload('teachers');
+const questionUpload = getUpload('questions');
 
 module.exports = {
   getUpload,
   studentUpload,
-  teacherUpload
+  teacherUpload,
+  questionUpload
 };
