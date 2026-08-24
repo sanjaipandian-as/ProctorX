@@ -17,6 +17,7 @@ router.use(requireRole('admin'));
 router.get('/teachers/pending', adminController.getPendingTeachers);
 router.put('/teachers/:id/approve', adminController.approveTeacher);
 router.put('/teachers/:id/reject', adminController.rejectTeacher);
+router.put('/teachers/:id/ai-access', adminController.toggleAiAccess);
 router.get('/stats', adminController.getStats);
 router.get('/students', adminController.getAllStudents);
 router.post('/teachers', adminController.createTeacher);

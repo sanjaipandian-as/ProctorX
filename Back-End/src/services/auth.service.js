@@ -9,7 +9,8 @@ const generateToken = (payload) => {
 };
 
 const signupStudent = async ({ name, email, password, profilePic }) => {
-  const existing = await prisma.student.findUnique({ where: { email } });
+  const normalizedEmail = email.toLowerCase();
+  const existing = await prisma.student.findUnique({ where: { email: normalizedEmail } });
   if (existing) {
     const err = new Error('Email already in use');
     err.statusCode = 409;
@@ -20,7 +21,7 @@ const signupStudent = async ({ name, email, password, profilePic }) => {
   const student = await prisma.student.create({
     data: {
       name,
-      email,
+      email: normalizedEmail,
       passwordHash,
       profilePic
     }
@@ -46,7 +47,8 @@ const signupStudent = async ({ name, email, password, profilePic }) => {
 };
 
 const loginStudent = async (email, password) => {
-  const student = await prisma.student.findUnique({ where: { email } });
+  const normalizedEmail = email.toLowerCase();
+  const student = await prisma.student.findUnique({ where: { email: normalizedEmail } });
   if (!student) {
     const err = new Error('Invalid email or password');
     err.statusCode = 401;
@@ -87,7 +89,8 @@ const loginStudent = async (email, password) => {
 };
 
 const signupTeacher = async ({ name, email, password, staffId, profilePic }) => {
-  const existingEmail = await prisma.teacher.findUnique({ where: { email } });
+  const normalizedEmail = email.toLowerCase();
+  const existingEmail = await prisma.teacher.findUnique({ where: { email: normalizedEmail } });
   if (existingEmail) {
     const err = new Error('Email already in use');
     err.statusCode = 409;
@@ -105,7 +108,7 @@ const signupTeacher = async ({ name, email, password, staffId, profilePic }) => 
   const teacher = await prisma.teacher.create({
     data: {
       name,
-      email,
+      email: normalizedEmail,
       passwordHash,
       staffId,
       isApproved: false // Requires admin approval
@@ -130,7 +133,8 @@ const signupTeacher = async ({ name, email, password, staffId, profilePic }) => 
 };
 
 const loginTeacher = async (email, password) => {
-  const teacher = await prisma.teacher.findUnique({ where: { email } });
+  const normalizedEmail = email.toLowerCase();
+  const teacher = await prisma.teacher.findUnique({ where: { email: normalizedEmail } });
   if (!teacher) {
     const err = new Error('Invalid email or password');
     err.statusCode = 401;
@@ -150,7 +154,7 @@ const loginTeacher = async (email, password) => {
     throw err;
   }
 
-  const payload = { id: teacher.id, name: teacher.name, email: teacher.email, role: 'teacher' };
+  const payload = { id: teacher.id, name: teacher.name, email: teacher.email, role: 'teacher', aiAccess: teacher.aiAccess };
   const token = generateToken(payload);
 
   return {

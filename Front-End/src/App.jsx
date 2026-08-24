@@ -6,6 +6,7 @@ import Dashboard from "./Dashboard";
 import StudentLogin from "./components/Studentlogin";
 import StudentSignup from "./components/Studentsignup";
 import StaffLogin from "./components/Stafflogin";
+import { Toaster } from "react-hot-toast";
 
 // Lazy Loaded Pages
 const StaffDashboard = React.lazy(() => import("./components/StaffDashboard"));
@@ -18,6 +19,7 @@ const StudentDashboard = React.lazy(() => import("./components/StudentDashboard"
 const AdminLogin = React.lazy(() => import("./pages/AdminLogin"));
 const AdminDashboard = React.lazy(() => import("./pages/AdminDashboard"));
 const ExamMonitor = React.lazy(() => import("./pages/ExamMonitor"));
+const AiQuiz = React.lazy(() => import("./components/AiQuiz"));
 
 const AdminRoute = ({ children }) => {
   const isAuth = !!localStorage.getItem("adminAuth");
@@ -33,6 +35,7 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
+        <Toaster position="top-center" reverseOrder={false} />
         <Suspense
           fallback={
             <div className="h-screen w-screen flex items-center justify-center bg-white text-black font-sans">
@@ -53,6 +56,7 @@ function App() {
 
             {/* Quizzes */}
             <Route path="/create-quiz" element={<CreateQuiz />} />
+            <Route path="/ai-quiz" element={<AiQuiz />} />
             <Route path="/edit-quiz/:quizId" element={<QuizEditPage />} />
             <Route path="/exam/:quizId" element={<QuizAttempt />} />
             <Route path="/quiz/:quizId/answer" element={<QuizAnsweringPage />} />

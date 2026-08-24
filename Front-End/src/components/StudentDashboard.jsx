@@ -97,7 +97,7 @@ const CustomCalendar = ({ highlightedDates }) => {
   );
 };
 
-const QuizCountdownItem = ({ quiz, onStart }) => {
+const QuizCountdownItem = ({ quiz, onStart, onTimerEnd }) => {
   const [timeLeft, setTimeLeft] = useState(null);
 
   useEffect(() => {
@@ -114,11 +114,12 @@ const QuizCountdownItem = ({ quiz, onStart }) => {
       setTimeLeft(left);
       if (left === 0) {
         clearInterval(interval);
+        if (onTimerEnd) onTimerEnd();
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [quiz.scheduledAt]);
+  }, [quiz.scheduledAt, onTimerEnd]);
 
   const isStarted = quiz.status === 'ACTIVE';
   const isScheduled = !!quiz.scheduledAt;
@@ -425,6 +426,7 @@ const StudentDashboard = () => {
                   key={quiz.id}
                   quiz={quiz}
                   onStart={(qId) => navigate(`/exam/${qId || quiz.quizId}`)}
+                  onTimerEnd={() => fetchDashboard(true)}
                 />
               ))}
             </div>

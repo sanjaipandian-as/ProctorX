@@ -66,6 +66,16 @@ const createTeacher = async (req, res, next) => {
   }
 };
 
+const toggleAiAccess = async (req, res, next) => {
+  try {
+    const { enabled } = req.body;
+    const result = await adminService.toggleAiAccess(req.params.id, Boolean(enabled));
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   loginAdmin,
   getPendingTeachers,
@@ -73,5 +83,6 @@ module.exports = {
   rejectTeacher,
   getStats,
   getAllStudents,
-  createTeacher
+  createTeacher,
+  toggleAiAccess
 };

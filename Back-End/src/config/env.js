@@ -25,7 +25,9 @@ const envSchema = z.object({
   UPSTASH_REDIS_REST_TOKEN: z.string().optional().or(z.literal('')),
   ADMIN_USERNAME: z.string().min(1).default('admin'),
   ADMIN_PASSWORD: z.string().min(1).default('adminpassword'),
-  MAX_WARNINGS: z.string().transform(val => parseInt(val, 10)).default('5')
+  MAX_WARNINGS: z.string().transform(val => parseInt(val, 10)).default('5'),
+  AI_SERVICE_URL: z.string().url().default('http://localhost:8001'),
+  AI_GRADING_CONCURRENCY: z.string().transform(val => parseInt(val, 10)).default('3')
 });
 
 const cleanEnv = envSchema.safeParse(process.env);

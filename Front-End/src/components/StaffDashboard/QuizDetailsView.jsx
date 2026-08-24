@@ -254,12 +254,19 @@ export default function QuizDetailsView({
                                                 </div>
                                             </div>
 
-                                            {selectedQuiz.otp && otpTimers[selectedQuiz.quizId] > 0 && (
-                                                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold shadow-sm shadow-amber-900/20">
-                                                    <Clock className="w-3.5 h-3.5" />
-                                                    <span>Expires in {formatTime(otpTimers[selectedQuiz.quizId])}</span>
-                                                </div>
-                                            )}
+                                            {selectedQuiz.otp ? (
+                                                otpTimers[selectedQuiz.quizId] > 0 ? (
+                                                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold shadow-sm shadow-amber-900/20">
+                                                        <Clock className="w-3.5 h-3.5 animate-pulse" />
+                                                        <span>Expires in {formatTime(otpTimers[selectedQuiz.quizId])}</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-bold shadow-sm shadow-rose-900/20">
+                                                        <AlertCircle className="w-3.5 h-3.5" />
+                                                        <span>OTP Code Expired</span>
+                                                    </div>
+                                                )
+                                            ) : null}
                                         </div>
 
                                         <button
@@ -319,9 +326,33 @@ export default function QuizDetailsView({
                                                     <div className="text-[10px] text-gray-500 font-medium">Auto-submit timer</div>
                                                 </div>
                                             </div>
-                                            <span className="text-sm font-bold text-gray-900 bg-white px-2 py-1 rounded border border-gray-100 shadow-sm">45m</span>
+                                            <span className="text-sm font-bold text-gray-900 bg-white px-2 py-1 rounded border border-gray-100 shadow-sm">
+                                                {selectedQuiz.durationInMinutes >= 60
+                                                    ? `${selectedQuiz.durationInMinutes / 60}h`
+                                                    : `${selectedQuiz.durationInMinutes || 60}m`}
+                                            </span>
                                         </div>
 
+                                        {selectedQuiz.endsAt && (
+                                            <div className="group flex items-center justify-between p-2.5 rounded-xl bg-red-50 ring-1 ring-red-100 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 bg-red-100 text-red-600 rounded-lg">
+                                                        <Lock className="w-4 h-4" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xs font-semibold text-red-700">Exam Closes At</div>
+                                                        <div className="text-[10px] text-red-400 font-medium">No new joins after this</div>
+                                                    </div>
+                                                </div>
+                                                <span className="text-[11px] font-bold text-red-600 bg-white px-2 py-1 rounded border border-red-100 shadow-sm text-right leading-tight">
+                                                    {new Date(selectedQuiz.endsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    <br />
+                                                    <span className="text-[9px] text-red-400 font-medium">
+                                                        {new Date(selectedQuiz.endsAt).toLocaleDateString()}
+                                                    </span>
+                                                </span>
+                                            </div>
+                                        )}
 
                                     </div>
                                 </div>

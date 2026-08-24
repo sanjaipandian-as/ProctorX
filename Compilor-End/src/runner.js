@@ -147,9 +147,17 @@ async function runSingleTest(index, input, jobDir, langDef, timeLimitMs, memoryM
 
   let result;
 
+
   if (config.executionMode === "direct") {
-    const fullCmd = `timeout ${timeoutSec}s ${runCmd} < ${inputFile}`;
-    result = await execProcess("sh", ["-c", fullCmd], { cwd: jobDir }, timeLimitMs + 2000);
+    const isWindows = process.platform === "win32";
+    if (isWindows) {
+      // Use cmd.exe shell redirection on Windows
+      const fullCmd = `${runCmd} < ${inputFile}`;
+      result = await execProcess("cmd.exe", ["/c", fullCmd], { cwd: jobDir }, timeLimitMs + 2000);
+    } else {
+      const fullCmd = `timeout ${timeoutSec}s ${runCmd} < ${inputFile}`;
+      result = await execProcess("sh", ["-c", fullCmd], { cwd: jobDir }, timeLimitMs + 2000);
+    }
   } else {
     const execCmd = `timeout ${timeoutSec}s ${runCmd} < /workspace/${inputFile}`;
     const args = buildDockerArgs(langDef.image, jobDir, memoryMb, cpus, execCmd);
@@ -206,7 +214,27 @@ async function runJob(payload, onTestComplete) {
     const compileTimeout = Math.max(timeLimitMs, 15000);
 
     if (config.executionMode === "direct") {
-      compileResult = await execProcess("sh", ["-c", langDef.compile.cmd], { cwd: jobDir }, compileTimeout);
+      const isWindows = process.platform === "win32";
+
+      // On Windows direct mode, check if the compiler binary is available first
+      if (isWindows) {
+        const compilerBin = langDef.compile.cmd.split(" ")[0]; // e.g. "g++" or "javac"
+        const checkResult = await execProcess("cmd.exe", ["/c", `where ${compilerBin}`], { cwd: jobDir }, 5000);
+        if (checkResult.code !== 0) {
+          await cleanupJobDir(jobDir);
+          results.compile = {
+            code: 1,
+            stdout: "",
+            stderr: `Compilation Error:\n'${compilerBin}' is not recognized as an internal or external command,\noperable program or batch file.\n\nTo run ${language.toUpperCase()} code locally on Windows, please install the required compiler:\n${compilerBin === "g++" ? "• MinGW-w64: https://www.mingw-w64.org/\n• Or enable WSL2 and install build-essential" : "• JDK: https://adoptium.net/"}`,
+            killed: false,
+            durationMs: 0,
+          };
+          return results;
+        }
+        compileResult = await execProcess("cmd.exe", ["/c", langDef.compile.cmd], { cwd: jobDir }, compileTimeout);
+      } else {
+        compileResult = await execProcess("sh", ["-c", langDef.compile.cmd], { cwd: jobDir }, compileTimeout);
+      }
     } else {
       const args = buildDockerArgs(langDef.image, jobDir, memoryMb, cpus, langDef.compile.cmd);
       compileResult = await execProcess("docker", args, {}, compileTimeout);

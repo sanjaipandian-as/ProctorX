@@ -6,6 +6,11 @@ const exportQuizResultsToExcel = async (quizId) => {
   const quiz = await prisma.quiz.findUnique({
     where: { quizId },
     include: {
+      questions: {
+        select: {
+          marks: true
+        }
+      },
       results: {
         include: {
           student: {
@@ -60,7 +65,7 @@ const exportQuizResultsToExcel = async (quizId) => {
     { header: 'Student Name', key: 'name', width: 25 },
     { header: 'Student Email', key: 'email', width: 30 },
     { header: 'Score', key: 'score', width: 12 },
-    { header: 'Total Questions', key: 'total', width: 18 },
+    { header: 'Total Marks', key: 'total', width: 18 },
     { header: 'Accuracy (%)', key: 'accuracy', width: 15 },
     { header: 'Time Taken (sec)', key: 'time', width: 18 },
     { header: 'Warnings', key: 'warnings', width: 12 },
@@ -87,6 +92,8 @@ const exportQuizResultsToExcel = async (quizId) => {
     };
   });
 
+  const totalPossibleMarks = quiz.questions.reduce((sum, q) => sum + (q.marks || 1), 0);
+
   // Populate results data
   quiz.results.forEach((r, idx) => {
     const row = worksheet.addRow({
@@ -94,7 +101,7 @@ const exportQuizResultsToExcel = async (quizId) => {
       name: r.student?.name || 'Unknown Student',
       email: r.student?.email || 'N/A',
       score: r.score,
-      total: r.totalQuestions,
+      total: totalPossibleMarks,
       accuracy: `${r.accuracy}%`,
       time: r.timeTaken,
       warnings: r.warnings,

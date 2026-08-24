@@ -22,6 +22,7 @@ import {
   LogOut,
   FolderPlus,
   Clock,
+  Sparkles,
 } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
 
@@ -91,7 +92,7 @@ export default function TeacherDashboard() {
       const res = await api.get("/api/quizzes");
       const fetchedQuizzes = Array.isArray(res.data) ? res.data : [];
       setQuizzes(fetchedQuizzes);
-      
+
       setSelectedQuiz(prev => {
         if (!prev) return prev;
         const updated = fetchedQuizzes.find(q => q.id === prev.id);
@@ -112,30 +113,47 @@ export default function TeacherDashboard() {
     if (user) {
       fetchTeacherInfo();
     }
-    
+
     // Auto-poll quizzes every 10 seconds for OTP and status updates
     const pollInterval = setInterval(() => {
       fetchQuizzes(true);
     }, 10000);
-    
+
     return () => clearInterval(pollInterval);
   }, [user]);
 
-  // Keep OTP timers updated
+  // Keep OTP and scheduled start timers updated
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date().getTime();
       const updatedTimers = {};
+      let needsRefresh = false;
+
       quizzes.forEach((quiz) => {
+        // 1. OTP timer expiration check
         if (quiz.otpExpiresAt) {
           const diff = new Date(quiz.otpExpiresAt).getTime() - now;
           updatedTimers[quiz.quizId] = diff > 0 ? diff : 0;
+          if (diff <= 0 && otpTimers[quiz.quizId] > 0) {
+            needsRefresh = true;
+          }
+        }
+        // 2. Scheduled start time check: if a quiz is scheduled, starts now, and is still PENDING
+        if (quiz.status === 'PENDING' && quiz.scheduledAt) {
+          const startTime = new Date(quiz.scheduledAt).getTime();
+          if (now >= startTime) {
+            needsRefresh = true;
+          }
         }
       });
+
       setOtpTimers(updatedTimers);
+      if (needsRefresh) {
+        fetchQuizzes(true);
+      }
     }, 1000);
     return () => clearInterval(interval);
-  }, [quizzes]);
+  }, [quizzes, otpTimers]);
 
   const fetchTeacherInfo = async () => {
     try {
@@ -226,6 +244,23 @@ export default function TeacherDashboard() {
       toast.error("Failed to load student attempts");
     } finally {
       setResultsLoading(false);
+    }
+  };
+
+  const handleResetAttempt = async (studentId, studentName) => {
+    if (!window.confirm(`Are you sure you want to RESET the quiz attempt for ${studentName}? This will permanently delete their score, warnings, and responses, allowing them to retake the quiz.`)) {
+      return;
+    }
+    try {
+      await api.delete(`/api/results/reset/${viewingResultsOf.quizId}/${studentId}`);
+      toast.success(`Reset attempt for ${studentName} successfully!`);
+      // Reload results
+      const res = await api.get(`/api/results/quiz/${viewingResultsOf.quizId}`);
+      setResultsData(res.data);
+      // Invalidate dashboard totals
+      fetchQuizzes(true);
+    } catch (err) {
+      toast.error("Failed to reset student attempt");
     }
   };
 
@@ -324,7 +359,7 @@ export default function TeacherDashboard() {
   }, [quizzes]);
 
   return (
-    <div 
+    <div
       className="h-screen w-screen flex flex-col bg-white text-black font-sans overflow-hidden"
       style={{ fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" }}
     >
@@ -357,8 +392,14 @@ export default function TeacherDashboard() {
             <p className="text-gray-500 text-[10px] mt-1">Instructor Portal | ID: {teacherInfo?.staffId || "N/A"}</p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate("/ai-quiz")}
+            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold rounded-lg transition-all flex items-center gap-1.5 text-xs shadow-md transform hover:-translate-y-0.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" /> Create with AI
+          </button>
           <button
             onClick={() => navigate("/create-quiz")}
             className="px-4 py-2 bg-black hover:bg-gray-900 text-white font-bold rounded-lg transition-all flex items-center gap-1.5 text-xs shadow-sm"
@@ -376,25 +417,24 @@ export default function TeacherDashboard() {
 
       {/* Double-Panel Workspace Layout (Borderless Separation + Transparent Scrollbar) */}
       <div className="flex flex-1 overflow-hidden w-full">
-        
+
         {/* LEFT PANEL: Navigation & Control Filters */}
-        <div className="w-[360px] md:w-[400px] shrink-0 bg-[#fbfbfc] p-6 overflow-y-auto light-scrollbar space-y-6 flex flex-col justify-between">
-          <div className="space-y-6">
-            
+        <div className="w-64 md:w-72 shrink-0 bg-[#fafafa] border-r border-gray-200 p-4 md:p-5 overflow-y-auto light-scrollbar space-y-5 flex flex-col justify-between">
+          <div className="space-y-5">
+
             {/* Tab Selection Navigation */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-black"></span>
                 Navigation
               </div>
 
               <button
                 onClick={() => { setCurrentView('quizzes'); setSelectedQuiz(null); setViewingResultsOf(null); }}
-                className={`w-full px-4 py-3 rounded-xl font-bold text-xs flex items-center justify-between transition-all ${
-                  currentView === 'quizzes' 
-                    ? "bg-black text-white shadow-sm" 
+                className={`w-full px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-between transition-all ${currentView === 'quizzes'
+                    ? "bg-black text-white shadow-sm"
                     : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 <span className="flex items-center gap-2">
                   <BookOpen className="w-4 h-4" /> Quizzes Panel
@@ -406,11 +446,10 @@ export default function TeacherDashboard() {
 
               <button
                 onClick={() => { setCurrentView('classrooms'); setSelectedQuiz(null); setViewingResultsOf(null); setSelectedClassroom(null); }}
-                className={`w-full px-4 py-3 rounded-xl font-bold text-xs flex items-center justify-between transition-all ${
-                  currentView === 'classrooms' 
-                    ? "bg-black text-white shadow-sm" 
+                className={`w-full px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-between transition-all ${currentView === 'classrooms'
+                    ? "bg-black text-white shadow-sm"
                     : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 <span className="flex items-center gap-2">
                   <Users className="w-4 h-4" /> Classrooms Directory
@@ -422,11 +461,10 @@ export default function TeacherDashboard() {
 
               <button
                 onClick={() => { setCurrentView('summary'); setSelectedQuiz(null); setViewingResultsOf(null); }}
-                className={`w-full px-4 py-3 rounded-xl font-bold text-xs flex items-center justify-between transition-all ${
-                  currentView === 'summary' 
-                    ? "bg-black text-white shadow-sm" 
+                className={`w-full px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-between transition-all ${currentView === 'summary'
+                    ? "bg-black text-white shadow-sm"
                     : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 <span className="flex items-center gap-2">
                   <BarChart className="w-4 h-4" /> Performance Summary
@@ -436,29 +474,29 @@ export default function TeacherDashboard() {
 
             {/* Dynamic Controls based on view */}
             {currentView === 'quizzes' && !selectedQuiz && !viewingResultsOf && (
-              <div className="space-y-4 pt-4 border-t border-gray-200/60">
-                <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
+              <div className="space-y-4 pt-4 border-t border-gray-250">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                   <span className="w-1.5 h-1.5 rounded-full bg-black"></span>
                   Filters & Search
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-gray-700">Search Quizzes</label>
+                  <label className="block text-[10px] font-bold text-gray-700 uppercase tracking-wide">Search Quizzes</label>
                   <input
                     type="text"
                     placeholder="Search by title..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-lg bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all text-xs"
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all text-xs"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-gray-700">Status Filter</label>
+                  <label className="block text-[10px] font-bold text-gray-700 uppercase tracking-wide">Status Filter</label>
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all text-xs"
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all text-xs font-semibold"
                   >
                     <option value="all">All Statuses</option>
                     <option value="PENDING">PENDING</option>
@@ -470,8 +508,8 @@ export default function TeacherDashboard() {
             )}
 
             {currentView === 'classrooms' && !selectedClassroom && (
-              <div className="space-y-4 pt-4 border-t border-gray-200/60">
-                <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
+              <div className="space-y-4 pt-4 border-t border-gray-250">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                   <span className="w-1.5 h-1.5 rounded-full bg-black"></span>
                   Quick Create Class
                 </div>
@@ -482,12 +520,12 @@ export default function TeacherDashboard() {
                     placeholder="Classroom Name (e.g. CS-101)"
                     value={newClassName}
                     onChange={(e) => setNewClassName(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-lg bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all text-xs"
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all text-xs"
                     required
                   />
                   <button
                     type="submit"
-                    className="w-full py-2.5 rounded-lg bg-black hover:bg-gray-900 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
+                    className="w-full py-2 rounded-lg bg-black hover:bg-gray-900 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
                   >
                     <FolderPlus className="w-3.5 h-3.5" /> Create Classroom
                   </button>
@@ -496,8 +534,8 @@ export default function TeacherDashboard() {
             )}
 
             {currentView === 'classrooms' && selectedClassroom && (
-              <div className="space-y-4 pt-4 border-t border-gray-200/60">
-                <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
+              <div className="space-y-4 pt-4 border-t border-gray-250">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                   <span className="w-1.5 h-1.5 rounded-full bg-black"></span>
                   Enroll Student
                 </div>
@@ -509,7 +547,7 @@ export default function TeacherDashboard() {
                       placeholder="student@univ.edu"
                       value={studentEmailToAdd}
                       onChange={handleStudentEmailChange}
-                      className="w-full px-3 py-2.5 rounded-lg bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all text-xs"
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all text-xs"
                       required
                       autoComplete="off"
                     />
@@ -533,7 +571,7 @@ export default function TeacherDashboard() {
                   </div>
                   <button
                     type="submit"
-                    className="w-full py-2.5 rounded-lg bg-black hover:bg-gray-900 text-white font-bold text-xs flex items-center justify-center gap-1 transition"
+                    className="w-full py-2 rounded-lg bg-black hover:bg-gray-900 text-white font-bold text-xs flex items-center justify-center gap-1 transition"
                   >
                     <UserPlus className="w-3.5 h-3.5" /> Add Student
                   </button>
@@ -544,20 +582,20 @@ export default function TeacherDashboard() {
           </div>
 
           {/* Core Blueprint summary widget */}
-          <div className="mt-8 bg-white border border-gray-200 rounded-xl p-4 space-y-2.5 shadow-sm">
+          <div className="mt-6 bg-white border border-gray-200 rounded-xl p-3.5 space-y-2 shadow-sm">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400 block">Assessment Stats</span>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-2 gap-2 text-[10px] md:text-xs">
               <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
-                <div className="text-gray-500 font-medium">Total Quizzes</div>
-                <div className="text-base font-extrabold mt-0.5">{dashboardStats.totalQuizzes}</div>
+                <div className="text-gray-500 font-medium leading-tight">Total Quizzes</div>
+                <div className="text-sm md:text-base font-extrabold mt-0.5">{dashboardStats.totalQuizzes}</div>
               </div>
               <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
-                <div className="text-gray-500 font-medium">Active Quizzes</div>
-                <div className="text-base font-extrabold mt-0.5">{dashboardStats.activeQuizzes}</div>
+                <div className="text-gray-500 font-medium leading-tight">Active Quizzes</div>
+                <div className="text-sm md:text-base font-extrabold mt-0.5">{dashboardStats.activeQuizzes}</div>
               </div>
               <div className="bg-gray-50 p-2 rounded-lg border border-gray-100 col-span-2">
-                <div className="text-gray-500 font-medium">Total Submissions</div>
-                <div className="text-base font-extrabold mt-0.5">{dashboardStats.totalSubmissions}</div>
+                <div className="text-gray-500 font-medium leading-tight">Total Submissions</div>
+                <div className="text-sm md:text-base font-extrabold mt-0.5">{dashboardStats.totalSubmissions}</div>
               </div>
             </div>
           </div>
@@ -566,20 +604,20 @@ export default function TeacherDashboard() {
 
         {/* RIGHT PANEL: Scrollable Workspace area */}
         <div className="flex-1 bg-white p-6 md:p-10 overflow-y-auto light-scrollbar space-y-6">
-          
+
           {/* Detail View: Selected Quiz Details */}
           {selectedQuiz && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-5">
-                <button 
-                  onClick={() => setSelectedQuiz(null)} 
+                <button
+                  onClick={() => setSelectedQuiz(null)}
                   className="flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-black transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" /> Back to List
                 </button>
-                
+
                 <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">{selectedQuiz.title}</h2>
-                
+
                 <button
                   onClick={() => handleDeleteQuiz(selectedQuiz.quizId)}
                   className="px-4 py-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-all"
@@ -593,14 +631,13 @@ export default function TeacherDashboard() {
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-1">
                   <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status Settings</span>
                   <div className="flex items-center gap-3 mt-1.5">
-                    <span className={`text-xs font-extrabold capitalize px-2 py-0.5 rounded ${
-                      selectedQuiz.status === 'ACTIVE' 
-                        ? 'bg-green-100 text-green-700' 
+                    <span className={`text-xs font-extrabold capitalize px-2 py-0.5 rounded ${selectedQuiz.status === 'ACTIVE'
+                        ? 'bg-green-100 text-green-700'
                         : selectedQuiz.status === 'PENDING'
-                        ? 'bg-gray-100 text-gray-600'
-                        : 'bg-gray-900 text-white'
-                    }`}>{selectedQuiz.status}</span>
-                    
+                          ? 'bg-gray-100 text-gray-600'
+                          : 'bg-gray-900 text-white'
+                      }`}>{selectedQuiz.status}</span>
+
                     <select
                       value={selectedQuiz.status}
                       onChange={(e) => handleStatusChange(selectedQuiz.quizId, e.target.value)}
@@ -615,8 +652,8 @@ export default function TeacherDashboard() {
 
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-1">
                   <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Quiz passcode/code (click)</span>
-                  <p 
-                    className="text-xs font-mono font-bold cursor-pointer flex items-center gap-1.5 mt-2 hover:text-gray-700" 
+                  <p
+                    className="text-xs font-mono font-bold cursor-pointer flex items-center gap-1.5 mt-2 hover:text-gray-700"
                     onClick={() => handleCopyId(selectedQuiz.quizId)}
                   >
                     {selectedQuiz.quizId} <Copy className="w-3.5 h-3.5" />
@@ -669,17 +706,16 @@ export default function TeacherDashboard() {
                           {q.questionType || "MCQ"} | {q.marks || 1} mark(s)
                         </span>
                       </div>
-                      
+
                       {q.options && q.options.length > 0 && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                           {q.options.map((opt, oIdx) => (
                             <div
                               key={oIdx}
-                              className={`p-2.5 rounded-lg text-xs font-medium border ${
-                                q.correctAns === oIdx 
-                                  ? 'bg-green-100 text-green-900 border-green-300' 
+                              className={`p-2.5 rounded-lg text-xs font-medium border ${q.correctAns === oIdx
+                                  ? 'bg-green-100 text-green-900 border-green-300'
                                   : 'bg-white border-gray-200 text-gray-600'
-                              }`}
+                                }`}
                             >
                               <span className="font-bold mr-1">{String.fromCharCode(65 + oIdx)}.</span> {opt}
                             </div>
@@ -699,24 +735,51 @@ export default function TeacherDashboard() {
                           {q.starterCode && (
                             <div>
                               <span className="block font-bold text-gray-400 uppercase text-[9px] mb-1">Starter Code</span>
-                              <pre className="bg-gray-50 border border-gray-100 p-2 rounded text-gray-700 font-mono text-[10px] overflow-x-auto whitespace-pre-wrap">{q.starterCode}</pre>
+                              <div className="space-y-2">
+                                {(() => {
+                                  const sc = typeof q.starterCode === 'string' ? JSON.parse(q.starterCode || '{}') : q.starterCode;
+                                  return Object.entries(sc).map(([lang, code]) => {
+                                    if (!code) return null;
+                                    return (
+                                      <div key={lang}>
+                                        <div className="inline-block px-2 py-1 bg-gray-800 text-gray-100 text-[9px] font-bold uppercase tracking-wider rounded-t-md">
+                                          {lang}
+                                        </div>
+                                        <pre className="bg-gray-50 border border-gray-200 p-2.5 rounded-b-md rounded-tr-md text-gray-800 font-mono text-[10px] overflow-x-auto whitespace-pre-wrap shadow-sm">
+                                          {code}
+                                        </pre>
+                                      </div>
+                                    );
+                                  });
+                                })()}
+                              </div>
                             </div>
                           )}
-                          <div>
-                            <span className="block font-bold text-gray-400 uppercase text-[9px] mb-1">Test Cases ({q.testcases.length})</span>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1">
-                              {q.testcases.map((tc, tcIdx) => (
-                                <div key={tcIdx} className="bg-gray-50 border border-gray-100 p-2 rounded text-[10px]">
-                                  <div className="flex justify-between items-center mb-1">
-                                    <span className="font-bold text-gray-600">Case {tcIdx + 1}</span>
-                                    {tc.hidden && <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded-[4px] text-[8px] font-bold">HIDDEN</span>}
-                                  </div>
-                                  <div className="text-gray-500"><span className="font-semibold">Input:</span> <span className="font-mono text-gray-800">{tc.input}</span></div>
-                                  <div className="text-gray-500"><span className="font-semibold">Output:</span> <span className="font-mono text-gray-800">{tc.output}</span></div>
+                          {(() => {
+                            const parsedTestCases = Array.isArray(q.testcases)
+                              ? q.testcases
+                              : (typeof q.testcases === 'string' ? JSON.parse(q.testcases || '[]') : []);
+
+                            if (parsedTestCases.length === 0) return null;
+
+                            return (
+                              <div>
+                                <span className="block font-bold text-gray-400 uppercase text-[9px] mb-1">Test Cases ({parsedTestCases.length})</span>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1">
+                                  {parsedTestCases.map((tc, tcIdx) => (
+                                    <div key={tcIdx} className="bg-gray-50 border border-gray-100 p-2 rounded text-[10px]">
+                                      <div className="flex justify-between items-center mb-1">
+                                        <span className="font-bold text-gray-600">Case {tcIdx + 1}</span>
+                                        {tc.hidden && <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded-[4px] text-[8px] font-bold">HIDDEN</span>}
+                                      </div>
+                                      <div className="text-gray-500"><span className="font-semibold">Input:</span> <span className="font-mono text-gray-800">{tc.input}</span></div>
+                                      <div className="text-gray-500"><span className="font-semibold">Output:</span> <span className="font-mono text-gray-800">{tc.output}</span></div>
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
-                          </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
@@ -730,8 +793,8 @@ export default function TeacherDashboard() {
           {viewingResultsOf && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-5">
-                <button 
-                  onClick={() => setViewingResultsOf(null)} 
+                <button
+                  onClick={() => setViewingResultsOf(null)}
                   className="flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-black transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" /> Back to Quizzes
@@ -763,6 +826,7 @@ export default function TeacherDashboard() {
                           <th className="px-6 py-4">Accuracy</th>
                           <th className="px-6 py-4">Warnings Triggered</th>
                           <th className="px-6 py-4">Submitted Date</th>
+                          <th className="px-6 py-4 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
@@ -773,15 +837,28 @@ export default function TeacherDashboard() {
                             <td className="px-6 py-4 font-bold text-green-700">{res.score} / {res.totalQuestions}</td>
                             <td className="px-6 py-4 font-semibold">{res.accuracy}%</td>
                             <td className="px-6 py-4">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                res.warnings >= 4 
-                                  ? 'bg-red-100 text-red-700' 
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${res.warnings >= 4
+                                  ? 'bg-red-100 text-red-700'
                                   : 'bg-gray-100 text-gray-600'
-                              }`}>
+                                }`}>
                                 {res.warnings} warnings
                               </span>
                             </td>
                             <td className="px-6 py-4 text-gray-500">{new Date(res.completedAt).toLocaleString()}</td>
+                            <td className="px-6 py-4 text-right flex items-center justify-end gap-2.5">
+                              <button
+                                onClick={() => navigate(`/results/${res.id}`)}
+                                className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold border border-blue-100 hover:border-blue-200 rounded-lg text-xs transition-all inline-flex items-center gap-1"
+                              >
+                                Review Attempt
+                              </button>
+                              <button
+                                onClick={() => handleResetAttempt(res.student?.id, res.student?.name)}
+                                className="px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 font-bold border border-red-100 hover:border-red-200 rounded-lg text-xs transition-all inline-flex items-center gap-1"
+                              >
+                                Reset Attempt
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -817,22 +894,21 @@ export default function TeacherDashboard() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredQuizzes.map((quiz) => (
-                    <div 
-                      key={quiz.id} 
+                    <div
+                      key={quiz.id}
                       className="bg-white border border-gray-200 p-5 rounded-2xl flex flex-col justify-between hover:border-gray-400 transition-all hover:shadow-sm"
                     >
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded ${
-                            quiz.status === 'ACTIVE'
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded ${quiz.status === 'ACTIVE'
                               ? 'bg-green-100 text-green-700'
                               : quiz.status === 'PENDING'
-                              ? 'bg-gray-100 text-gray-600'
-                              : 'bg-gray-900 text-white'
-                          }`}>{quiz.status}</span>
+                                ? 'bg-gray-100 text-gray-600'
+                                : 'bg-gray-900 text-white'
+                            }`}>{quiz.status}</span>
                           <span className="text-xs font-bold text-gray-400">{quiz.durationInMinutes} mins</span>
                         </div>
-                        
+
                         <h4 className="text-base font-extrabold text-gray-900 truncate leading-snug">{quiz.title}</h4>
                         <p className="text-[11px] text-gray-500">
                           Questions: <span className="font-bold text-gray-700">{quiz.totalQuestions}</span> | Submissions: <span className="font-bold text-gray-700">{quiz.totalAttempts || 0}</span>
@@ -844,9 +920,17 @@ export default function TeacherDashboard() {
                           </div>
                         )}
                         {quiz.status === 'ACTIVE' && (
-                          <div className="text-[10px] text-green-700 bg-green-50 p-2 rounded-lg border border-green-150 font-mono flex justify-between">
-                            <span>🔑 Active OTP:</span>
-                            <span className="font-bold tracking-wider">{quiz.otp || 'NONE'}</span>
+                          <div className="text-[10px] text-green-700 bg-green-50 p-2 rounded-lg border border-green-150 font-mono flex flex-col gap-1">
+                            <div className="flex justify-between">
+                              <span>🔑 Active OTP:</span>
+                              <span className="font-bold tracking-wider">{quiz.otp || 'NONE'}</span>
+                            </div>
+                            {quiz.otp && otpTimers[quiz.quizId] !== undefined && (
+                              <div className="flex justify-between text-[9px] text-amber-700 border-t border-green-100 pt-1 mt-0.5">
+                                <span>⏱️ Expires in:</span>
+                                <span className="font-bold">{otpTimers[quiz.quizId] > 0 ? formatTime(otpTimers[quiz.quizId]) : "Expired"}</span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -953,8 +1037,8 @@ export default function TeacherDashboard() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {classrooms.map((c) => (
-                    <div 
-                      key={c.id} 
+                    <div
+                      key={c.id}
                       className="bg-white border border-gray-200 p-5 rounded-2xl flex flex-col justify-between hover:border-gray-400 transition-all hover:shadow-sm"
                     >
                       <div className="space-y-3">
@@ -986,8 +1070,8 @@ export default function TeacherDashboard() {
           {currentView === 'classrooms' && selectedClassroom && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-5">
-                <button 
-                  onClick={() => setSelectedClassroom(null)} 
+                <button
+                  onClick={() => setSelectedClassroom(null)}
                   className="flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-black transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" /> Back to Classrooms

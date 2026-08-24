@@ -16,6 +16,8 @@ router.get('/check/:quizId', requireRole('student'), resultController.checkAttem
 // Teacher endpoints
 router.get('/quiz/:quizId', requireRole('teacher'), resultController.getQuizResults);
 router.get('/export/:quizId', requireRole('teacher'), resultController.exportQuizResults);
+router.delete('/reset/:quizId/:studentId', requireRole('teacher'), resultController.resetQuizAttempt);
+router.put('/responses/:responseId/grade', requireRole('teacher'), resultController.gradeResponse);
 
 // Shared endpoints
 router.get('/:resultId', resultController.getResultDetails);

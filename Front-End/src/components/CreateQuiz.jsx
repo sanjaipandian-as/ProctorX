@@ -64,6 +64,7 @@ function CreateQuiz() {
     classroomId: "",
     allowedStudentsRaw: "",
     scheduledAt: "",
+    endsAt: "",
     autoStart: true,
     questions: defaultQuestions,
   });
@@ -159,6 +160,16 @@ function CreateQuiz() {
       return toast.error("Quiz title is required");
     }
 
+    // Validate endsAt > scheduledAt if both are set
+    if (formData.endsAt && formData.scheduledAt) {
+      if (new Date(formData.endsAt) <= new Date(formData.scheduledAt)) {
+        return toast.error("End time must be after the start time");
+      }
+    }
+    if (formData.endsAt && new Date(formData.endsAt) <= new Date()) {
+      return toast.error("End time must be in the future");
+    }
+
     for (let i = 0; i < formData.questions.length; i++) {
       const q = formData.questions[i];
       if (!q.questionText) {
@@ -214,6 +225,7 @@ function CreateQuiz() {
       allowedStudents,
       classroomId: formData.classroomId || null,
       scheduledAt: formData.scheduledAt ? new Date(formData.scheduledAt).toISOString() : null,
+      endsAt: formData.endsAt ? new Date(formData.endsAt).toISOString() : null,
       autoStart: formData.autoStart,
       questions: formattedQuestions,
     };
@@ -385,6 +397,23 @@ function CreateQuiz() {
                   />
                   <p className="text-[10px] text-gray-500 leading-relaxed">
                     Leave blank to launch manually whenever you click "Go Live".
+                  </p>
+                </div>
+
+                {/* End Date & Time */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                    <FaCalendarAlt className="text-red-400" /> End Date &amp; Time
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="endsAt"
+                    value={formData.endsAt}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2.5 rounded-lg bg-white border border-red-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 transition-all text-xs"
+                  />
+                  <p className="text-[10px] text-red-500 leading-relaxed">
+                    ⏰ Exam auto-closes at this time. Active students get force-submitted.
                   </p>
                 </div>
 

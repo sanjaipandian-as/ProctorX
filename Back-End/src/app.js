@@ -1,4 +1,5 @@
 const express = require('express');
+// Trigger cache invalidation reload
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -13,6 +14,7 @@ const quizRoutes = require('./routes/quiz.routes');
 const resultRoutes = require('./routes/result.routes');
 const adminRoutes = require('./routes/admin.routes');
 const classroomRoutes = require('./routes/classroom.routes');
+const aiRoutes = require('./routes/ai.routes');
 
 const app = express();
 
@@ -45,6 +47,7 @@ app.use('/api/quizzes', quizRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/classrooms', classroomRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Global Error Handler
 app.use(errorMiddleware);

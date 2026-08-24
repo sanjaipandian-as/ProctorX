@@ -143,6 +143,20 @@ const createTeacherByAdmin = async ({ name, email, password, staffId }) => {
   return { message: 'Teacher account created successfully', id: teacher.id, name: teacher.name };
 };
 
+const toggleAiAccess = async (teacherId, enabled) => {
+  const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } });
+  if (!teacher) {
+    const err = new Error('Teacher not found');
+    err.statusCode = 404;
+    throw err;
+  }
+  const updated = await prisma.teacher.update({
+    where: { id: teacherId },
+    data: { aiAccess: enabled }
+  });
+  return { message: `AI access ${enabled ? 'enabled' : 'disabled'} for ${updated.name}`, aiAccess: updated.aiAccess };
+};
+
 module.exports = {
   loginAdmin,
   getPendingTeachers,
@@ -150,5 +164,6 @@ module.exports = {
   rejectTeacher,
   getSystemStats,
   getAllStudents,
-  createTeacherByAdmin
+  createTeacherByAdmin,
+  toggleAiAccess
 };

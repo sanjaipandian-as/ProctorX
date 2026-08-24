@@ -123,6 +123,49 @@ const startScheduler = (io) => {
           }
         }
       }
+
+      // 3. Auto-complete ACTIVE quizzes that have passed their endsAt deadline
+      const expiredQuizzes = await prisma.quiz.findMany({
+        where: {
+          status: 'ACTIVE',
+          endsAt: { not: null, lte: now }
+        }
+      });
+
+      for (const quiz of expiredQuizzes) {
+        // Mark quiz as COMPLETED and clear OTP so no new students can join
+        await prisma.quiz.update({
+          where: { id: quiz.id },
+          data: {
+            status: 'COMPLETED',
+            otp: null,
+            otpExpiresAt: null
+          }
+        });
+
+        // Invalidate Redis caches
+        await redis.del(`otp:${quiz.quizId}`);
+        await redis.del(`quiz:${quiz.quizId}`);
+        await redis.del(`teacher:quizzes:${quiz.createdById}`);
+
+        if (io) {
+          // Force-submit every student still in the exam room
+          io.to(`exam:${quiz.quizId}`).emit('student:force-submit', {
+            reason: 'The exam time has ended. Your answers have been submitted automatically.'
+          });
+          // Notify the teacher monitoring room
+          io.to(`exam:${quiz.quizId}:teacher`).emit('exam:ended', { quizId: quiz.quizId });
+          // Notify admin audit feed
+          io.to('admin:audit').emit('admin:event', {
+            type: 'end',
+            timestamp: now,
+            message: `Quiz "${quiz.title}" ended automatically at wall-clock deadline.`
+          });
+        }
+
+        logger.info(`Auto-end: Quiz "${quiz.title}" (${quiz.quizId}) marked COMPLETED at endsAt deadline.`);
+      }
+
     } catch (err) {
       logger.error('Error inside background scheduler tick:', err);
     }

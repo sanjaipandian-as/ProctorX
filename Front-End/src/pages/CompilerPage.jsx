@@ -19,8 +19,39 @@ import API from "../../Api";
 
 const COMPILER_URL = import.meta.env.VITE_COMPILER_URL || "http://localhost:4000";
 
+// ── Per-language starter code templates ──
+const STARTERS = {
+  python: `def solution():
+    # Write your code here
+    pass
+
+print(solution())`,
+  cpp: `#include <iostream>
+using namespace std;
+
+int main() {
+    // Write your code here
+    return 0;
+}`,
+  java: `import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        // Write your code here
+    }
+}`,
+  javascript: `function solution() {
+    // Write your code here
+}
+
+console.log(solution());`,
+};
+
 export default function CompilerPage() {
   const [language, setLanguage] = useState("python");
+  const [editorTheme, setEditorTheme] = useState("proctorx-dark");
+  const [fontSize, setFontSize] = useState(14);
   const [timer, setTimer] = useState(0);
   const [timerRunning, setTimerRunning] = useState(true);
   const [warnings, setWarnings] = useState(5);
@@ -181,10 +212,13 @@ print(count_subarrays(nums, left, right))`);
     fetchProblem();
   }, []);
 
-  // Update code when language changes
+  // Update code when language changes — load starter or problem template
   useEffect(() => {
     if (problem && problem.starterCode && problem.starterCode[language]) {
       setCode(problem.starterCode[language]);
+    } else {
+      // No problem loaded — use per-language starter
+      setCode(STARTERS[language] || "");
     }
   }, [language, problem]);
 
@@ -551,36 +585,93 @@ print(count_subarrays(nums, left, right))`);
         <div className={`grid h-full bg-white overflow-hidden transition-all duration-300 ${isExpanded ? "grid-rows-[48px_1fr_40%]" : "grid-rows-[48px_1fr_40px]"}`}>
 
           {/* Editor Toolbar */}
-          <div className="h-12 flex items-center justify-between border-b border-gray-200 bg-white px-0">
-            <div className="flex h-full items-center">
+          <div className={`h-12 flex items-center justify-between border-b px-0 transition-colors duration-200 ${
+            editorTheme === "proctorx-dark"
+              ? "bg-[#0D1117] border-[#30363D]"
+              : "bg-white border-gray-200"
+          }`}>
+            <div className="flex h-full items-center gap-1">
               {/* Language Selector */}
-              <div className="px-4">
+              <div className="px-3">
                 <div className="relative">
                   <select
                     value={language}
                     onChange={(e) => setLanguage(e.target.value)}
-                    className="appearance-none bg-transparent border-none px-2 py-1.5 pr-6 rounded text-sm font-bold text-gray-700 hover:text-black cursor-pointer focus:outline-none"
+                    className={`appearance-none bg-transparent border-none px-2 py-1.5 pr-6 rounded text-sm font-bold cursor-pointer focus:outline-none transition-colors ${
+                      editorTheme === "proctorx-dark" ? "text-[#CDD9E5] hover:text-white" : "text-gray-700 hover:text-black"
+                    }`}
                   >
                     <option value="python">PYTHON</option>
                     <option value="cpp">C++</option>
                     <option value="java">JAVA</option>
                     <option value="javascript">JAVASCRIPT</option>
                   </select>
-                  <ChevronDown className="w-4 h-4 text-gray-500 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ChevronDown className={`w-4 h-4 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none ${
+                    editorTheme === "proctorx-dark" ? "text-[#6E7681]" : "text-gray-500"
+                  }`} />
                 </div>
+              </div>
+
+              {/* Divider */}
+              <div className={`w-px h-5 mx-1 ${editorTheme === "proctorx-dark" ? "bg-[#30363D]" : "bg-gray-200"}`} />
+
+              {/* Font size controls */}
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => setFontSize(s => Math.max(11, s - 1))}
+                  title="Decrease font size"
+                  className={`w-7 h-7 flex items-center justify-center rounded text-xs font-bold transition-colors ${
+                    editorTheme === "proctorx-dark"
+                      ? "text-[#8B949E] hover:bg-[#21262D] hover:text-white"
+                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                  }`}
+                >A−</button>
+                <span className={`text-[11px] font-mono w-6 text-center select-none ${
+                  editorTheme === "proctorx-dark" ? "text-[#6E7681]" : "text-gray-400"
+                }`}>{fontSize}</span>
+                <button
+                  onClick={() => setFontSize(s => Math.min(22, s + 1))}
+                  title="Increase font size"
+                  className={`w-7 h-7 flex items-center justify-center rounded text-sm font-bold transition-colors ${
+                    editorTheme === "proctorx-dark"
+                      ? "text-[#8B949E] hover:bg-[#21262D] hover:text-white"
+                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                  }`}
+                >A+</button>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 pr-4">
+            <div className="flex items-center gap-2 pr-3">
               {/* Timer */}
-              <div className="flex items-center gap-1 text-xs text-gray-500 font-mono">
+              <div className={`flex items-center gap-1 text-xs font-mono ${
+                editorTheme === "proctorx-dark" ? "text-[#6E7681]" : "text-gray-500"
+              }`}>
                 <Clock className="w-3.5 h-3.5" />
                 {formatTime(timer)}
               </div>
-              <button className="p-2 hover:bg-gray-200 rounded transition-colors">
-                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                </svg>
+
+              {/* Theme Toggle */}
+              <button
+                onClick={() => setEditorTheme(t => t === "proctorx-dark" ? "vs" : "proctorx-dark")}
+                title={editorTheme === "proctorx-dark" ? "Switch to Light" : "Switch to Dark"}
+                className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
+                  editorTheme === "proctorx-dark"
+                    ? "text-[#8B949E] hover:bg-[#21262D] hover:text-yellow-300"
+                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                }`}
+              >
+                {editorTheme === "proctorx-dark" ? (
+                  // Sun icon
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="5" strokeWidth={2}/>
+                    <path strokeLinecap="round" strokeWidth={2} d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                  </svg>
+                ) : (
+                  // Moon icon
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
               </button>
             </div>
           </div>
@@ -592,15 +683,85 @@ print(count_subarrays(nums, left, right))`);
               language={languageMap[language]}
               value={code}
               onChange={(value) => setCode(value)}
-              theme="light"
+              theme={editorTheme}
               options={{
+                // ── Layout ──
                 minimap: { enabled: false },
-                fontSize: 14,
+                fontSize: fontSize,
                 lineNumbers: "on",
                 automaticLayout: true,
                 scrollBeyondLastLine: false,
                 padding: { top: 16, bottom: 16 },
-                fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace",
+                fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
+                fontLigatures: true,
+
+                // ── Real IDE: Auto-close & indentation ──
+                autoClosingBrackets: "always",
+                autoClosingQuotes: "always",
+                autoClosingDelete: "always",
+                autoSurround: "languageDefined",
+                autoIndent: "full",
+                tabSize: 4,
+                insertSpaces: true,
+                detectIndentation: true,
+                formatOnType: true,
+                formatOnPaste: false,
+
+                // ── Autocomplete & IntelliSense ──
+                quickSuggestions: { other: true, comments: false, strings: true },
+                suggestOnTriggerCharacters: true,
+                acceptSuggestionOnCommitCharacter: true,
+                wordBasedSuggestions: "currentDocument",
+                parameterHints: { enabled: true },
+                suggestSelection: "recentlyUsed",
+
+                // ── Visual polish ──
+                bracketPairColorization: { enabled: true },
+                guides: { bracketPairs: "active" },
+                folding: true,
+                foldingHighlight: true,
+                cursorSmoothCaretAnimation: "on",
+                cursorBlinking: "expand",
+                smoothScrolling: true,
+                renderLineHighlight: "gutter",
+                mouseWheelZoom: true,
+                linkedEditing: true,
+                showUnused: true,
+                occurrencesHighlight: "singleFile",
+              }}
+              beforeMount={(monaco) => {
+                // Register custom dark theme once
+                monaco.editor.defineTheme("proctorx-dark", {
+                  base: "vs-dark",
+                  inherit: true,
+                  rules: [
+                    { token: "keyword",  foreground: "C792EA", fontStyle: "bold" },
+                    { token: "string",   foreground: "C3E88D" },
+                    { token: "number",   foreground: "F78C6C" },
+                    { token: "comment",  foreground: "546E7A", fontStyle: "italic" },
+                    { token: "type",     foreground: "FFCB6B" },
+                    { token: "function", foreground: "82AAFF" },
+                    { token: "variable", foreground: "EEFFFF" },
+                    { token: "operator", foreground: "89DDFF" },
+                  ],
+                  colors: {
+                    "editor.background":                   "#0D1117",
+                    "editor.foreground":                   "#E6EDF3",
+                    "editorLineNumber.foreground":          "#3B434B",
+                    "editorLineNumber.activeForeground":    "#CDD9E5",
+                    "editor.lineHighlightBackground":       "#161B22",
+                    "editor.selectionBackground":           "#264F7866",
+                    "editorCursor.foreground":              "#58A6FF",
+                    "editorBracketMatch.background":        "#3D4A5C",
+                    "editorBracketMatch.border":            "#58A6FF",
+                    "editorBracketHighlight.foreground1":   "#D2A8FF",
+                    "editorBracketHighlight.foreground2":   "#79C0FF",
+                    "editorBracketHighlight.foreground3":   "#56D364",
+                    "editorSuggestWidget.background":       "#161B22",
+                    "editorSuggestWidget.border":           "#30363D",
+                    "editorSuggestWidget.selectedBackground": "#21262D",
+                  },
+                });
               }}
               onMount={(editor, monaco) => {
                 editor.onKeyDown((e) => {
@@ -618,6 +779,9 @@ print(count_subarrays(nums, left, right))`);
                     return;
                   };
                 }
+
+                // Focus editor on mount
+                editor.focus();
               }}
             />
           </div>
