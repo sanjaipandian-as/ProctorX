@@ -13,6 +13,9 @@ if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN && !env.UPSTASH_R
     isRedisAvailable = true;
     console.log('Upstash Redis Client initialized');
   } catch (error) {
+    if (env.NODE_ENV === 'production') {
+      throw error;
+    }
     console.error('Failed to initialize Upstash Redis Client, using memory fallback:', error.message);
   }
 } else {

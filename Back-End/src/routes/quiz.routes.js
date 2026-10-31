@@ -5,7 +5,7 @@ const quizController = require('../controllers/quiz.controller');
 const { verifyToken } = require('../middleware/auth.middleware');
 const { requireRole } = require('../middleware/role.middleware');
 const { validate } = require('../middleware/validate.middleware');
-const { createQuizSchema } = require('../schemas/quiz.schema');
+const { createQuizSchema, quizStatusSchema, verifyOtpSchema } = require('../schemas/quiz.schema');
 
 // Public search/lookup endpoints (called from searchbar)
 router.get('/public', quizController.getPublicQuizzes);
@@ -20,10 +20,10 @@ router.put('/:quizId', requireRole('teacher'), validate(createQuizSchema), quizC
 router.delete('/:quizId', requireRole('teacher'), quizController.deleteQuiz);
 router.post('/:quizId/duplicate', requireRole('teacher'), quizController.duplicateQuiz);
 router.post('/:quizId/generate-otp', requireRole('teacher'), quizController.generateOTP);
-router.put('/:quizId/status', requireRole('teacher'), quizController.changeStatus);
+router.put('/:quizId/status', requireRole('teacher'), validate(quizStatusSchema), quizController.changeStatus);
 
 // Student-only endpoints
-router.post('/:quizId/verify-otp', requireRole('student'), quizController.verifyOTP);
+router.post('/:quizId/verify-otp', requireRole('student'), validate(verifyOtpSchema), quizController.verifyOTP);
 
 // Shared endpoints
 router.get('/:quizId', quizController.getQuiz);

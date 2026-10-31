@@ -4,15 +4,20 @@ const submitResultSchema = z.object({
   quizId: z.string().min(1, 'Quiz ID is required'),
   answers: z.array(
     z.object({
-      questionText: z.string().min(1),
-      studentAnswer: z.string() // The text of the option chosen by student
+      questionText: z.string().min(1).max(5000),
+      studentAnswer: z.string().max(10000) // The text of the option chosen by student
     })
-  ),
-  timeTaken: z.number().int().nonnegative().default(0),
-  warnings: z.number().int().nonnegative().default(0),
-  penalties: z.number().int().nonnegative().default(0)
+  ).max(100),
+  timeTaken: z.number().int().nonnegative().max(86400).default(0),
+  warnings: z.number().int().nonnegative().max(1000).optional(),
+  penalties: z.number().int().nonnegative().max(1000).optional()
+});
+
+const gradeResponseSchema = z.object({
+  marksObtained: z.coerce.number().int().nonnegative().max(1000)
 });
 
 module.exports = {
-  submitResultSchema
+  submitResultSchema,
+  gradeResponseSchema
 };

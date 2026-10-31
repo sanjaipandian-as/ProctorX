@@ -24,9 +24,9 @@ const createClassroom = async (teacherId, { name }) => {
   return classroom;
 };
 
-const getClassrooms = async (teacherId) => {
+const getClassrooms = async (user) => {
   return prisma.classroom.findMany({
-    where: { createdById: teacherId },
+    where: user.role === 'admin' ? undefined : { createdById: user.id },
     include: {
       _count: {
         select: { students: true, quizzes: true }
@@ -36,7 +36,22 @@ const getClassrooms = async (teacherId) => {
   });
 };
 
-const addStudentToClassroom = async (classroomId, { email }) => {
+const assertClassroomAccess = async (classroomId, user) => {
+  const classroom = await prisma.classroom.findUnique({ where: { id: classroomId }, select: { id: true, createdById: true } });
+  if (!classroom) {
+    const err = new Error('Classroom not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (user.role !== 'admin' && classroom.createdById !== user.id) {
+    const err = new Error('You do not own this classroom.');
+    err.statusCode = 403;
+    throw err;
+  }
+};
+
+const addStudentToClassroom = async (classroomId, { email }, user) => {
+  await assertClassroomAccess(classroomId, user);
   const student = await prisma.student.findUnique({
     where: { email }
   });
@@ -69,7 +84,8 @@ const addStudentToClassroom = async (classroomId, { email }) => {
   return updatedClassroom;
 };
 
-const getClassroomDetails = async (classroomId) => {
+const getClassroomDetails = async (classroomId, user) => {
+  await assertClassroomAccess(classroomId, user);
   const classroom = await prisma.classroom.findUnique({
     where: { id: classroomId },
     include: {
@@ -101,7 +117,8 @@ const getClassroomDetails = async (classroomId) => {
   return classroom;
 };
 
-const removeStudentFromClassroom = async (classroomId, studentId) => {
+const removeStudentFromClassroom = async (classroomId, studentId, user) => {
+  await assertClassroomAccess(classroomId, user);
   const classroom = await prisma.classroom.update({
     where: { id: classroomId },
     data: {

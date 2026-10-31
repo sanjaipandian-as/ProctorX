@@ -23,8 +23,7 @@ app.set('io', io);
 // Register WebSocket namespaces and room behaviors
 registerSocketHandlers(io);
 
-// Start scheduler loop
-startScheduler(io);
+let stopScheduler;
 
 // Seed default administrator if not present
 async function seedAdmin() {
@@ -42,11 +41,37 @@ async function seedAdmin() {
     }
   } catch (error) {
     logger.error('Failed to seed default administrator credentials:', error);
+    throw error;
   }
 }
 
-// Start listener
-server.listen(env.PORT, '0.0.0.0', async () => {
-  logger.info(`ProctorX Backend Server listening on port ${env.PORT} in ${env.NODE_ENV} environment.`);
+async function bootstrap() {
+  await prisma.$connect();
   await seedAdmin();
+  stopScheduler = startScheduler(io);
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(env.PORT, '0.0.0.0', () => {
+      server.removeListener('error', reject);
+      logger.info(`ProctorX Backend Server listening on port ${env.PORT} in ${env.NODE_ENV} environment.`);
+      resolve();
+    });
+  });
+}
+
+async function shutdown(signal) {
+  logger.info(`Received ${signal}; shutting down gracefully.`);
+  stopScheduler?.();
+  await new Promise(resolve => io.close(() => server.close(resolve)));
+  await prisma.$disconnect();
+  process.exit(0);
+}
+
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));
+
+bootstrap().catch(async (error) => {
+  logger.error('Backend startup failed:', error);
+  await prisma.$disconnect().catch(() => {});
+  process.exit(1);
 });

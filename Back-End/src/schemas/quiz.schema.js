@@ -14,9 +14,9 @@ const starterCodeSchema = z.object({
 }).optional();
 
 const questionSchema = z.object({
-  questionText: z.string().min(1, 'Question text is required'),
+  questionText: z.string().trim().min(1, 'Question text is required').max(5000),
   questionType: z.enum(['mcq', 'descriptive', 'coding']).default('mcq'),
-  options: z.array(z.string()).optional().default([]),
+  options: z.array(z.string().max(2000)).max(10).optional().default([]),
   correctAns: z.number().int().nonnegative().optional().default(0),
   descriptiveAnswer: z.string().optional().nullable(),
   testcases: z.array(testcaseSchema).optional().nullable(),
@@ -27,7 +27,7 @@ const questionSchema = z.object({
 
 const createQuizSchema = z.object({
   title: z.string().min(2, 'Quiz title must be at least 2 characters'),
-  durationInMinutes: z.number().int().positive('Duration must be at least 1 minute').default(60),
+  durationInMinutes: z.number().int().min(1).max(360).default(60),
   allowedStudents: z.array(z.string().email('Invalid email')).optional().default([]),
   classroomId: z.string().nullable().optional(),
   scheduledAt: z.string().nullable().optional(),
@@ -36,9 +36,19 @@ const createQuizSchema = z.object({
   documentId: z.string().nullable().optional(),
   aiModel: z.string().nullable().optional(),
   aiPromptVersion: z.string().nullable().optional(),
-  questions: z.array(questionSchema).min(1, 'Quiz must have at least one question')
+  questions: z.array(questionSchema).min(1, 'Quiz must have at least one question').max(100)
+});
+
+const quizStatusSchema = z.object({
+  status: z.enum(['PENDING', 'ACTIVE', 'COMPLETED'])
+});
+
+const verifyOtpSchema = z.object({
+  otp: z.string().regex(/^\d{4,8}$/, 'OTP must contain 4 to 8 digits')
 });
 
 module.exports = {
-  createQuizSchema
+  createQuizSchema,
+  quizStatusSchema,
+  verifyOtpSchema
 };

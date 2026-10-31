@@ -4,9 +4,10 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('../config/cloudinary');
 
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
+  const allowedExtensions = new Set(['.jpeg', '.jpg', '.png']);
+  const allowedMimeTypes = new Set(['image/jpeg', 'image/png']);
+  const extname = allowedExtensions.has(path.extname(file.originalname).toLowerCase());
+  const mimetype = allowedMimeTypes.has(file.mimetype);
 
   if (mimetype && extname) {
     cb(null, true);
@@ -21,7 +22,7 @@ const getUpload = (folder) => {
     params: {
       folder: `proctorx/${folder}`,
       allowed_formats: ['jpg', 'jpeg', 'png'],
-      public_id: (req, file) => `${Date.now()}-${file.originalname.split('.')[0]}`
+      public_id: () => `${Date.now()}-${require('crypto').randomUUID()}`
     }
   });
 

@@ -11,7 +11,7 @@ const createClassroom = async (req, res, next) => {
 
 const getClassrooms = async (req, res, next) => {
   try {
-    const list = await classroomService.getClassrooms(req.user.id);
+    const list = await classroomService.getClassrooms(req.user);
     res.status(200).json(list);
   } catch (error) {
     next(error);
@@ -20,7 +20,7 @@ const getClassrooms = async (req, res, next) => {
 
 const addStudent = async (req, res, next) => {
   try {
-    const result = await classroomService.addStudentToClassroom(req.params.classroomId, req.body);
+    const result = await classroomService.addStudentToClassroom(req.params.classroomId, req.body, req.user);
     res.status(200).json(result);
   } catch (error) {
     next(error);
@@ -29,7 +29,7 @@ const addStudent = async (req, res, next) => {
 
 const getClassroomDetails = async (req, res, next) => {
   try {
-    const details = await classroomService.getClassroomDetails(req.params.classroomId);
+    const details = await classroomService.getClassroomDetails(req.params.classroomId, req.user);
     res.status(200).json(details);
   } catch (error) {
     next(error);
@@ -38,7 +38,7 @@ const getClassroomDetails = async (req, res, next) => {
 
 const removeStudent = async (req, res, next) => {
   try {
-    const result = await classroomService.removeStudentFromClassroom(req.params.classroomId, req.params.studentId);
+    const result = await classroomService.removeStudentFromClassroom(req.params.classroomId, req.params.studentId, req.user);
     res.status(200).json(result);
   } catch (error) {
     next(error);

@@ -26,7 +26,7 @@ const getProfile = async (studentId) => {
 const updateProfile = async (studentId, { name, email, password, profilePic }) => {
   const updateData = {};
   if (name) updateData.name = name;
-  if (email) updateData.email = email;
+  if (email) updateData.email = email.toLowerCase();
   if (profilePic) updateData.profilePic = profilePic;
   if (password) {
     updateData.passwordHash = await bcrypt.hash(password, 10);
@@ -109,9 +109,7 @@ const getDashboard = async (studentId) => {
       title: true,
       status: true,
       durationInMinutes: true,
-      scheduledAt: true,
-      otp: true,
-      otpExpiresAt: true
+      scheduledAt: true
     },
     orderBy: { scheduledAt: 'asc' }
   });
