@@ -5,7 +5,7 @@ const resultController = require('../controllers/result.controller');
 const { verifyToken } = require('../middleware/auth.middleware');
 const { requireRole } = require('../middleware/role.middleware');
 const { validate } = require('../middleware/validate.middleware');
-const { submitResultSchema } = require('../schemas/result.schema');
+const { submitResultSchema, gradeResponseSchema } = require('../schemas/result.schema');
 
 router.use(verifyToken);
 
@@ -17,7 +17,7 @@ router.get('/check/:quizId', requireRole('student'), resultController.checkAttem
 router.get('/quiz/:quizId', requireRole('teacher'), resultController.getQuizResults);
 router.get('/export/:quizId', requireRole('teacher'), resultController.exportQuizResults);
 router.delete('/reset/:quizId/:studentId', requireRole('teacher'), resultController.resetQuizAttempt);
-router.put('/responses/:responseId/grade', requireRole('teacher'), resultController.gradeResponse);
+router.put('/responses/:responseId/grade', requireRole('teacher'), validate(gradeResponseSchema), resultController.gradeResponse);
 
 // Shared endpoints
 router.get('/:resultId', resultController.getResultDetails);

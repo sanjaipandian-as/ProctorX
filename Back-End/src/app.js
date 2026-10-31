@@ -33,11 +33,13 @@ app.use(cors({
 app.use(compression());
 
 // 4 & 5. Body Parsers
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '256kb' }));
+app.use(express.urlencoded({ extended: false, limit: '256kb' }));
 
 // Serve files in uploads folder
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(require('path').resolve(__dirname, '..', 'uploads'), { dotfiles: 'deny', index: false, maxAge: '1d' }));
+
+app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 
 // Register endpoints
 app.use('/api/auth', authRoutes);

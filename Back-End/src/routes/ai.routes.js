@@ -12,6 +12,7 @@ const { questionUpload } = require('../middleware/upload.middleware');
 
 const upload = multer({
   storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => cb(null, new Set(['application/pdf', 'application/msword', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']).has(file.mimetype)),
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 

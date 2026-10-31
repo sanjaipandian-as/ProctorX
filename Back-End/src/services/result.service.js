@@ -15,6 +15,10 @@ const submitQuiz = async (studentId, { quizId, answers, timeTaken, warnings, pen
     throw err;
   }
 
+  const serverWarningCount = await prisma.warning.count({
+    where: { quizId: quiz.id, studentId }
+  });
+
   // NOTE: We intentionally do NOT block submissions after endsAt here.
   // Students who were already in the exam when the deadline hit must be able to submit.
   // Access control is enforced at the OTP verify step (quiz.service.js verifyOTP),
@@ -142,8 +146,8 @@ const submitQuiz = async (studentId, { quizId, answers, timeTaken, warnings, pen
         totalQuestions,
         accuracy,
         timeTaken,
-        warnings,
-        penalties,
+        warnings: serverWarningCount,
+        penalties: 0,
         quizId: quiz.id,
         studentId,
         responses: {
@@ -198,7 +202,7 @@ const checkAttempt = async (studentId, quizId) => {
   return { attempted, warningCount };
 };
 
-const getResult = async (resultId) => {
+const getResult = async (resultId, user) => {
   const result = await prisma.result.findUnique({
     where: { id: resultId },
     include: {
@@ -206,7 +210,8 @@ const getResult = async (resultId) => {
       quiz: {
         select: {
           title: true,
-          quizId: true,
+           quizId: true,
+           createdById: true,
           questions: {
             select: {
               id: true,
@@ -236,6 +241,15 @@ const getResult = async (resultId) => {
     err.statusCode = 404;
     throw err;
   }
+
+  if ((user.role === 'student' && result.studentId !== user.id) ||
+      (user.role === 'teacher' && result.quiz.createdById !== user.id)) {
+    const err = new Error('Result details not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  delete result.quiz.createdById;
 
   const warningsList = await prisma.warning.findMany({
     where: {

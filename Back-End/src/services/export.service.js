@@ -2,7 +2,7 @@ const ExcelJS = require('exceljs');
 const prisma = require('../config/database');
 const { formatDate } = require('../utils/helpers');
 
-const exportQuizResultsToExcel = async (quizId) => {
+const exportQuizResultsToExcel = async (teacherId, quizId) => {
   const quiz = await prisma.quiz.findUnique({
     where: { quizId },
     include: {
@@ -27,6 +27,11 @@ const exportQuizResultsToExcel = async (quizId) => {
 
   if (!quiz) {
     const err = new Error('Quiz not found');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (quiz.createdById !== teacherId) {
+    const err = new Error('Quiz results not found');
     err.statusCode = 404;
     throw err;
   }

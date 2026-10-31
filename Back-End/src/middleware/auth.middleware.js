@@ -10,8 +10,11 @@ const verifyToken = async (req, res, next) => {
       return res.status(401).json({ message: 'Authorization token required' });
     }
 
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, env.JWT_SECRET);
+    const parts = authHeader.trim().split(/\s+/);
+    if (parts.length !== 2 || !parts[1]) {
+      return res.status(401).json({ message: 'Invalid authorization header' });
+    }
+    const decoded = jwt.verify(parts[1], env.JWT_SECRET, { algorithms: ['HS256'] });
 
     let user = null;
 

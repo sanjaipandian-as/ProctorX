@@ -1,11 +1,19 @@
 const warningService = require('../services/warning.service');
 const logger = require('../utils/logger');
+const prisma = require('../config/database');
 
 // Store active connections to manage heartbeats & connection statuses
 const activeSessions = new Map(); // key: studentId:quizId -> { name, lastHeartbeat, socketId }
 
 const registerExamHandlers = (io, socket) => {
   socket.on('student:join', async ({ quizId, studentId, name }) => {
+    if (socket.user.role !== 'student' || socket.user.id !== studentId || typeof quizId !== 'string') return;
+    const quiz = await prisma.quiz.findUnique({ where: { quizId }, select: { status: true, endsAt: true, allowedStudents: true, classroomId: true } });
+    if (!quiz || quiz.status !== 'ACTIVE' || (quiz.endsAt && quiz.endsAt < new Date()) || (quiz.allowedStudents.length && !quiz.allowedStudents.includes(socket.user.email))) return;
+    if (quiz.classroomId) {
+      const enrolled = await prisma.classroom.findFirst({ where: { id: quiz.classroomId, students: { some: { id: studentId } } }, select: { id: true } });
+      if (!enrolled) return;
+    }
     logger.info(`Socket student:join -> student: ${name} (${studentId}), quiz: ${quizId}`);
     
     socket.join(`exam:${quizId}`);
@@ -33,6 +41,7 @@ const registerExamHandlers = (io, socket) => {
   });
 
   socket.on('student:warning', async ({ quizId, studentId, type }) => {
+    if (socket.user.role !== 'student' || socket.user.id !== studentId || typeof quizId !== 'string') return;
     logger.info(`Socket student:warning -> student: ${studentId}, quiz: ${quizId}, type: ${type}`);
     try {
       await warningService.logWarning(studentId, quizId, type, io);
@@ -42,6 +51,7 @@ const registerExamHandlers = (io, socket) => {
   });
 
   socket.on('student:heartbeat', ({ quizId, studentId }) => {
+    if (socket.user.role !== 'student' || socket.user.id !== studentId) return;
     const sessionKey = `${studentId}:${quizId}`;
     if (activeSessions.has(sessionKey)) {
       activeSessions.get(sessionKey).lastHeartbeat = Date.now();
@@ -49,6 +59,7 @@ const registerExamHandlers = (io, socket) => {
   });
 
   socket.on('student:submitted', ({ quizId, studentId }) => {
+    if (socket.user.role !== 'student' || socket.user.id !== studentId) return;
     logger.info(`Socket student:submitted -> student: ${studentId}, quiz: ${quizId}`);
     activeSessions.delete(`${studentId}:${quizId}`);
 
@@ -71,7 +82,10 @@ const registerExamHandlers = (io, socket) => {
     }
   });
 
-  socket.on('teacher:monitor', ({ quizId }) => {
+  socket.on('teacher:monitor', async ({ quizId }) => {
+    if (socket.user.role !== 'teacher' || typeof quizId !== 'string') return;
+    const quiz = await prisma.quiz.findUnique({ where: { quizId }, select: { createdById: true } });
+    if (!quiz || quiz.createdById !== socket.user.id) return;
     logger.info(`Socket teacher:monitor -> quiz: ${quizId}`);
     socket.join(`exam:${quizId}:teacher`);
 
@@ -91,7 +105,10 @@ const registerExamHandlers = (io, socket) => {
     socket.emit('exam:initial-students', activeStudents);
   });
 
-  socket.on('teacher:force-submit', ({ quizId, studentId }) => {
+  socket.on('teacher:force-submit', async ({ quizId, studentId }) => {
+    if (socket.user.role !== 'teacher' || typeof quizId !== 'string' || typeof studentId !== 'string') return;
+    const quiz = await prisma.quiz.findUnique({ where: { quizId }, select: { createdById: true } });
+    if (!quiz || quiz.createdById !== socket.user.id) return;
     logger.info(`Socket teacher:force-submit -> student: ${studentId}, quiz: ${quizId}`);
     io.to(`exam:${quizId}:${studentId}`).emit('student:force-submit', {
       reason: 'Force-submitted by teacher/proctor monitor'

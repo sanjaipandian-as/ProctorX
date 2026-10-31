@@ -3,6 +3,11 @@ const env = require('../config/env');
 const logger = require('../utils/logger');
 
 const logWarning = async (studentId, quizId, type, io) => {
+  if (!['FULLSCREEN', 'TAB_SWITCH', 'FACE_MISSING', 'OTHER'].includes(type)) {
+    const err = new Error('Invalid warning type');
+    err.statusCode = 400;
+    throw err;
+  }
   // Find internal Quiz
   const quiz = await prisma.quiz.findUnique({ where: { quizId } });
   if (!quiz) {
@@ -10,8 +15,28 @@ const logWarning = async (studentId, quizId, type, io) => {
     err.statusCode = 404;
     throw err;
   }
+  if (quiz.status !== 'ACTIVE' || (quiz.endsAt && quiz.endsAt <= new Date())) {
+    const err = new Error('Quiz is not active');
+    err.statusCode = 403;
+    throw err;
+  }
 
-  // Create warning
+  const existingWarningCount = await prisma.warning.count({
+    where: {
+      studentId,
+      quizId: quiz.id
+    }
+  });
+
+  if (existingWarningCount >= env.MAX_WARNINGS) {
+    if (io) {
+      io.to(`exam:${quizId}:${studentId}`).emit('student:force-submit', {
+        reason: `Exceeded maximum warnings threshold (${env.MAX_WARNINGS})`
+      });
+    }
+    return { warningCount: existingWarningCount, shouldForceSubmit: true };
+  }
+
   const warning = await prisma.warning.create({
     data: {
       type,
@@ -27,13 +52,7 @@ const logWarning = async (studentId, quizId, type, io) => {
     }
   });
 
-  // Count total warnings for this student in this quiz
-  const warningCount = await prisma.warning.count({
-    where: {
-      studentId,
-      quizId: quiz.id
-    }
-  });
+  const warningCount = existingWarningCount + 1;
 
   const shouldForceSubmit = warningCount >= env.MAX_WARNINGS;
 

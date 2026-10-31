@@ -109,7 +109,8 @@ const getQuizById = async (id) => {
 
 const editQuiz = async (teacherId, customQuizId, { title, durationInMinutes, allowedStudents, classroomId, scheduledAt, endsAt, autoStart, documentId, aiModel, aiPromptVersion, questions }) => {
   const existing = await prisma.quiz.findUnique({
-    where: { quizId: customQuizId }
+    where: { quizId: customQuizId },
+    include: { _count: { select: { results: true } } }
   });
 
   if (!existing) {
@@ -289,6 +290,12 @@ const verifyOTP = async (studentId, studentEmail, studentName, customQuizId, otp
     dbQuiz = await prisma.quiz.findUnique({ where: { quizId: customQuizId } });
   }
 
+  if (dbQuiz.status !== 'ACTIVE') {
+    const err = new Error('This quiz is not currently active');
+    err.statusCode = 403;
+    throw err;
+  }
+
   // Check Classroom membership if classroomId is defined
   if (dbQuiz.classroomId) {
     const isEnrolled = await prisma.classroom.findFirst({
@@ -384,18 +391,19 @@ const changeQuizStatus = async (teacherId, customQuizId, status) => {
 
 const getPublicQuizzes = async () => {
   const quizzes = await prisma.quiz.findMany({
+    where: { status: 'ACTIVE' },
     select: {
       quizId: true,
       title: true,
       createdAt: true,
       createdBy: {
         select: {
-          name: true,
-          email: true
+          name: true
         }
       }
     },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
+    take: 50
   });
   return quizzes.map(q => ({
     quizId: q.quizId,
@@ -406,8 +414,8 @@ const getPublicQuizzes = async () => {
 };
 
 const getPublicQuizByQuizId = async (quizId) => {
-  const quiz = await prisma.quiz.findUnique({
-    where: { quizId },
+  const quiz = await prisma.quiz.findFirst({
+    where: { quizId, status: 'ACTIVE' },
     include: {
       questions: {
         select: {
@@ -419,8 +427,7 @@ const getPublicQuizByQuizId = async (quizId) => {
       },
       createdBy: {
         select: {
-          name: true,
-          email: true
+          name: true
         }
       }
     }

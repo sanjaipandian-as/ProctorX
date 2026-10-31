@@ -15,7 +15,7 @@ const uploadDocument = async (fileBuffer, filename, mimetype, teacherId) => {
     formData.append('file', blob, filename);
     formData.append('teacherId', teacherId);
 
-    const response = await axios.post(`${AI_SERVICE_URL}/api/ai/documents`, formData);
+    const response = await axios.post(`${AI_SERVICE_URL}/api/ai/documents`, formData, { timeout: 30000, maxContentLength: 12 * 1024 * 1024 });
     return response.data;
   } catch (error) {
     logger.error('Error uploading document to AI Service:', error.response?.data || error.message);
@@ -26,6 +26,7 @@ const uploadDocument = async (fileBuffer, filename, mimetype, teacherId) => {
 const listDocuments = async (teacherId) => {
   try {
     const response = await axios.get(`${AI_SERVICE_URL}/api/ai/documents/list`, {
+      timeout: 10000,
       params: { teacherId }
     });
     return response.data;
@@ -38,6 +39,7 @@ const listDocuments = async (teacherId) => {
 const deleteDocument = async (documentId, teacherId) => {
   try {
     const response = await axios.delete(`${AI_SERVICE_URL}/api/ai/documents/${documentId}`, {
+      timeout: 10000,
       params: { teacherId }
     });
     return response.data;
@@ -61,7 +63,7 @@ const generateQuiz = async (prompt, documentId = null, teacherId, options = {}) 
       numDescriptive: options.numDescriptive ?? null,
       numCoding: options.numCoding ?? null,
       difficulty: options.difficulty ?? null,
-    });
+    }, { timeout: 60000 });
     return response.data;
   } catch (error) {
     logger.error('Error generating quiz from AI Service:', error.response?.data || error.message);
@@ -80,7 +82,7 @@ const gradeAnswer = async (questionText, studentAnswer, expectedAnswer, maxMarks
       studentAnswer,
       expectedAnswer,
       maxMarks
-    });
+    }, { timeout: 30000 });
 
     return {
       ...response.data,
@@ -105,7 +107,7 @@ const regenerateQuestion = async (question, prompt, difficulty = null, documentI
       difficulty,
       documentId,
       teacherId
-    });
+    }, { timeout: 30000 });
     return response.data;
   } catch (error) {
     logger.error('Error regenerating question from AI Service:', error.response?.data || error.message);

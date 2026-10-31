@@ -21,7 +21,7 @@ const checkAttempt = async (req, res, next) => {
 
 const getResultDetails = async (req, res, next) => {
   try {
-    const result = await resultService.getResult(req.params.resultId);
+    const result = await resultService.getResult(req.params.resultId, req.user);
     res.status(200).json(result);
   } catch (error) {
     next(error);
@@ -39,7 +39,7 @@ const getQuizResults = async (req, res, next) => {
 
 const exportQuizResults = async (req, res, next) => {
   try {
-    const buffer = await exportService.exportQuizResultsToExcel(req.params.quizId);
+    const buffer = await exportService.exportQuizResultsToExcel(req.user.id, req.params.quizId);
     
     res.setHeader(
       'Content-Type',

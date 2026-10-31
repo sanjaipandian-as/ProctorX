@@ -6,7 +6,7 @@ const { generateOTP } = require('../utils/helpers');
 const startScheduler = (io) => {
   logger.info('OTP and Quiz scheduler initialized.');
 
-  setInterval(async () => {
+  const interval = setInterval(async () => {
     try {
       const now = new Date();
 
@@ -170,6 +170,8 @@ const startScheduler = (io) => {
       logger.error('Error inside background scheduler tick:', err);
     }
   }, 10000); // Run checker every 10 seconds for high responsiveness
+
+  return () => clearInterval(interval);
 };
 
 module.exports = {

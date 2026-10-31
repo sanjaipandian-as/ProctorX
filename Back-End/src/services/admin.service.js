@@ -36,14 +36,32 @@ const loginAdmin = async (username, password) => {
 const getPendingTeachers = async () => {
   return prisma.teacher.findMany({
     where: { isApproved: false },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      staffId: true,
+      isApproved: true,
+      aiAccess: true,
+      createdAt: true
+    }
   });
 };
 
 const approveTeacher = async (teacherId) => {
   const teacher = await prisma.teacher.update({
     where: { id: teacherId },
-    data: { isApproved: true }
+    data: { isApproved: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      staffId: true,
+      isApproved: true,
+      aiAccess: true,
+      createdAt: true
+    }
   });
 
   // Send approval email async

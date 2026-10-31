@@ -68,8 +68,7 @@ const createTeacher = async (req, res, next) => {
 
 const toggleAiAccess = async (req, res, next) => {
   try {
-    const { enabled } = req.body;
-    const result = await adminService.toggleAiAccess(req.params.id, Boolean(enabled));
+    const result = await adminService.toggleAiAccess(req.params.id, req.body.enabled);
     res.status(200).json(result);
   } catch (error) {
     next(error);

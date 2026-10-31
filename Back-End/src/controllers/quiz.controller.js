@@ -51,6 +51,13 @@ const getQuiz = async (req, res, next) => {
 
     let quiz = await quizService.getQuizByQuizId(req.params.quizId);
 
+    if (req.user?.role === 'teacher' && quiz.createdById !== req.user.id) {
+      return res.status(404).json({ message: 'Quiz not found' });
+    }
+    if (req.user?.role === 'student' && (quiz.status !== 'ACTIVE' || (quiz.endsAt && new Date(quiz.endsAt) <= new Date()))) {
+      return res.status(403).json({ message: 'This quiz is not currently available' });
+    }
+
     // Auto-complete: if the quiz is ACTIVE and its duration has elapsed, mark it COMPLETED
     if (quiz.status === 'ACTIVE' && quiz.startedAt && quiz.durationInMinutes) {
       const startedAtMs = new Date(quiz.startedAt).getTime();
@@ -71,6 +78,11 @@ const getQuiz = async (req, res, next) => {
       }
     }
 
+    if (req.user?.role === 'student') {
+      quiz.questions = quiz.questions.map(({ correctAns, descriptiveAnswer, testcases, ...question }) => question);
+      delete quiz.otp;
+      delete quiz.otpExpiresAt;
+    }
     res.status(200).json(quiz);
   } catch (error) {
     next(error);
