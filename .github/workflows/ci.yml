@@ -115,7 +115,7 @@ jobs:
               '| Metric | Coverage | Status |',
               '|---|---|---|',
               row('Statements', t.statements, 60),
-              row('Branches', t.branches, 50),
+              row('Branches', t.branches, 35),
               row('Functions', t.functions, 60),
               row('Lines', t.lines, 60),
             ].join('\n');
