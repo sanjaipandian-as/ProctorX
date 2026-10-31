@@ -296,12 +296,6 @@ const verifyOTP = async (studentId, studentEmail, studentName, customQuizId, otp
     throw err;
   }
 
-  if (existing.status !== 'PENDING' || existing._count.results > 0) {
-    const err = new Error('Only unstarted quizzes without attempts can be edited');
-    err.statusCode = 409;
-    throw err;
-  }
-
   // Check Classroom membership if classroomId is defined
   if (dbQuiz.classroomId) {
     const isEnrolled = await prisma.classroom.findFirst({
